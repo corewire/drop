@@ -12,3 +12,5 @@ This directory contains feature-sliced planning docs intended to reduce context 
 - `06-helm-and-images.md` — Helm chart + multi-arch image publishing plan
 - `07-dev-tooling.md` — local developer experience/tooling plan
 - `08-advanced-debugging-kamera.md` — simulation/debugging plan with Kamera
+- `09-crd-reference.md` — CRD field reference and slow-pull safety model
+

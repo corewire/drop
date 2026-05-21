@@ -4,6 +4,7 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 ## AI Docs
 
 - See `/ai-docs/README.md` for feature-sliced planning documents and `/ai-docs/progress.md` for tracking.
+- CRD field explanations and slow-pull behavior guidance: `/ai-docs/09-crd-reference.md`.
 
 ## Draft Plan
 
@@ -13,7 +14,7 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
   - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `repullPolicy`, `concurrency`, `nodeSelector`, `tolerations`, `priority`, `maxPullRate`.
     - `pullPolicy`: normal image pull behavior for first pull (`IfNotPresent`/`Always`).
     - `repullPolicy`: refresh behavior for moving tags (e.g. `latest`) on subsequent syncs.
-    - `concurrency`: maximum parallel pulls (per node) for this `PrePullImage`.
+    - `concurrency`: maximum parallel pulls per node for this `PrePullImage` (`1` = slow sequential pull, recommended default).
   - Status: `observedGeneration`, `phase`, `lastPulledAt`, `nodesTargeted`, `nodesReady`, `conditions`.
 - `ImageDiscoveryPolicy` (namespaced): declares how dynamic image lists are produced.
   - Spec:
