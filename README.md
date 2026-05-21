@@ -1,6 +1,10 @@
 # puller
 K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Containerd
 
+## AI Docs
+
+- See `/ai-docs/README.md` for feature-sliced planning documents and `/ai-docs/progress.md` for tracking.
+
 ## Draft Plan
 
 ### 1) API / CRDs
