@@ -17,6 +17,9 @@ Putting all pacing controls on `PrePullImage` is not enough for large clusters.
 - `repullPolicyDefault`: default behavior for moving tags.
 - `maxUnavailableNodes`: maximum nodes simultaneously marked busy by rollout for this pull operation.
 
+`maxConcurrentNodes` controls active pull throughput.  
+`maxUnavailableNodes` controls rollout disruption budget (how many nodes can be taken out of normal scheduling posture for pull work at once).
+
 ### Why
 - Clear separation of concerns.
 - One place to tune rollout safety for entire cluster.

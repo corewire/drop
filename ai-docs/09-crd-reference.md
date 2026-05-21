@@ -63,7 +63,7 @@ To avoid "10 images at once" behavior, operator logic should enforce:
 
 Operator pacing should instead focus on cluster-safe controls:
 - limit how many nodes pull at once,
-- add spacing/backoff between pull starts,
+- add spacing or backoff between pull starts,
 - keep rollout bounded (`maxUnavailable` style limits).
 
 ## Recommended safe defaults
