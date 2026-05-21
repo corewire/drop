@@ -35,7 +35,7 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 - Add registry client support (OCI distribution API) to list tags for a repository.
 - Filter tags (regex/semver/channel), sort by recency or semantic version, select top X.
 - Use auth via Kubernetes Secret references.
-- Feed selected tags into managed `PrePullImage` resources (for example `gitlab/gitlab-runner-helper`).
+- Feed selected tags into managed `PrePullImage` resources (e.g. `gitlab/gitlab-runner-helper`).
 
 ### 5) Safe Pulling Strategy
 - Use init containers in a managed DaemonSet for ordered pulls, one image per init step.
