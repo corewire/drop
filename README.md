@@ -7,6 +7,9 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 - `PrePullImage` (namespaced): declarative record for a single image that should be kept warm on selected nodes.
   - API group/version: `puller.corewire.io/v1alpha1`.
   - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `repullPolicy`, `concurrency`, `nodeSelector`, `tolerations`, `priority`, `maxPullRate`.
+    - `pullPolicy`: normal image pull behavior for first pull (`IfNotPresent`/`Always`).
+    - `repullPolicy`: refresh behavior for moving tags (e.g. `latest`) on subsequent syncs.
+    - `concurrency`: maximum parallel pulls (per node) for this `PrePullImage`.
   - Status: `observedGeneration`, `phase`, `lastPulledAt`, `nodesTargeted`, `nodesReady`, `conditions`.
 - `ImageDiscoveryPolicy` (namespaced): declares how dynamic image lists are produced.
   - Spec:
@@ -66,7 +69,7 @@ metadata:
   name: gitlab-runner-helper
 spec:
   image: gitlab/gitlab-runner-helper
-  tag: latest
+  tag: v17.0.0
   pullPolicy: IfNotPresent
   repullPolicy: Always
   concurrency: 1
