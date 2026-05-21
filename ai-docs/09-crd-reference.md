@@ -21,12 +21,6 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
   - `Never`: do not refresh unless spec changes.
   - `OnSchedule`: refresh only on discovery/sync interval boundaries.
   - `Always`: refresh every reconcile cycle (use carefully).
-- `concurrency` (int, optional)
-  - Optional **per-node** parallelism hint for this single resource.
-  - Useful for local pacing, but not sufficient for cluster-wide burst control by itself.
-  - Operator usage:
-    - `1`: run one pull worker per targeted node for this image (safest default).
-    - `2+`: allow limited parallel pull workers on each targeted node for this image.
 - `nodeSelector` (map, optional)
   - Restricts target nodes.
 - `tolerations` (list, optional)
@@ -60,30 +54,22 @@ To avoid "10 images at once" behavior, operator logic should enforce:
 5. **Policy-based refresh**
    - Moving tags (`latest`) should be controlled via `repullPolicy`, not uncontrolled constant pulls.
 
-## Real `concurrency` use cases (3 examples)
-`concurrency` only changes **node-local behavior** for one `PrePullImage`.  
-Cluster-wide pacing still comes from policy-level controls (`PrePullPolicy` proposal).
+## Parallel pull workers: simplified model
+`PrePullImage` no longer includes a separate `concurrency` setting in the plan.
 
-1. **Small CI node pool, one very large base image**
-   - Situation: each CI node frequently needs `ghcr.io/acme/build-base:2026.05` (~8 GB).
-   - Setting: `concurrency: 1`.
-   - Operator behavior: on each targeted node, reconciler starts one pull worker for this image, keeping disk/network pressure predictable.
+- **What already runs in parallel:** container runtimes (containerd/cri) already download image layers concurrently for a single image pull.
+- **What operator "workers" would add:** additional parallel *image pull tasks* on the same node.
+- **Why we remove it from the plan for now:** this duplicates runtime behavior and adds tuning complexity before we have production benchmarks.
 
-2. **High-throughput GPU nodes with spare bandwidth**
-   - Situation: GPU nodes have fast NVMe + 25GbE and can safely overlap chunk downloads.
-   - Setting: `concurrency: 2`.
-   - Operator behavior: per targeted GPU node, up to two pull workers for this image can run in parallel, reducing warm-up time without opening full burst mode.
-
-3. **Moving tag refresh during low-traffic window**
-   - Situation: `my-registry/runner-helper:latest` is refreshed nightly.
-   - Setting: `repullPolicy: OnSchedule` + `concurrency: 1`.
-   - Operator behavior: at schedule time, each node refreshes this image sequentially (one worker), preventing local I/O spikes while still updating moving tags.
+Operator pacing should instead focus on cluster-safe controls:
+- limit how many nodes pull at once,
+- add spacing/backoff between pull starts,
+- keep rollout bounded (`maxUnavailable` style limits).
 
 ## Recommended safe defaults
 ```yaml
 pullPolicy: IfNotPresent
 repullPolicy: OnSchedule
-concurrency: 1 # optional local hint
 ```
 
 These defaults prioritize node stability over fastest pull completion.

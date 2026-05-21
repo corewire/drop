@@ -12,10 +12,10 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 ### 1) API / CRDs
 - `PrePullImage` (namespaced): declarative record for a single image that should be kept warm on selected nodes.
   - API group/version: `puller.corewire.io/v1alpha1`.
-  - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `repullPolicy`, `concurrency`, `nodeSelector`, `tolerations`, `priority`, `maxPullRate`.
+  - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `repullPolicy`, `nodeSelector`, `tolerations`, `priority`, `maxPullRate`.
     - `pullPolicy`: normal image pull behavior for first pull (`IfNotPresent`/`Always`).
     - `repullPolicy`: refresh behavior for moving tags (e.g. `latest`) on subsequent syncs.
-    - `concurrency`: optional per-node parallelism hint only; cluster-wide pacing should be defined by a separate policy kind.
+    - no per-image concurrency knob: node-level image layer parallelism is already handled by the container runtime.
   - Status: `observedGeneration`, `phase`, `lastPulledAt`, `nodesTargeted`, `nodesReady`, `conditions`.
 - `ImageDiscoveryPolicy` (namespaced): declares how dynamic image lists are produced.
   - Spec:
@@ -78,7 +78,6 @@ spec:
   tag: v17.0.0
   pullPolicy: IfNotPresent
   repullPolicy: Always
-  concurrency: 1
   nodeSelector:
     node-role.kubernetes.io/ci: "true"
   tolerations:
