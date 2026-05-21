@@ -13,4 +13,4 @@ This directory contains feature-sliced planning docs intended to reduce context 
 - `07-dev-tooling.md` — local developer experience/tooling plan
 - `08-advanced-debugging-kamera.md` — simulation/debugging plan with Kamera
 - `09-crd-reference.md` — CRD field reference and slow-pull safety model
-
+- `10-policy-redesign-proposals.md` — proposals for policy-driven cluster-wide pull pacing

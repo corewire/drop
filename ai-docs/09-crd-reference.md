@@ -21,10 +21,9 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
   - `Never`: do not refresh unless spec changes.
   - `OnSchedule`: refresh only on discovery/sync interval boundaries.
   - `Always`: refresh every reconcile cycle (use carefully).
-- `concurrency` (int, default: `1`)
-  - **Maximum parallel pulls per node for this resource**.
-  - `1` means strictly sequential pulling on each node (safe default).
-  - Higher values increase pull speed but also containerd/network pressure.
+- `concurrency` (int, optional)
+  - Optional **per-node** parallelism hint for this single resource.
+  - Useful for local pacing, but not sufficient for cluster-wide burst control by itself.
 - `nodeSelector` (map, optional)
   - Restricts target nodes.
 - `tolerations` (list, optional)
@@ -47,8 +46,8 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
 ## Slow-pull safety model
 To avoid "10 images at once" behavior, operator logic should enforce:
 
-1. **Per-node sequential default**
-   - `concurrency: 1` by default.
+1. **Policy-driven global pacing**
+   - A dedicated pull policy should cap concurrent pull work across nodes.
 2. **Rate limiting between pulls**
    - Enforce minimum spacing (`maxPullRate` / backoff window) between launches.
 3. **Bounded rollout across nodes**
@@ -62,7 +61,9 @@ To avoid "10 images at once" behavior, operator logic should enforce:
 ```yaml
 pullPolicy: IfNotPresent
 repullPolicy: OnSchedule
-concurrency: 1
+concurrency: 1 # optional local hint
 ```
 
 These defaults prioritize node stability over fastest pull completion.
+
+See `/ai-docs/10-policy-redesign-proposals.md` for proposed API redesign options that separate image intent from pull-rate policy.
