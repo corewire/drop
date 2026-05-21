@@ -57,9 +57,9 @@ To avoid "10 images at once" behavior, operator logic should enforce:
 ## Parallel pull workers: simplified model
 `PrePullImage` no longer includes a separate `concurrency` setting in the plan.
 
-- **What already runs in parallel:** container runtimes (containerd/cri) already download image layers concurrently for a single image pull.
-- **What operator "workers" would add:** additional parallel *image pull tasks* on the same node.
-- **Why we remove it from the plan for now:** this duplicates runtime behavior and adds tuning complexity before we have production benchmarks.
+- `runtime parallelism`: container runtimes (containerd/cri) already download image layers concurrently for a single image pull.
+- `operator workers`: would add parallel *image pull tasks* on the same node.
+- `design choice`: remove this from the plan for now because it duplicates runtime behavior and adds tuning complexity before benchmarks exist.
 
 Operator pacing should instead focus on cluster-safe controls:
 - limit how many nodes pull at once,

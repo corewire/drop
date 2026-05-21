@@ -15,7 +15,7 @@ Putting all pacing controls on `PrePullImage` is not enough for large clusters.
 - `minDelayBetweenPulls`: spacing between pull starts per node.
 - `failureBackoff`: retry backoff config.
 - `repullPolicyDefault`: default behavior for moving tags.
-- `maxUnavailableNodes`: bound active pull rollouts.
+- `maxUnavailableNodes`: maximum nodes simultaneously marked busy by rollout for this pull operation.
 
 ### Why
 - Clear separation of concerns.
