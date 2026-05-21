@@ -5,7 +5,8 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 
 ### 1) API / CRDs
 - `PrePullImage` (namespaced): declarative record for a single image that should be kept warm on selected nodes.
-  - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `nodeSelector`, `tolerations`, `priority`, `maxPullRate`.
+  - API group/version: `puller.corewire.io/v1alpha1`.
+  - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `repullPolicy`, `concurrency`, `nodeSelector`, `tolerations`, `priority`, `maxPullRate`.
   - Status: `observedGeneration`, `phase`, `lastPulledAt`, `nodesTargeted`, `nodesReady`, `conditions`.
 - `ImageDiscoveryPolicy` (namespaced): declares how dynamic image lists are produced.
   - Spec:
@@ -56,3 +57,23 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 3. Add Prometheus discovery and top-X materialization.
 4. Add registry tag discovery and helper image automation.
 5. Harden RBAC, leader election, and SLO-based alerting.
+
+### Example `PrePullImage`
+```yaml
+apiVersion: puller.corewire.io/v1alpha1
+kind: PrePullImage
+metadata:
+  name: gitlab-runner-helper
+spec:
+  image: gitlab/gitlab-runner-helper
+  tag: latest
+  pullPolicy: IfNotPresent
+  repullPolicy: Always
+  concurrency: 1
+  nodeSelector:
+    node-role.kubernetes.io/ci: "true"
+  tolerations:
+    - key: "node-role.kubernetes.io/ci"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
