@@ -273,3 +273,7 @@ dev-setup: ## Install all development dependencies.
 demo: ## Run the operator demo script showing end-to-end functionality.
 	@hack/demo.sh
 
+.PHONY: prove
+prove: ## Run detailed proof-of-operation script (creates kind cluster, deploys operator, exercises all features).
+	@hack/prove-operator.sh
+
