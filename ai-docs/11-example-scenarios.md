@@ -107,7 +107,7 @@ spec:
 
 ## Scenario 3: Prometheus-driven discovery for dynamic images
 
-Automatically discover the top 5 most-used images named matching `image-c*` via a Prometheus query, then pre-pull them onto build nodes using the safe policy.
+Automatically discover the top 5 most-used images matching `image-c*` via a Prometheus query, then pre-pull them onto build nodes using the safe policy.
 
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
