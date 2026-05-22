@@ -17,7 +17,6 @@ metadata:
 spec:
   maxConcurrentNodes: 1          # only 1 node pulls at a time
   minDelayBetweenPulls: 20s      # 20s pause between pull starts
-  maxUnavailableNodes: 1
   failureBackoff:
     initial: 10s
     max: 5m
@@ -72,7 +71,6 @@ metadata:
 spec:
   maxConcurrentNodes: 3
   minDelayBetweenPulls: 5s
-  maxUnavailableNodes: 3
   failureBackoff:
     initial: 5s
     max: 2m
@@ -121,7 +119,6 @@ metadata:
 spec:
   maxConcurrentNodes: 1
   minDelayBetweenPulls: 20s
-  maxUnavailableNodes: 1
   failureBackoff:
     initial: 10s
     max: 5m

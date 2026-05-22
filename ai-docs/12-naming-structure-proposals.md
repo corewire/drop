@@ -118,7 +118,6 @@ metadata:
 spec:
   maxConcurrentNodes: 1                     # max nodes pulling at once
   minDelayBetweenPulls: 20s                 # spacing between pull starts
-  maxUnavailableNodes: 1                    # max nodes simultaneously busy with pull work
   failureBackoff:
     initial: 10s                            # first retry delay
     max: 5m                                 # max retry delay
@@ -173,6 +172,7 @@ status:
 - **"Cached" describes desired state** — idiomatic for k8s (you declare what should be true).
 - **No ambiguity** — "CachedImage" clearly differs from OCI Image manifests or container image refs.
 - **Cluster-scoped** — nodes are cluster-scoped; images cached on nodes logically belong at cluster level.
+- **Non-disruptive** — image pulls never affect node schedulability. The operator does not cordon, drain, or mark nodes unavailable. Pulls are background operations. The operator may place images on nodes before they are marked Ready (e.g. during node bootstrap).
 - **Discovery is separate** — `DiscoveryPolicy` has its own reconciliation loop, sync interval, and failure modes. Keeping it separate from `CachedImageSet` follows single-concern principle and allows reuse.
 - **Policy is separate** — `PullPolicy` can be shared across many sets/images, tuned independently by platform teams.
 - **Owner references for GC** — when a `CachedImageSet` is deleted, its child `CachedImage` resources are garbage-collected automatically.

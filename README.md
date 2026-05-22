@@ -26,7 +26,7 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
   - Status: `phase`, `imagesManaged`, `imagesReady`, `conditions`.
 
 - `PullPolicy`: shared execution policy for pacing and safety.
-  - Spec: `maxConcurrentNodes`, `minDelayBetweenPulls`, `maxUnavailableNodes`, `failureBackoff`, `repullPolicyDefault`, `nodeSelector`, `tolerations`.
+  - Spec: `maxConcurrentNodes`, `minDelayBetweenPulls`, `failureBackoff`, `repullPolicyDefault`, `nodeSelector`, `tolerations`.
   - Referenced by `CachedImage`/`CachedImageSet` via `policyRef`.
 
 - `DiscoveryPolicy`: declares how dynamic image lists are produced.
@@ -37,7 +37,7 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 ### 2) Operator Control Loops
 - Reconciler A (`CachedImage`):
   - Ensures a DaemonSet/Job-based pull mechanism exists for each declared image.
-  - Throttles rollout via referenced `PullPolicy` (`maxUnavailableNodes`, backoff, jitter).
+  - Throttles rollout via referenced `PullPolicy` (`maxConcurrentNodes`, backoff, jitter).
   - Updates status from node-level pull completion signals.
 - Reconciler B (`CachedImageSet`):
   - Manages child `CachedImage` resources (create/update/delete).

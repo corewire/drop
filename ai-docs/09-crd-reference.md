@@ -52,7 +52,6 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
 ### Spec fields
 - `maxConcurrentNodes` (int) — max nodes pulling simultaneously.
 - `minDelayBetweenPulls` (duration) — minimum spacing between pull starts.
-- `maxUnavailableNodes` (int) — max nodes busy with pull work at once.
 - `failureBackoff` (object) — `initial` and `max` retry delays.
 - `repullPolicyDefault` (string) — default repull behavior for referencing images.
 - `nodeSelector` (map, optional) — scope policy to a node pool.
@@ -75,15 +74,16 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
 To avoid "10 images at once" behavior, operator logic should enforce:
 
 1. **Policy-driven global pacing**
-   - `PullPolicy` caps concurrent pull work across nodes.
+   - `PullPolicy` caps concurrent pull work across nodes via `maxConcurrentNodes`.
 2. **Rate limiting between pulls**
    - Enforce minimum spacing (`minDelayBetweenPulls`) between pull launches.
-3. **Bounded rollout across nodes**
-   - `maxUnavailableNodes` prevents cluster-wide bursts.
-4. **Backoff + jitter**
+3. **Backoff + jitter**
    - On failures, retry with exponential backoff and jitter.
-5. **Policy-based refresh**
+4. **Policy-based refresh**
    - Moving tags (`latest`) should be controlled via `repullPolicy`, not uncontrolled constant pulls.
+
+## Non-disruptive pull guarantee
+Image pulls **never** affect node schedulability. The operator does not cordon, drain, or mark nodes as unavailable during pulls. Pulls are a background operation with no impact on workload scheduling. The operator may also place images on nodes before they are marked Ready (e.g. during node bootstrap).
 
 ## Parallel pull workers: simplified model
 No separate `concurrency` setting is needed.
@@ -92,9 +92,8 @@ No separate `concurrency` setting is needed.
 - `design choice`: no per-image parallel worker field needed because it duplicates runtime behavior and adds tuning complexity.
 
 Operator pacing focuses on cluster-safe controls:
-- limit how many nodes pull at once,
-- add spacing or backoff between pull starts,
-- keep rollout bounded (`maxUnavailableNodes` style limits).
+- limit how many nodes pull at once (`maxConcurrentNodes`),
+- add spacing or backoff between pull starts (`minDelayBetweenPulls`, `failureBackoff`).
 
 ## Recommended safe defaults
 ```yaml

@@ -17,12 +17,13 @@ Putting all pacing controls on `CachedImage` is not enough for large clusters.
 - `minDelayBetweenPulls`: spacing between pull starts per node.
 - `failureBackoff`: retry backoff config.
 - `repullPolicyDefault`: default behavior for moving tags.
-- `maxUnavailableNodes`: maximum nodes simultaneously marked busy by rollout for this pull operation.
 - `nodeSelector` (map, optional): bind this policy to a specific node pool.
 - `tolerations` (list, optional): allow targeting tainted nodes in the pool.
 
-`maxConcurrentNodes` controls active pull throughput.  
-`maxUnavailableNodes` controls rollout disruption budget (how many nodes can be taken out of normal scheduling posture for pull work at once).
+`maxConcurrentNodes` controls active pull throughput — how many nodes can be pulling simultaneously.
+
+### Non-disruptive pull guarantee
+Image pulls **never** affect node schedulability. The operator does not cordon, drain, or mark nodes as unavailable during pulls. Pulls are a background operation that has no impact on workload scheduling. The operator may also place images on nodes before they are marked Ready (e.g. during node bootstrap).
 
 ### Per-pool policy binding
 Each `PullPolicy` can carry `nodeSelector`/`tolerations` to scope it to a node pool. This enables heterogeneous clusters (build, GPU, burst pools) to have independent pacing without a separate CRD kind.
@@ -50,7 +51,6 @@ metadata:
 spec:
   maxConcurrentNodes: 2
   minDelayBetweenPulls: 30s
-  maxUnavailableNodes: 1
   failureBackoff:
     initial: 15s
     max: 10m
