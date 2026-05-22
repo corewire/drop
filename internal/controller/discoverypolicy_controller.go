@@ -85,7 +85,10 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 		// Tag results with source type
 		for j := range results {
-			_ = j
+			results[j] = discovery.ImageResult{
+				Image: results[j].Image,
+				Score: results[j].Score,
+			}
 		}
 		allResults = append(allResults, results...)
 	}
