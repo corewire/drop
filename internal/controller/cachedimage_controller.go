@@ -52,6 +52,7 @@ type CachedImageReconciler struct {
 	Scheme       *runtime.Scheme
 	PacingEngine *pacing.Engine
 	Recorder     record.EventRecorder
+	PodNamespace string
 }
 
 // +kubebuilder:rbac:groups=puller.corewire.io,resources=cachedimages,verbs=get;list;watch;create;update;patch;delete
@@ -164,7 +165,11 @@ func (r *CachedImageReconciler) buildNodeStateMap(ctx context.Context, ci *pulle
 	log := logf.FromContext(ctx)
 
 	podList := &corev1.PodList{}
-	if err := r.List(ctx, podList, client.MatchingLabels{
+	ns := r.PodNamespace
+	if ns == "" {
+		ns = podbuilder.DefaultPodNamespace
+	}
+	if err := r.List(ctx, podList, client.InNamespace(ns), client.MatchingLabels{
 		podbuilder.LabelManagedBy:   podbuilder.LabelManagedByValue,
 		podbuilder.LabelCachedImage: ci.Name,
 	}); err != nil {
@@ -254,7 +259,7 @@ func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *pullerv1a
 			continue
 		}
 
-		pod, err := podbuilder.BuildPullerPod(ci, nodeName, r.Scheme)
+		pod, err := podbuilder.BuildPullerPod(ci, nodeName, r.PodNamespace)
 		if err != nil {
 			return 0, false, fmt.Errorf("building puller pod: %w", err)
 		}

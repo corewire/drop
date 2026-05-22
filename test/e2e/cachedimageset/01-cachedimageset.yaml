@@ -4,5 +4,7 @@ metadata:
   name: test-set
 spec:
   images:
-    - docker.io/library/alpine:3.19
-    - docker.io/library/busybox:1.36
+    - image: docker.io/library/alpine
+      tag: "3.19"
+    - image: docker.io/library/busybox
+      tag: "1.36"

@@ -6,19 +6,9 @@ import (
 	v1alpha1 "github.com/Breee/puller/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func testScheme() *runtime.Scheme {
-	s := runtime.NewScheme()
-	_ = v1alpha1.AddToScheme(s)
-	_ = corev1.AddToScheme(s)
-	return s
-}
-
 func TestBuildPullerPod(t *testing.T) {
-	scheme := testScheme()
-
 	tests := []struct {
 		name     string
 		ci       *v1alpha1.CachedImage
@@ -100,9 +90,14 @@ func TestBuildPullerPod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pod, err := BuildPullerPod(tt.ci, tt.nodeName, scheme)
+			pod, err := BuildPullerPod(tt.ci, tt.nodeName, "puller-system")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// Check namespace
+			if pod.Namespace != "puller-system" {
+				t.Errorf("namespace = %q, want %q", pod.Namespace, "puller-system")
 			}
 
 			// Check nodeName
@@ -129,14 +124,6 @@ func TestBuildPullerPod(t *testing.T) {
 			}
 			if pod.Labels[LabelNode] != tt.nodeName {
 				t.Errorf("node label = %q, want %q", pod.Labels[LabelNode], tt.nodeName)
-			}
-
-			// Check ownerReference
-			if len(pod.OwnerReferences) != 1 {
-				t.Fatalf("expected 1 ownerReference, got %d", len(pod.OwnerReferences))
-			}
-			if pod.OwnerReferences[0].Name != tt.ci.Name {
-				t.Errorf("ownerReference name = %q, want %q", pod.OwnerReferences[0].Name, tt.ci.Name)
 			}
 
 			// Check command

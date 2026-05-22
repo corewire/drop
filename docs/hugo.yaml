@@ -1,6 +1,6 @@
 baseURL: "https://breee.github.io/puller/"
 title: Puller Operator
-languageCode: en-us
+defaultContentLanguage: en
 
 module:
   imports:

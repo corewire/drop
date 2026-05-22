@@ -18,12 +18,13 @@ type Decision struct {
 
 // Engine evaluates pacing constraints before creating new puller Pods.
 type Engine struct {
-	Client client.Client
+	Client       client.Client
+	PodNamespace string
 }
 
 // NewEngine creates a new pacing engine.
-func NewEngine(c client.Client) *Engine {
-	return &Engine{Client: c}
+func NewEngine(c client.Client, podNamespace string) *Engine {
+	return &Engine{Client: c, PodNamespace: podNamespace}
 }
 
 // CanStartPull checks pacing constraints and returns whether a new pull can start.
@@ -42,7 +43,12 @@ func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, 
 
 	// List active puller Pods (Running or Pending)
 	podList := &corev1.PodList{}
+	ns := e.PodNamespace
+	if ns == "" {
+		ns = podbuilder.DefaultPodNamespace
+	}
 	listOpts := []client.ListOption{
+		client.InNamespace(ns),
 		client.MatchingLabels{podbuilder.LabelManagedBy: podbuilder.LabelManagedByValue},
 	}
 	if err := e.Client.List(ctx, podList, listOpts...); err != nil {

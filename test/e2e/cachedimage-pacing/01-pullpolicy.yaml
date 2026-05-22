@@ -5,4 +5,6 @@ metadata:
 spec:
   maxConcurrentNodes: 1
   minDelayBetweenPulls: 5s
-  failureBackoff: 30s
+  failureBackoff:
+    initial: 30s
+    max: 5m

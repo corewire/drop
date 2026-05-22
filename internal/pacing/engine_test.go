@@ -130,6 +130,7 @@ func TestCanStartPull(t *testing.T) {
 
 			objs := make([]runtime.Object, 0, len(tt.activePods))
 			for i := range tt.activePods {
+				tt.activePods[i].Namespace = "puller-system"
 				objs = append(objs, &tt.activePods[i])
 			}
 
@@ -138,7 +139,7 @@ func TestCanStartPull(t *testing.T) {
 				WithRuntimeObjects(objs...).
 				Build()
 
-			engine := NewEngine(fakeClient)
+			engine := NewEngine(fakeClient, "puller-system")
 			decision, err := engine.CanStartPull(context.Background(), tt.policy, "test-image")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)

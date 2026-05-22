@@ -73,7 +73,8 @@ var _ = Describe("CachedImage Controller", func() {
 			controllerReconciler := &CachedImageReconciler{
 				Client:       k8sClient,
 				Scheme:       k8sClient.Scheme(),
-				PacingEngine: pacing.NewEngine(k8sClient),
+				PodNamespace: "puller-system",
+				PacingEngine: pacing.NewEngine(k8sClient, "puller-system"),
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

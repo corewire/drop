@@ -26,8 +26,8 @@ layout: hextra-home
 ## Features
 
 {{< cards >}}
-  {{< card link="docs/getting-started" title="Easy Setup" subtitle="Deploy with Helm in minutes" icon="rocket-launch" >}}
+  {{< card link="docs/getting-started" title="Easy Setup" subtitle="Deploy with Helm in minutes" icon="play" >}}
   {{< card link="docs/crds" title="Declarative CRDs" subtitle="CachedImage, CachedImageSet, PullPolicy, DiscoveryPolicy" icon="document-text" >}}
-  {{< card link="docs/discovery" title="Smart Discovery" subtitle="Prometheus metrics and OCI registry integration" icon="magnifying-glass" >}}
+  {{< card link="docs/discovery" title="Smart Discovery" subtitle="Prometheus metrics and OCI registry integration" icon="search" >}}
   {{< card link="docs/observability" title="Observable" subtitle="Prometheus metrics, Kubernetes events, status conditions" icon="chart-bar" >}}
 {{< /cards >}}
