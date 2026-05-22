@@ -264,6 +264,10 @@ helm-lint: ## Lint the Helm chart.
 helm-template: ## Render Helm chart templates locally.
 	helm template puller charts/puller
 
+.PHONY: docs-build
+docs-build: ## Build Hugo docs locally (same as CI).
+	cd docs && hugo mod get && hugo --minify
+
 .PHONY: docs-serve
 docs-serve: ## Serve Hugo docs locally for preview.
 	cd docs && hugo server --buildDrafts --port 1313
@@ -272,7 +276,12 @@ docs-serve: ## Serve Hugo docs locally for preview.
 dev-setup: ## Install all development dependencies.
 	@echo "Installing development tools..."
 	@$(MAKE) kustomize controller-gen envtest golangci-lint chainsaw
-	@echo "All tools installed to $(LOCALBIN)"
+	@command -v hugo >/dev/null 2>&1 || echo "WARNING: hugo not found. Install from https://gohugo.io/installation/ for docs development."
+	@command -v helm >/dev/null 2>&1 || echo "WARNING: helm not found. Install from https://helm.sh/docs/intro/install/ for chart development."
+	@command -v kind >/dev/null 2>&1 || echo "WARNING: kind not found. Install from https://kind.sigs.k8s.io/ for E2E testing."
+	@echo "All Go tools installed to $(LOCALBIN)"
+	@echo ""
+	@echo "Run 'make verify' to run all CI checks locally."
 
 .PHONY: demo
 demo: ## Run the operator demo script showing end-to-end functionality.
@@ -281,4 +290,50 @@ demo: ## Run the operator demo script showing end-to-end functionality.
 .PHONY: prove
 prove: ## Run detailed proof-of-operation script (creates kind cluster, deploys operator, exercises all features).
 	@hack/prove-operator.sh
+
+##@ Local CI Verification
+
+.PHONY: verify
+verify: lint test build helm-lint docs-build ## Run all CI-verifiable checks locally (lint, test, build, helm, docs).
+	@echo ""
+	@echo "✅ All CI checks passed locally."
+	@echo "   (Excluded: image push, helm publish, pages deploy — these require CI credentials.)"
+
+.PHONY: e2e-local
+e2e-local: ## Run full E2E test suite locally (creates kind cluster, deploys infra + operator, runs chainsaw tests).
+	@echo "=== Creating kind cluster ==="
+	@$(KIND) delete cluster --name puller-e2e 2>/dev/null || true
+	@$(KIND) create cluster --name puller-e2e --wait 60s
+	@echo ""
+	@echo "=== Building and loading operator image ==="
+	@$(MAKE) docker-build IMG=controller:e2e
+	@$(KIND) load docker-image controller:e2e --name puller-e2e
+	@echo ""
+	@echo "=== Installing CRDs ==="
+	@$(MAKE) manifests
+	@kubectl apply -f config/crd/bases/
+	@echo ""
+	@echo "=== Deploying E2E infrastructure (Prometheus + Registry) ==="
+	@chmod +x hack/e2e-infra/setup.sh
+	@hack/e2e-infra/setup.sh
+	@echo ""
+	@echo "=== Deploying operator via Helm ==="
+	@helm install puller charts/puller \
+		--namespace puller-system \
+		--create-namespace \
+		--set image.repository=controller \
+		--set image.tag=e2e \
+		--set image.pullPolicy=Never \
+		--set leaderElection.enabled=false \
+		--set metrics.enabled=true \
+		--set metrics.secureServing=false \
+		--wait --timeout 120s
+	@echo ""
+	@echo "=== Running Chainsaw E2E tests ==="
+	@$(MAKE) chainsaw
+	@$(CHAINSAW) test test/e2e/
+	@echo ""
+	@echo "=== Cleaning up ==="
+	@$(KIND) delete cluster --name puller-e2e
+	@echo "✅ E2E tests passed."
 

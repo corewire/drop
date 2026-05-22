@@ -50,3 +50,12 @@ k8s_yaml('hack/e2e-infra/registry.yaml')
 
 k8s_resource('prometheus', port_forwards=['9090:9090'], labels=['infra'])
 k8s_resource('registry', port_forwards=['5000:5000'], labels=['infra'])
+
+# --- Documentation: Hugo Hextra (live reload) ---
+local_resource(
+    'docs',
+    serve_cmd='cd docs && hugo server --buildDrafts --port 1313 --bind 0.0.0.0',
+    deps=['docs/content', 'docs/hugo.yaml'],
+    links=['http://localhost:1313'],
+    labels=['docs'],
+)

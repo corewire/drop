@@ -30,3 +30,7 @@ go.work
 # Coverage
 cover.out
 coverage.html
+
+# Hugo docs build output
+docs/public/
+docs/resources/
