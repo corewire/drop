@@ -116,7 +116,10 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// 5. Sort by score descending, truncate to maxImages
 	sort.Slice(merged, func(i, j int) bool {
-		return merged[i].Score > merged[j].Score
+		if merged[i].Score != merged[j].Score {
+			return merged[i].Score > merged[j].Score
+		}
+		return merged[i].Image < merged[j].Image
 	})
 
 	maxImages := dp.Spec.MaxImages

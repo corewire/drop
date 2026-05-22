@@ -1,8 +1,14 @@
-# Assert that DiscoveryPolicy status contains discovered images
+# Assert that DiscoveryPolicy status contains discovered images.
+# The query 'count(...{namespace="build-stuff"}) by (image)' returns alpine + busybox.
 apiVersion: puller.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: e2e-prometheus
 status:
   discoveredImages:
-    - image: (regex)'.*alpine.*'
+    - image: "docker.io/library/alpine:3.19"
+      score: 1
+      source: discovery
+    - image: "docker.io/library/busybox:1.36"
+      score: 1
+      source: discovery
