@@ -1,0 +1,35 @@
+# Default values for puller.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/breee/puller
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to Chart appVersion
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+leaderElection:
+  enabled: true
+
+metrics:
+  enabled: true
+  secureServing: true
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
