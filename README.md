@@ -30,7 +30,7 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
   - Referenced by `CachedImage`/`CachedImageSet` via `policyRef`.
 
 - `DiscoveryPolicy`: declares how dynamic image lists are produced.
-  - Spec: `source` (prometheus query/registry), `imageFilter`, `syncInterval`, `maxImages`.
+  - Spec: `sources` (list of backends: prometheus, registry, extensible), `imageFilter`, `syncInterval`, `maxImages`. Each source has optional `secretRef` for auth/TLS/headers via k8s Secret.
   - Referenced by `CachedImageSet` via `discoveryPolicyRef`.
   - Status: `lastSyncTime`, `discoveredImages`, `conditions`.
 

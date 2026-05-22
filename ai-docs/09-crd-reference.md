@@ -59,10 +59,15 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
 
 ## `DiscoveryPolicy` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
 
+Extensible design: `sources` is a list supporting multiple backend types. New source types can be added without schema changes.
+
 ### Spec fields
-- `source` (object) — discovery source configuration:
-  - `prometheus` — endpoint, query, interval.
-  - `registry` — url, repository, tagFilter, topX, authSecretRef.
+- `sources` (list) — discovery backends, each with:
+  - `type` (string) — source type identifier (`prometheus`, `registry`, future: `graphite`, `datadog`, `webhook`, `argocd`).
+  - `prometheus` (object, when type=prometheus) — `endpoint`, `query`, `interval`.
+  - `registry` (object, when type=registry) — `url`, `repositories` (list), `tagFilter`, `topX`.
+  - `secretRef` (object, optional) — reference to a k8s Secret for auth/TLS/headers for this source.
+    - Well-known Secret keys: `token`, `username`, `password`, `ca.crt`, `tls.crt`, `tls.key`, `headers.<name>`.
 - `imageFilter` (object) — regex pattern to filter discovered images.
 - `syncInterval` (duration) — how often to reconcile discovered images.
 - `maxImages` (int) — cap on number of discovered images.

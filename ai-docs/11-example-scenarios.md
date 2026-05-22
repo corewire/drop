@@ -134,16 +134,19 @@ kind: DiscoveryPolicy
 metadata:
   name: discover-image-c
 spec:
-  source:
-    prometheus:
-      endpoint: http://prometheus.monitoring.svc:9090
-      query: |
-        topk(5,
-          count by (image) (
-            kube_pod_container_info{image=~"registry.example.com/team/image-c.*"}
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: http://prometheus.monitoring.svc:9090
+        query: |
+          topk(5,
+            count by (image) (
+              kube_pod_container_info{image=~"registry.example.com/team/image-c.*"}
+            )
           )
-        )
-      interval: 1h
+        interval: 1h
+      secretRef:
+        name: prometheus-creds              # optional: Secret with token/username/password/ca.crt
   imageFilter:
     pattern: "registry.example.com/team/image-c.*"
   syncInterval: 30m

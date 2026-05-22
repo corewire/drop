@@ -132,38 +132,78 @@ spec:
 
 ### `DiscoveryPolicy`
 
+Designed for **extensibility**: `sources` is a list so multiple backends can feed the same policy. Each source type uses a uniform connection pattern with optional `secretRef` for auth (tokens, headers, TLS certs — anything passable as a k8s Secret). New source types can be added in future versions without breaking the schema.
+
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: discover-ci-images
 spec:
-  source:
-    prometheus:
-      endpoint: http://prometheus.monitoring.svc:9090
-      query: |
-        topk(5,
-          count by (image) (
-            kube_pod_container_info{image=~"registry.example.com/team/.*"}
+  sources:                                    # list of discovery backends (extensible)
+    - type: prometheus                        # metrics-based discovery
+      prometheus:
+        endpoint: http://prometheus.monitoring.svc:9090
+        query: |
+          topk(5,
+            count by (image) (
+              kube_pod_container_info{image=~"registry.example.com/team/.*"}
+            )
           )
-        )
-      interval: 1h                          # how often to run the query
-    registry:                               # optional alternative/additional source
-      url: https://registry.example.com
-      repository: team/image-c
-      tagFilter: "^v[0-9]+\\."
-      topX: 3
-      authSecretRef:
-        name: registry-creds
+        interval: 1h                          # query execution interval
+      secretRef:                              # optional: auth for this source
+        name: prometheus-creds                # Secret with keys: token, username, password, ca.crt, headers.*
+    - type: registry                          # OCI registry tag discovery
+      registry:
+        url: https://registry.example.com
+        repositories:                         # list of repos to scan
+          - team/image-a
+          - team/image-b
+        tagFilter: "^v[0-9]+\\."             # regex to select tags
+        topX: 3                               # keep top X tags per repo (by semver/date)
+      secretRef:
+        name: registry-creds                  # Secret with keys: username, password, token, ca.crt, headers.*
   imageFilter:
-    pattern: "registry.example.com/team/.*" # regex filter on discovered images
-  syncInterval: 30m                         # how often to reconcile discovered set
-  maxImages: 10                             # cap on discovered images
+    pattern: "registry.example.com/team/.*"   # regex filter on discovered images
+  syncInterval: 30m                           # how often to reconcile discovered set
+  maxImages: 10                               # cap on total discovered images
 status:
   lastSyncTime: "2026-05-22T05:00:00Z"
   discoveredImages: 5
   conditions: []
 ```
+
+#### Source types (v1alpha1)
+
+| Type | Purpose | Config object |
+|------|---------|---------------|
+| `prometheus` | Discover images from metrics queries | `prometheus: {endpoint, query, interval}` |
+| `registry` | Discover tags from OCI registries | `registry: {url, repositories, tagFilter, topX}` |
+
+#### Future source types (planned/extensible)
+
+| Type | Purpose |
+|------|---------|
+| `graphite` | Alternative metrics backend |
+| `datadog` | Datadog metrics API |
+| `webhook` | External HTTP endpoint returning image list |
+| `argocd` | Discover images from Argo CD application manifests |
+
+#### Secret format (`secretRef`)
+
+Each source's `secretRef` points to a k8s Secret. The operator reads well-known keys:
+
+| Secret key | Usage |
+|------------|-------|
+| `token` | Bearer token for Authorization header |
+| `username` | Basic auth username |
+| `password` | Basic auth password |
+| `ca.crt` | Custom CA certificate (PEM) for TLS verification |
+| `tls.crt` | Client certificate for mTLS |
+| `tls.key` | Client key for mTLS |
+| `headers.<name>` | Arbitrary HTTP headers (e.g. `headers.X-Custom-Auth`) |
+
+This allows any authentication scheme without operator code changes — just populate the Secret appropriately.
 
 ---
 
