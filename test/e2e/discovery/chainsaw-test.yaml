@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: discovery-prometheus
+spec:
+  description: |
+    Verify that a DiscoveryPolicy with a Prometheus source discovers images
+    from seeded metrics, and a CachedImageSet referencing it creates child CachedImages.
+  steps:
+    - name: Create DiscoveryPolicy with Prometheus source
+      try:
+        - apply:
+            file: 01-discoverypolicy.yaml
+    - name: Wait for discovered images in status
+      try:
+        - assert:
+            timeout: 90s
+            file: 02-assert-discovery-status.yaml
+    - name: Create CachedImageSet referencing the DiscoveryPolicy
+      try:
+        - apply:
+            file: 03-cachedimageset-discovery.yaml
+    - name: Verify child CachedImages are created from discovered images
+      try:
+        - assert:
+            timeout: 60s
+            file: 04-assert-children.yaml
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: CachedImageSet
+              name: discovered-set
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-prometheus

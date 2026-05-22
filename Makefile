@@ -251,6 +251,11 @@ kind-load: docker-build ## Load the operator image into kind.
 test-e2e-chainsaw: chainsaw manifests ## Run Chainsaw E2E tests (requires kind cluster).
 	$(CHAINSAW) test test/e2e/
 
+.PHONY: e2e-infra
+e2e-infra: ## Deploy Prometheus + Registry into the current cluster for E2E/dev.
+	@chmod +x hack/e2e-infra/setup.sh
+	@hack/e2e-infra/setup.sh
+
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart.
 	helm lint charts/puller

@@ -1,0 +1,8 @@
+# Assert that DiscoveryPolicy status contains images from registry
+apiVersion: puller.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-registry
+status:
+  discoveredImages:
+    - image: (regex)'.*test/myapp.*'

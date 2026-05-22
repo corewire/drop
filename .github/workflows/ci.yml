@@ -74,6 +74,10 @@ jobs:
         run: |
           make manifests
           kubectl apply -f config/crd/bases/
+      - name: Deploy E2E infrastructure (Prometheus + Registry)
+        run: |
+          chmod +x hack/e2e-infra/setup.sh
+          hack/e2e-infra/setup.sh
       - name: Deploy operator
         run: |
           helm install puller charts/puller \
@@ -83,7 +87,8 @@ jobs:
             --set image.tag=ci \
             --set image.pullPolicy=Never \
             --set leaderElection.enabled=false \
-            --set metrics.enabled=false \
+            --set metrics.enabled=true \
+            --set metrics.secureServing=false \
             --wait --timeout 120s
       - name: Install chainsaw
         run: go install github.com/kyverno/chainsaw@v0.2.12

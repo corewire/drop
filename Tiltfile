@@ -41,3 +41,12 @@ k8s_yaml(helm(
 
 # Port-forward metrics
 k8s_resource('puller', port_forwards=['8443:8443', '8081:8081'])
+
+# --- E2E Infrastructure: Prometheus + Registry ---
+# Deploy local Prometheus with seeded image metrics
+k8s_yaml('hack/e2e-infra/prometheus-config.yaml')
+k8s_yaml('hack/e2e-infra/prometheus.yaml')
+k8s_yaml('hack/e2e-infra/registry.yaml')
+
+k8s_resource('prometheus', port_forwards=['9090:9090'], labels=['infra'])
+k8s_resource('registry', port_forwards=['5000:5000'], labels=['infra'])

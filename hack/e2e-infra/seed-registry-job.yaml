@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-registry
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: docker.io/library/busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Create minimal OCI manifests in the registry using wget
+              REGISTRY="http://registry.e2e-infra.svc.cluster.local:5000"
+
+              # Push a minimal config blob
+              CONFIG='{"architecture":"amd64","os":"linux","rootfs":{"type":"layers","diff_ids":[]}}'
+              CONFIG_DIGEST="sha256:$(echo -n "$CONFIG" | sha256sum | cut -d' ' -f1)"
+              CONFIG_SIZE=$(echo -n "$CONFIG" | wc -c)
+
+              for REPO in "test/myapp" "test/worker" "test/tools"; do
+                for TAG in "v1" "v2" "v3"; do
+                  # Upload config blob
+                  wget -q -O /dev/null --method=PUT \
+                    --header="Content-Type: application/octet-stream" \
+                    --body-data="$CONFIG" \
+                    "${REGISTRY}/v2/${REPO}/blobs/uploads/?digest=${CONFIG_DIGEST}" 2>/dev/null || true
+
+                  # Create and upload manifest
+                  MANIFEST="{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"size\":${CONFIG_SIZE},\"digest\":\"${CONFIG_DIGEST}\"},\"layers\":[]}"
+
+                  wget -q -O /dev/null --method=PUT \
+                    --header="Content-Type: application/vnd.oci.image.manifest.v1+json" \
+                    --body-data="$MANIFEST" \
+                    "${REGISTRY}/v2/${REPO}/manifests/${TAG}" 2>/dev/null || true
+                done
+              done
+
+              echo "Registry seeded with test/myapp, test/worker, test/tools (tags: v1, v2, v3)"

@@ -24,17 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v3
-        with:
-          hugo-version: 'latest'
-          extended: true
-
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: docs/go.mod
-          cache-dependency-path: docs/go.sum
+          go-version: '1.23'
+          cache: false
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v2
+        with:
+          hugo-version: 'latest'
+          extended: true
 
       - name: Build docs
         working-directory: docs

@@ -1,0 +1,6 @@
+# Assert that at least one child CachedImage was created from discovery
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  labels:
+    puller.corewire.io/imageset: discovered-set

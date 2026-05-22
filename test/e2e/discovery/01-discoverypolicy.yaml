@@ -1,0 +1,12 @@
+apiVersion: puller.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-prometheus
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'count(container_memory_working_set_bytes{container!="", namespace="build-stuff"}) by (image)'
+  syncInterval: 30s
+  maxImages: 10

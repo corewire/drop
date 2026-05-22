@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Deploy local Prometheus and Registry into the current kind cluster for E2E tests.
+# Prometheus is seeded with container_memory_working_set_bytes metrics containing image labels.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NAMESPACE="e2e-infra"
+
+echo "[e2e-infra] Creating namespace $NAMESPACE..."
+kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
+# --- Deploy local OCI Registry (distribution/distribution) ---
+echo "[e2e-infra] Deploying local registry..."
+kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/registry.yaml"
+
+# --- Deploy Prometheus with pre-loaded metrics ---
+echo "[e2e-infra] Deploying Prometheus with seed data..."
+kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/prometheus-config.yaml"
+kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/prometheus.yaml"
+
+# --- Wait for readiness ---
+echo "[e2e-infra] Waiting for registry to be ready..."
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/registry --timeout=90s
+
+echo "[e2e-infra] Waiting for Prometheus to be ready..."
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/prometheus --timeout=90s
+
+# --- Seed the registry with a few images ---
+echo "[e2e-infra] Seeding registry with test images..."
+REGISTRY_POD=$(kubectl -n "$NAMESPACE" get pods -l app=registry -o jsonpath='{.items[0].metadata.name}')
+REGISTRY_SVC="registry.$NAMESPACE.svc.cluster.local:5000"
+
+# Push images into the in-cluster registry by running a job
+kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/seed-registry-job.yaml"
+kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-registry --timeout=120s 2>/dev/null || true
+
+# --- Seed Prometheus with metrics via remote write ---
+echo "[e2e-infra] Seeding Prometheus with image metrics..."
+kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/seed-metrics-job.yaml"
+kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-metrics --timeout=60s 2>/dev/null || true
+
+echo "[e2e-infra] Infrastructure ready."
+echo "  Prometheus: http://prometheus.$NAMESPACE.svc.cluster.local:9090"
+echo "  Registry:   http://registry.$NAMESPACE.svc.cluster.local:5000"
