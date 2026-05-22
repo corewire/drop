@@ -207,6 +207,7 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *puller
 		case corev1.PodSucceeded:
 			state.ready = true
 			nodesReady++
+			pullermetrics.ActivePulls.Dec()
 			pullermetrics.ImagesCachedTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
 			r.Recorder.Eventf(ci, corev1.EventTypeNormal, "PullSucceeded", "Image %s cached on node %s", ci.Spec.Image, nodeName)
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
@@ -214,6 +215,7 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *puller
 			}
 		case corev1.PodFailed:
 			state.failed = true
+			pullermetrics.ActivePulls.Dec()
 			pullermetrics.PullErrorsTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
 			r.Recorder.Eventf(ci, corev1.EventTypeWarning, "PullFailed", "Failed to pull image %s on node %s", ci.Spec.Image, nodeName)
 			log.Info("puller pod failed", "pod", state.pod.Name, "node", nodeName)

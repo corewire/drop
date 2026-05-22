@@ -1,8 +1,0 @@
-# Assert that at most 1 puller Pod exists (pacing with maxConcurrentNodes=1)
-apiVersion: v1
-kind: PodList
-metadata:
-  labels:
-    app.kubernetes.io/managed-by: puller
-    puller.corewire.io/cachedimage: test-paced
-# Chainsaw checks: the list should have at most 1 item

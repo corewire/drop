@@ -16,10 +16,17 @@ spec:
       try:
         - apply:
             file: 02-cachedimage.yaml
-    - name: Verify only one active Pod at a time
+    - name: Verify at most one active Pod at a time
       try:
-        - assert:
-            file: 03-assert-single-pod.yaml
+        - script:
+            timeout: 30s
+            content: |
+              count=$(kubectl get pods -l app.kubernetes.io/managed-by=puller,puller.corewire.io/cachedimage=test-paced --no-headers 2>/dev/null | wc -l)
+              if [ "$count" -gt 1 ]; then
+                echo "FAIL: expected at most 1 puller pod, got $count"
+                exit 1
+              fi
+              echo "OK: $count puller pod(s) active"
     - name: Cleanup
       try:
         - delete:
