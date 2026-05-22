@@ -4,35 +4,47 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 ## AI Docs
 
 - See `/ai-docs/README.md` for feature-sliced planning documents and `/ai-docs/progress.md` for tracking.
-- CRD field explanations and slow-pull behavior guidance: `/ai-docs/09-crd-reference.md`.
-- Policy redesign proposals for cluster-wide pull pacing: `/ai-docs/10-policy-redesign-proposals.md`.
+- CRD field reference: `/ai-docs/09-crd-reference.md`.
+- Pull policy design: `/ai-docs/10-policy-redesign-proposals.md`.
+- Example scenarios: `/ai-docs/11-example-scenarios.md`.
+- Naming decision: `/ai-docs/12-naming-structure-proposals.md`.
 
 ## Draft Plan
 
-### 1) API / CRDs
-- `PrePullImage` (namespaced): declarative record for a single image that should be kept warm on selected nodes.
-  - API group/version: `puller.corewire.io/v1alpha1`.
-  - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `repullPolicy`, `nodeSelector`, `tolerations`, `priority`, `maxPullRate`.
-    - `pullPolicy`: normal image pull behavior for first pull (`IfNotPresent`/`Always`).
-    - `repullPolicy`: refresh behavior for moving tags (e.g. `latest`) on subsequent syncs.
+### 1) API / CRDs (`puller.corewire.io/v1alpha1`, all cluster-scoped)
+
+- `CachedImage`: declarative record for a single image that should be cached on selected nodes.
+  - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `repullPolicy`, `nodeSelector`, `tolerations`, `priority`, `policyRef`.
+    - `pullPolicy`: image pull behavior (`IfNotPresent`/`Always`).
+    - `repullPolicy`: refresh behavior for moving tags (`Never`/`OnSchedule`/`Always`).
     - no per-image concurrency knob: node-level image layer parallelism is already handled by the container runtime.
   - Status: `observedGeneration`, `phase`, `lastPulledAt`, `nodesTargeted`, `nodesReady`, `conditions`.
-- `ImageDiscoveryPolicy` (namespaced): declares how dynamic image lists are produced.
-  - Spec:
-    - Prometheus query settings (namespace filters, time window, query templates, topX).
-    - Optional registry source settings for helper images (registry/repository, auth secret, tag filters, topX).
-    - Sync cadence and limits.
-  - Status: last sync time, discovered images, errors, and conditions.
+
+- `CachedImageSet`: declares a group of images to cache, with shared config.
+  - Spec: `policyRef`, `discoveryPolicyRef`, `nodeSelector`, `tolerations`, `images` (static list), `pullPolicy`, `repullPolicy`.
+  - Owns child `CachedImage` resources via ownerReferences for GC.
+  - Status: `phase`, `imagesManaged`, `imagesReady`, `conditions`.
+
+- `PullPolicy`: shared execution policy for pacing and safety.
+  - Spec: `maxConcurrentNodes`, `minDelayBetweenPulls`, `maxUnavailableNodes`, `failureBackoff`, `repullPolicyDefault`, `nodeSelector`, `tolerations`.
+  - Referenced by `CachedImage`/`CachedImageSet` via `policyRef`.
+
+- `DiscoveryPolicy`: declares how dynamic image lists are produced.
+  - Spec: `source` (prometheus query/registry), `imageFilter`, `syncInterval`, `maxImages`.
+  - Referenced by `CachedImageSet` via `discoveryPolicyRef`.
+  - Status: `lastSyncTime`, `discoveredImages`, `conditions`.
 
 ### 2) Operator Control Loops
-- Reconciler A (`PrePullImage`):
+- Reconciler A (`CachedImage`):
   - Ensures a DaemonSet/Job-based pull mechanism exists for each declared image.
-  - Throttles rollout (`maxUnavailable`, pull backoff, jitter) to avoid containerd overload.
+  - Throttles rollout via referenced `PullPolicy` (`maxUnavailableNodes`, backoff, jitter).
   - Updates status from node-level pull completion signals.
-- Reconciler B (`ImageDiscoveryPolicy`):
-  - Periodically executes Prometheus queries for image usage in target namespaces/time ranges.
-  - Computes top-X images and materializes/updates `PrePullImage` objects.
-  - Optionally enriches with registry-derived helper images.
+- Reconciler B (`CachedImageSet`):
+  - Manages child `CachedImage` resources (create/update/delete).
+  - Reads discovered images from referenced `DiscoveryPolicy` status if configured.
+- Reconciler C (`DiscoveryPolicy`):
+  - Periodically executes Prometheus queries or registry lookups.
+  - Reports discovered images in status for `CachedImageSet` to consume.
 
 ### 3) Prometheus Integration
 - Query source metrics from kube-state-metrics/cAdvisor/container runtime metrics (cluster dependent).
@@ -45,11 +57,11 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 - Add registry client support (OCI distribution API) to list tags for a repository.
 - Filter tags (regex/semver/channel), sort by recency or semantic version, select top X.
 - Use auth via Kubernetes Secret references.
-- Feed selected tags into managed `PrePullImage` resources (e.g. `gitlab/gitlab-runner-helper`).
+- Feed selected tags into managed `CachedImage` resources.
 
 ### 5) Safe Pulling Strategy
 - Use init containers in a managed DaemonSet for ordered pulls, one image per init step.
-- Cap concurrent pulls per node and across cluster (global and node-local rate limits).
+- Cap concurrent pulls across cluster via `PullPolicy` (global rate limits).
 - Retry with exponential backoff; quarantine failing images via status conditions.
 
 ### 6) Observability & Operations
@@ -61,16 +73,17 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
   - Discovery sync failures
 
 ### 7) Delivery Phases
-1. Bootstrap CRDs + static `PrePullImage` reconciliation.
-2. Add safe/throttled DaemonSet pull orchestration.
-3. Add Prometheus discovery and top-X materialization.
-4. Add registry tag discovery and helper image automation.
-5. Harden RBAC, leader election, and SLO-based alerting.
+1. Bootstrap CRDs + static `CachedImage` reconciliation.
+2. Add safe/throttled DaemonSet pull orchestration with `PullPolicy`.
+3. Add `CachedImageSet` with static image lists.
+4. Add `DiscoveryPolicy` with Prometheus integration.
+5. Add registry tag discovery.
+6. Harden RBAC, leader election, and SLO-based alerting.
 
-### Example `PrePullImage`
+### Example `CachedImage`
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullImage
+kind: CachedImage
 metadata:
   name: gitlab-runner-helper
 spec:
@@ -84,4 +97,6 @@ spec:
     - key: "node-role.kubernetes.io/ci"
       operator: "Exists"
       effect: "NoSchedule"
+  policyRef:
+    name: safe-default
 ```

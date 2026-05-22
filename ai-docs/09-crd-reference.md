@@ -3,11 +3,11 @@
 ## Goal
 Make CRD settings explicit so users can predict pull behavior and avoid containerd overload.
 
-## `PrePullImage` (`puller.corewire.io/v1alpha1`)
+## `CachedImage` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
 
 ### Spec fields
 - `image` (string, required)
-  - Repository/image name to pre-pull.
+  - Repository/image name to cache on nodes.
 - `tag` (string, optional)
   - Tag to use. Prefer pinned versions for reproducibility.
 - `digest` (string, optional)
@@ -27,44 +27,74 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
   - Allows targeting tainted nodes.
 - `priority` (int, optional)
   - Pull ordering hint (lower first or higher first, implementation-defined but documented).
-- `maxPullRate` (duration/int, optional)
-  - Rate-limit guardrail between pull starts.
+- `policyRef` (object, optional)
+  - Reference to a `PullPolicy` resource for pacing controls.
 
 ### Status fields
 - `phase`, `conditions`, `lastPulledAt`, `nodesTargeted`, `nodesReady`, `observedGeneration`.
 
-## `ImageDiscoveryPolicy` (`puller.corewire.io/v1alpha1`)
+## `CachedImageSet` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
 
 ### Spec fields
-- `namespaces`, `lookbackWindow`, `topX` for Prometheus-driven selection.
-- Optional registry source for helper images (`registry`, `repository`, `tagFilter`, `topX`, auth secret refs).
-- `syncInterval` to control discovery and refresh cadence.
+- `policyRef` (object, optional) — reference to a `PullPolicy`.
+- `discoveryPolicyRef` (object, optional) — reference to a `DiscoveryPolicy`.
+- `nodeSelector` (map, optional) — target nodes for all images in the set.
+- `tolerations` (list, optional) — tolerate taints on target nodes.
+- `images` (list, optional) — static list of images (each with `image`, `tag`/`digest`).
+- `pullPolicy` — default for child `CachedImage` resources.
+- `repullPolicy` — default for child `CachedImage` resources.
+
+### Status fields
+- `phase`, `imagesManaged`, `imagesReady`, `observedGeneration`, `conditions`.
+
+## `PullPolicy` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
+
+### Spec fields
+- `maxConcurrentNodes` (int) — max nodes pulling simultaneously.
+- `minDelayBetweenPulls` (duration) — minimum spacing between pull starts.
+- `maxUnavailableNodes` (int) — max nodes busy with pull work at once.
+- `failureBackoff` (object) — `initial` and `max` retry delays.
+- `repullPolicyDefault` (string) — default repull behavior for referencing images.
+- `nodeSelector` (map, optional) — scope policy to a node pool.
+- `tolerations` (list, optional) — match tainted nodes in pool.
+
+## `DiscoveryPolicy` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
+
+### Spec fields
+- `source` (object) — discovery source configuration:
+  - `prometheus` — endpoint, query, interval.
+  - `registry` — url, repository, tagFilter, topX, authSecretRef.
+- `imageFilter` (object) — regex pattern to filter discovered images.
+- `syncInterval` (duration) — how often to reconcile discovered images.
+- `maxImages` (int) — cap on number of discovered images.
+
+### Status fields
+- `lastSyncTime`, `discoveredImages`, `conditions`.
 
 ## Slow-pull safety model
 To avoid "10 images at once" behavior, operator logic should enforce:
 
 1. **Policy-driven global pacing**
-   - A dedicated pull policy should cap concurrent pull work across nodes.
+   - `PullPolicy` caps concurrent pull work across nodes.
 2. **Rate limiting between pulls**
-   - Enforce minimum spacing (`maxPullRate` / backoff window) between launches.
+   - Enforce minimum spacing (`minDelayBetweenPulls`) between pull launches.
 3. **Bounded rollout across nodes**
-   - Use DaemonSet rollout controls (e.g. `maxUnavailable`) to prevent cluster-wide bursts.
+   - `maxUnavailableNodes` prevents cluster-wide bursts.
 4. **Backoff + jitter**
    - On failures, retry with exponential backoff and jitter.
 5. **Policy-based refresh**
    - Moving tags (`latest`) should be controlled via `repullPolicy`, not uncontrolled constant pulls.
 
 ## Parallel pull workers: simplified model
-`PrePullImage` no longer includes a separate `concurrency` setting in the plan.
+No separate `concurrency` setting is needed.
 
 - `runtime parallelism`: container runtimes (containerd/cri) already download image layers concurrently for a single image pull.
-- `operator workers`: would add parallel *image pull tasks* on the same node.
-- `design choice`: remove this from the plan for now because it duplicates runtime behavior and adds tuning complexity before benchmarks exist.
+- `design choice`: no per-image parallel worker field needed because it duplicates runtime behavior and adds tuning complexity.
 
-Operator pacing should instead focus on cluster-safe controls:
+Operator pacing focuses on cluster-safe controls:
 - limit how many nodes pull at once,
 - add spacing or backoff between pull starts,
-- keep rollout bounded (`maxUnavailable` style limits).
+- keep rollout bounded (`maxUnavailableNodes` style limits).
 
 ## Recommended safe defaults
 ```yaml
@@ -74,4 +104,4 @@ repullPolicy: OnSchedule
 
 These defaults prioritize node stability over fastest pull completion.
 
-See `/ai-docs/10-policy-redesign-proposals.md` for proposed API redesign options that separate image intent from pull-rate policy.
+See `/ai-docs/10-policy-redesign-proposals.md` for the policy design rationale and `/ai-docs/12-naming-structure-proposals.md` for the naming decision.

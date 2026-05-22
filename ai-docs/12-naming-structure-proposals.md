@@ -1,215 +1,81 @@
-# Feature: CRD Naming and Structure Proposals
+# CRD Naming and Structure — Decision
 
-## Goal
-Propose clean, minimal CRD names and structure for an operator whose sole purpose is pulling images onto nodes. Policies are always separate resources (single concern). The `puller.corewire.io` API group already communicates the domain, so resource names should be concise.
+## Chosen: `CachedImage` + `CachedImageSet` + `PullPolicy` + `DiscoveryPolicy`
+
+Decision: Proposal C. "Cached" describes the desired state (image is cached on nodes), which is idiomatic for Kubernetes declarative specs. All resources are **cluster-scoped** since they target nodes (which are cluster-scoped).
 
 ---
 
-## Kubernetes operator naming principles applied
+## Design principles
 
-1. **Single concern per CRD** — separate "what to pull" from "how fast to pull".
+1. **Single concern per CRD** — separate "what to cache", "how fast to pull", and "how to discover".
 2. **Singular nouns** for Kind names.
-3. **Owner references** — parent owns children for lifecycle/GC.
+3. **Owner references** — `CachedImageSet` owns child `CachedImage` resources for lifecycle/GC.
 4. **API group carries context** — within `puller.corewire.io`, names don't need to repeat "pull" or "pre-pull".
-5. **Patterns from core k8s:**
-   - Workload: `Deployment`, `Job`, `DaemonSet`
-   - Collection: `ReplicaSet`, `StatefulSet`
-   - Policy: `NetworkPolicy`, `PodDisruptionBudget`, `ResourceQuota`
+5. **Cluster-scoped** — nodes are cluster-scoped, so image caching resources are too.
+6. **Policy separation** — `PullPolicy` and `DiscoveryPolicy` are independent resources with single concerns.
 
 ---
 
-## Proposal A (recommended): `Image` + `ImageSet` + `PullPolicy`
+## Resource overview
 
-The simplest naming. The API group (`puller.corewire.io`) already says "this is the puller operator" — no need for `PrePull` prefix on every resource.
+| Kind | API Group/Version | Scope | Single concern |
+|------|-------------------|-------|----------------|
+| `CachedImage` | `puller.corewire.io/v1alpha1` | Cluster | "This image should be cached on these nodes" |
+| `CachedImageSet` | `puller.corewire.io/v1alpha1` | Cluster | "This group of images should be cached on these nodes" |
+| `PullPolicy` | `puller.corewire.io/v1alpha1` | Cluster | "Control pull pacing and safety" |
+| `DiscoveryPolicy` | `puller.corewire.io/v1alpha1` | Cluster | "How to discover images dynamically" |
 
-### Kinds
+---
 
-| Kind | Scope | Single concern |
-|------|-------|----------------|
-| `Image` | Namespaced | "Pull this one image onto these nodes" |
-| `ImageSet` | Namespaced | "Manage this group of images (static or discovered)" |
-| `PullPolicy` | Namespaced | "Control pacing/safety for pulls" |
-
-### Resource hierarchy
+## Resource hierarchy
 
 ```
-PullPolicy        → "how fast/safe" (reusable across sets)
+PullPolicy          → "how fast/safe do we pull?" (reusable, referenced by sets/images)
+DiscoveryPolicy     → "how do we find images?" (attached to a CachedImageSet)
     ↑ referenced by
-ImageSet          → "which images as a group" + discovery config
-    │ owns
+CachedImageSet      → "which images as a group" (static list or discovery-driven)
+    │ owns (ownerReferences)
     ↓
-Image             → "one image on target nodes" (leaf resource)
+CachedImage         → "one image on target nodes" (leaf resource, reconciled individually)
 ```
 
-### Example: Static set on build nodes, one image at a time
-
-```yaml
-apiVersion: puller.corewire.io/v1alpha1
-kind: PullPolicy
-metadata:
-  name: build-safe
-spec:
-  maxConcurrentNodes: 1
-  minDelayBetweenPulls: 20s
-  maxUnavailableNodes: 1
-  failureBackoff:
-    initial: 10s
-    max: 5m
 ---
-apiVersion: puller.corewire.io/v1alpha1
-kind: ImageSet
-metadata:
-  name: build-essentials
-spec:
-  policyRef:
-    name: build-safe
-  nodeSelector:
-    node-role.kubernetes.io/build: "true"
-  tolerations:
-    - key: "node-role.kubernetes.io/build"
-      operator: "Exists"
-      effect: "NoSchedule"
-  images:
-    - image: registry.example.com/team/image-a
-      tag: "1.2.3"
-    - image: registry.example.com/team/image-b
-      tag: "4.5.6"
-  pullPolicy: IfNotPresent
-  repullPolicy: Never
-```
 
-### Example: Discovery-driven set with Prometheus
+## CRD field definitions
+
+### `CachedImage`
 
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
-kind: ImageSet
+kind: CachedImage
 metadata:
-  name: popular-ci-images
-spec:
-  policyRef:
-    name: build-safe
-  nodeSelector:
-    node-role.kubernetes.io/build: "true"
-  tolerations:
-    - key: "node-role.kubernetes.io/build"
-      operator: "Exists"
-      effect: "NoSchedule"
-  discovery:
-    prometheus:
-      endpoint: http://prometheus.monitoring.svc:9090
-      query: |
-        topk(5,
-          count by (image) (
-            kube_pod_container_info{image=~"registry.example.com/team/image-c.*"}
-          )
-        )
-    syncInterval: 30m
-  pullPolicy: IfNotPresent
-  repullPolicy: OnSchedule
-```
-
-### Example: Standalone image (no set needed)
-
-```yaml
-apiVersion: puller.corewire.io/v1alpha1
-kind: Image
-metadata:
-  name: cuda-base
+  name: cuda-base    # cluster-scoped, no namespace
 spec:
   image: nvcr.io/nvidia/cuda
-  tag: "12.4.0-runtime-ubuntu22.04"
+  tag: "12.4.0-runtime-ubuntu22.04"       # optional, mutually exclusive with digest
+  digest: ""                                # optional, preferred for immutable refs
+  pullPolicy: IfNotPresent                  # IfNotPresent | Always
+  repullPolicy: Never                       # Never | OnSchedule | Always
   policyRef:
-    name: gpu-fast
-  nodeSelector:
+    name: gpu-fast                          # reference to a PullPolicy
+  nodeSelector:                             # target specific nodes
     gpu: "true"
-  tolerations:
+  tolerations:                              # tolerate taints on target nodes
     - key: "nvidia.com/gpu"
       operator: "Exists"
       effect: "NoSchedule"
-  pullPolicy: IfNotPresent
-  repullPolicy: Never
+  priority: 10                              # optional ordering hint (lower = pulled first)
+status:
+  phase: Ready                              # Pending | Pulling | Ready | Failed
+  nodesTargeted: 5
+  nodesReady: 5
+  lastPulledAt: "2026-05-22T05:00:00Z"
+  observedGeneration: 1
+  conditions: []
 ```
 
-### Pros
-- Shortest, cleanest names.
-- API group provides full context — no redundancy.
-- Three focused CRDs, each with one concern.
-- Matches k8s patterns (Deployment/ReplicaSet/Pod, PDB separate from workload).
-
-### Cons
-- `Image` is a very common word; could be confused with OCI image objects in conversation (but the API group disambiguates at the k8s API level).
-
----
-
-## Proposal B: `NodeImage` + `NodeImageSet` + `PullPolicy`
-
-Adds `Node` prefix to emphasize that these resources represent images *on nodes* (not in a registry or pod spec).
-
-| Kind | Single concern |
-|------|----------------|
-| `NodeImage` | "This image should exist on these nodes" |
-| `NodeImageSet` | "This group of images should exist on these nodes" |
-| `PullPolicy` | "Control pull pacing/safety" |
-
-### Example
-
-```yaml
-apiVersion: puller.corewire.io/v1alpha1
-kind: PullPolicy
-metadata:
-  name: build-safe
-spec:
-  maxConcurrentNodes: 1
-  minDelayBetweenPulls: 20s
-  maxUnavailableNodes: 1
-  failureBackoff:
-    initial: 10s
-    max: 5m
----
-apiVersion: puller.corewire.io/v1alpha1
-kind: NodeImageSet
-metadata:
-  name: build-essentials
-spec:
-  policyRef:
-    name: build-safe
-  nodeSelector:
-    node-role.kubernetes.io/build: "true"
-  tolerations:
-    - key: "node-role.kubernetes.io/build"
-      operator: "Exists"
-      effect: "NoSchedule"
-  images:
-    - image: registry.example.com/team/image-a
-      tag: "1.2.3"
-    - image: registry.example.com/team/image-b
-      tag: "4.5.6"
-  pullPolicy: IfNotPresent
-  repullPolicy: Never
-```
-
-### Pros
-- `NodeImage` clearly conveys "an image that lives on a node" vs. a registry image.
-- Still concise — no `PrePull` prefix.
-- Policy stays separate.
-
-### Cons
-- Slightly longer than Proposal A.
-- `Node` prefix might imply cluster-scoped (it's not).
-
----
-
-## Proposal C: `CachedImage` + `CachedImageSet` + `PullPolicy`
-
-Uses "cached" to describe the desired state: the image is cached on nodes.
-
-| Kind | Single concern |
-|------|----------------|
-| `CachedImage` | "This image should be cached on these nodes" |
-| `CachedImageSet` | "This group of images should be cached" |
-| `PullPolicy` | "Control pull pacing/safety" |
-
-### Example
+### `CachedImageSet`
 
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
@@ -218,52 +84,105 @@ metadata:
   name: build-essentials
 spec:
   policyRef:
-    name: build-safe
+    name: build-safe                        # reference to a PullPolicy
+  discoveryPolicyRef:
+    name: discover-ci-images                # optional, reference to a DiscoveryPolicy
   nodeSelector:
     node-role.kubernetes.io/build: "true"
-  images:
+  tolerations:
+    - key: "node-role.kubernetes.io/build"
+      operator: "Exists"
+      effect: "NoSchedule"
+  images:                                   # static image list (used when no discoveryPolicyRef)
     - image: registry.example.com/team/image-a
       tag: "1.2.3"
     - image: registry.example.com/team/image-b
       tag: "4.5.6"
-  pullPolicy: IfNotPresent
-  repullPolicy: Never
+  pullPolicy: IfNotPresent                  # default for child CachedImages
+  repullPolicy: Never                       # default for child CachedImages
+status:
+  phase: Ready
+  imagesManaged: 2
+  imagesReady: 2
+  observedGeneration: 1
+  conditions: []
 ```
 
-### Pros
-- Describes desired state (image is "cached"), which is idiomatic for k8s specs.
-- No ambiguity with OCI Image objects.
+### `PullPolicy`
 
-### Cons
-- "Cached" implies read-only/ephemeral; actual behavior is "ensure present".
-- Slightly less intuitive than `NodeImage`.
+```yaml
+apiVersion: puller.corewire.io/v1alpha1
+kind: PullPolicy
+metadata:
+  name: build-safe
+spec:
+  maxConcurrentNodes: 1                     # max nodes pulling at once
+  minDelayBetweenPulls: 20s                 # spacing between pull starts
+  maxUnavailableNodes: 1                    # max nodes simultaneously busy with pull work
+  failureBackoff:
+    initial: 10s                            # first retry delay
+    max: 5m                                 # max retry delay
+  repullPolicyDefault: OnSchedule           # default repull behavior for referencing images
+  nodeSelector:                             # optional: scope policy to a node pool
+    node-role.kubernetes.io/build: "true"
+  tolerations:                              # optional: match tainted nodes in pool
+    - key: "node-role.kubernetes.io/build"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
+
+### `DiscoveryPolicy`
+
+```yaml
+apiVersion: puller.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: discover-ci-images
+spec:
+  source:
+    prometheus:
+      endpoint: http://prometheus.monitoring.svc:9090
+      query: |
+        topk(5,
+          count by (image) (
+            kube_pod_container_info{image=~"registry.example.com/team/.*"}
+          )
+        )
+      interval: 1h                          # how often to run the query
+    registry:                               # optional alternative/additional source
+      url: https://registry.example.com
+      repository: team/image-c
+      tagFilter: "^v[0-9]+\\."
+      topX: 3
+      authSecretRef:
+        name: registry-creds
+  imageFilter:
+    pattern: "registry.example.com/team/.*" # regex filter on discovered images
+  syncInterval: 30m                         # how often to reconcile discovered set
+  maxImages: 10                             # cap on discovered images
+status:
+  lastSyncTime: "2026-05-22T05:00:00Z"
+  discoveredImages: 5
+  conditions: []
+```
 
 ---
 
-## Proposal D: `PrePullImage` + `PrePullImageSet` + `PrePullPolicy`
+## Why this design
 
-Keep the original `PrePull` prefix on all resources for maximum explicitness.
-
-### Pros
-- Self-describing even without API group context.
-- No clash risk whatsoever.
-
-### Cons
-- Verbose and repetitive — the API group already communicates "puller".
-- `PrePull` is an action verb prefix; k8s conventionally uses nouns for Kinds.
+- **"Cached" describes desired state** — idiomatic for k8s (you declare what should be true).
+- **No ambiguity** — "CachedImage" clearly differs from OCI Image manifests or container image refs.
+- **Cluster-scoped** — nodes are cluster-scoped; images cached on nodes logically belong at cluster level.
+- **Discovery is separate** — `DiscoveryPolicy` has its own reconciliation loop, sync interval, and failure modes. Keeping it separate from `CachedImageSet` follows single-concern principle and allows reuse.
+- **Policy is separate** — `PullPolicy` can be shared across many sets/images, tuned independently by platform teams.
+- **Owner references for GC** — when a `CachedImageSet` is deleted, its child `CachedImage` resources are garbage-collected automatically.
 
 ---
 
-## Recommendation
+## Alternatives considered (rejected)
 
-**Proposal A** (`Image` + `ImageSet` + `PullPolicy`) for maximum simplicity, or **Proposal B** (`NodeImage` + `NodeImageSet` + `PullPolicy`) if disambiguation from generic "image" is preferred.
-
-Both keep policy separate (single concern), use the API group for context, and follow k8s ownership patterns.
-
-### Summary of resource responsibilities
-
-| Resource | Answers | Owns |
-|----------|---------|------|
-| `PullPolicy` | "How fast/safe do we pull?" | nothing |
-| `ImageSet` / `NodeImageSet` | "Which images as a group? Discovered how?" | child `Image`/`NodeImage` resources |
-| `Image` / `NodeImage` | "Which single image on which nodes?" | nothing (leaf) |
+| Proposal | Names | Why rejected |
+|----------|-------|--------------|
+| A | `Image` + `ImageSet` + `PullPolicy` | "Image" too generic, confusing in conversation |
+| B | `NodeImage` + `NodeImageSet` + `PullPolicy` | Less intuitive than "Cached" for desired state |
+| D | `PrePullImage` + `PrePullImageSet` + `PrePullPolicy` | Verbose, redundant within `puller.corewire.io` group |

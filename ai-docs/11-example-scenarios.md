@@ -1,7 +1,7 @@
 # Feature: Example CR Scenarios
 
 ## Goal
-Define concrete Custom Resource examples that demonstrate real operator behavior ("write the code you wish to have").
+Define concrete Custom Resource examples that demonstrate real operator behavior ("write the code you wish to have"). All resources use the decided naming: `CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`.
 
 ---
 
@@ -11,7 +11,7 @@ Pull `image-a` and `image-b` onto all nodes with taint `node-role.kubernetes.io/
 
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullPolicy
+kind: PullPolicy
 metadata:
   name: build-pool-safe
 spec:
@@ -29,36 +29,34 @@ spec:
       effect: "NoSchedule"
 ---
 apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullImage
+kind: CachedImageSet
 metadata:
-  name: image-a
+  name: build-essentials
 spec:
-  image: registry.example.com/team/image-a
-  tag: "1.2.3"
-  pullPolicy: IfNotPresent
-  repullPolicy: Never
   policyRef:
     name: build-pool-safe
----
-apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullImage
-metadata:
-  name: image-b
-spec:
-  image: registry.example.com/team/image-b
-  tag: "4.5.6"
+  nodeSelector:
+    node-role.kubernetes.io/build: "true"
+  tolerations:
+    - key: "node-role.kubernetes.io/build"
+      operator: "Exists"
+      effect: "NoSchedule"
+  images:
+    - image: registry.example.com/team/image-a
+      tag: "1.2.3"
+    - image: registry.example.com/team/image-b
+      tag: "4.5.6"
   pullPolicy: IfNotPresent
   repullPolicy: Never
-  policyRef:
-    name: build-pool-safe
 ```
 
 **Operator behavior:**
-1. Reconciler sees two `PrePullImage` resources bound to `build-pool-safe`.
-2. Policy limits pulling to 1 node at a time with 20s spacing.
-3. Operator picks `image-a` first (alphabetical or by `priority` if set), pulls it onto node-1, waits 20s, pulls onto node-2, etc.
-4. Once `image-a` is complete on all targeted nodes, moves to `image-b` and repeats.
-5. At no point are two images or two nodes pulling simultaneously.
+1. Reconciler sees `CachedImageSet` "build-essentials" bound to `build-pool-safe`.
+2. Operator creates child `CachedImage` resources for image-a and image-b (owned via ownerReferences).
+3. Policy limits pulling to 1 node at a time with 20s spacing.
+4. Operator picks `image-a` first (by priority or alphabetical), pulls it onto node-1, waits 20s, pulls onto node-2, etc.
+5. Once `image-a` is complete on all targeted nodes, moves to `image-b` and repeats.
+6. At no point are two images or two nodes pulling simultaneously.
 
 ---
 
@@ -68,7 +66,7 @@ GPU nodes have fast storage and network; allow 3 nodes to pull at once.
 
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullPolicy
+kind: PullPolicy
 metadata:
   name: gpu-pool-fast
 spec:
@@ -86,7 +84,7 @@ spec:
       effect: "NoSchedule"
 ---
 apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullImage
+kind: CachedImage
 metadata:
   name: cuda-base
 spec:
@@ -96,6 +94,12 @@ spec:
   repullPolicy: Never
   policyRef:
     name: gpu-pool-fast
+  nodeSelector:
+    gpu: "true"
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Exists"
+      effect: "NoSchedule"
 ```
 
 **Operator behavior:**
@@ -107,11 +111,11 @@ spec:
 
 ## Scenario 3: Prometheus-driven discovery for dynamic images
 
-Automatically discover the top 5 most-used images matching `image-c*` via a Prometheus query, then pre-pull them onto build nodes using the safe policy.
+Automatically discover the top 5 most-used images matching `image-c*` via a Prometheus query, then cache them onto build nodes using the safe policy.
 
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullPolicy
+kind: PullPolicy
 metadata:
   name: build-pool-safe
 spec:
@@ -129,7 +133,7 @@ spec:
       effect: "NoSchedule"
 ---
 apiVersion: puller.corewire.io/v1alpha1
-kind: ImageDiscoveryPolicy
+kind: DiscoveryPolicy
 metadata:
   name: discover-image-c
 spec:
@@ -145,35 +149,53 @@ spec:
       interval: 1h
   imageFilter:
     pattern: "registry.example.com/team/image-c.*"
-  target:
-    pullPolicy: IfNotPresent
-    repullPolicy: OnSchedule
-    policyRef:
-      name: build-pool-safe
   syncInterval: 30m
+  maxImages: 5
+---
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: popular-ci-images
+spec:
+  policyRef:
+    name: build-pool-safe
+  discoveryPolicyRef:
+    name: discover-image-c
+  nodeSelector:
+    node-role.kubernetes.io/build: "true"
+  tolerations:
+    - key: "node-role.kubernetes.io/build"
+      operator: "Exists"
+      effect: "NoSchedule"
+  pullPolicy: IfNotPresent
+  repullPolicy: OnSchedule
 ```
 
 **Operator behavior:**
-1. Every 30 minutes, reconciler executes the Prometheus query.
+1. `DiscoveryPolicy` reconciler executes the Prometheus query every 30 minutes.
 2. Query returns top 5 images matching `image-c*` by pod usage count.
-3. Operator materializes/updates up to 5 `PrePullImage` resources automatically.
-4. Each generated `PrePullImage` inherits `policyRef: build-pool-safe`, so pulls respect the one-node-at-a-time pacing.
-5. If an image drops out of the top 5, its `PrePullImage` is garbage-collected on the next sync.
+3. `CachedImageSet` reconciler reads discovered images from the referenced `DiscoveryPolicy` status.
+4. Operator materializes/updates up to 5 child `CachedImage` resources (owned by the set).
+5. Each child `CachedImage` inherits `policyRef: build-pool-safe`, so pulls respect one-node-at-a-time pacing.
+6. If an image drops out of the top 5, its `CachedImage` is garbage-collected on the next sync.
 
 ---
 
 ## Design notes
 
 ### Per-pool policy binding
-`PrePullPolicy` carries `nodeSelector` and `tolerations` to bind it to a specific node pool. This allows heterogeneous clusters to have different pacing per pool:
+`PullPolicy` carries `nodeSelector` and `tolerations` to bind it to a specific node pool. This allows heterogeneous clusters to have different pacing per pool:
 - Slow/safe policy for large CI build pools.
 - Fast/relaxed policy for GPU or burst pools with better I/O.
 - Default cluster-wide policy for general workloads.
 
-Multiple policies can coexist; each `PrePullImage` references the appropriate policy via `policyRef`.
+Multiple policies can coexist; each `CachedImage`/`CachedImageSet` references the appropriate policy via `policyRef`.
 
 ### Ordering within a policy
-When multiple `PrePullImage` resources share the same policy, the operator processes them sequentially by default (one image fully rolled out before starting the next). A `priority` field on `PrePullImage` controls ordering.
+When multiple `CachedImage` resources share the same policy, the operator processes them sequentially by default (one image fully rolled out before starting the next). A `priority` field on `CachedImage` controls ordering.
 
 ### Moving tags
-For images using moving tags (e.g. `latest`), set `repullPolicy: OnSchedule` on the `PrePullImage` or let the policy default apply. The operator re-checks on each sync interval.
+For images using moving tags (e.g. `latest`), set `repullPolicy: OnSchedule` on the `CachedImage` or let the policy default apply. The operator re-checks on each sync interval.
+
+### Cluster scope
+All resources (`CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`) are cluster-scoped because they operate on nodes, which are themselves cluster-scoped resources.

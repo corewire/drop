@@ -13,6 +13,17 @@ This directory contains feature-sliced planning docs intended to reduce context 
 - `07-dev-tooling.md` — local developer experience/tooling plan
 - `08-advanced-debugging-kamera.md` — simulation/debugging plan with Kamera
 - `09-crd-reference.md` — CRD field reference and slow-pull safety model
-- `10-policy-redesign-proposals.md` — simplified policy-driven cluster-wide pull pacing design
+- `10-policy-redesign-proposals.md` — simplified PullPolicy design for cluster-wide pacing
 - `11-example-scenarios.md` — concrete CR examples for real-world operator scenarios
-- `12-naming-structure-proposals.md` — CRD naming and hierarchy proposals (PrePullImage/PrePullImageSet/PrePullPolicy)
+- `12-naming-structure-proposals.md` — CRD naming decision (CachedImage/CachedImageSet/PullPolicy/DiscoveryPolicy)
+
+## Decided CRD naming
+
+| Kind | Scope | Purpose |
+|------|-------|---------|
+| `CachedImage` | Cluster | Single image to cache on target nodes |
+| `CachedImageSet` | Cluster | Group of images with shared config/discovery |
+| `PullPolicy` | Cluster | Pacing and safety controls |
+| `DiscoveryPolicy` | Cluster | Dynamic image discovery (Prometheus, registry) |
+
+API group: `puller.corewire.io/v1alpha1`

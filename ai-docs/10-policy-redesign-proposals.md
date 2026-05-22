@@ -1,16 +1,18 @@
 # Feature: Pull Policy Design (Simplified)
 
 ## Problem statement
-`PrePullImage` describes *what* to pull, but cluster stability depends on *how fast* pulling happens across many nodes.
-Putting all pacing controls on `PrePullImage` is not enough for large clusters.
+`CachedImage` describes *what* to cache, but cluster stability depends on *how fast* pulling happens across many nodes.
+Putting all pacing controls on `CachedImage` is not enough for large clusters.
 
-## Recommended design: Split intent and execution policy
+## Design: Split intent and execution policy
 
-### APIs
-- `PrePullImage`: image intent only (image/tag/digest/selectors/priority).
-- `PrePullPolicy`: shared execution policy applied to many `PrePullImage` resources.
+### APIs (all cluster-scoped)
+- `CachedImage`: image intent only (image/tag/digest/selectors/priority).
+- `CachedImageSet`: group of images with shared config and optional discovery.
+- `PullPolicy`: shared execution policy applied to many `CachedImage`/`CachedImageSet` resources.
+- `DiscoveryPolicy`: separate resource for dynamic image discovery (Prometheus, registry).
 
-### `PrePullPolicy` fields
+### `PullPolicy` fields
 - `maxConcurrentNodes`: max nodes pulling at once cluster-wide.
 - `minDelayBetweenPulls`: spacing between pull starts per node.
 - `failureBackoff`: retry backoff config.
@@ -23,7 +25,7 @@ Putting all pacing controls on `PrePullImage` is not enough for large clusters.
 `maxUnavailableNodes` controls rollout disruption budget (how many nodes can be taken out of normal scheduling posture for pull work at once).
 
 ### Per-pool policy binding
-Each `PrePullPolicy` can carry `nodeSelector`/`tolerations` to scope it to a node pool. This enables heterogeneous clusters (build, GPU, burst pools) to have independent pacing without a separate CRD kind.
+Each `PullPolicy` can carry `nodeSelector`/`tolerations` to scope it to a node pool. This enables heterogeneous clusters (build, GPU, burst pools) to have independent pacing without a separate CRD kind.
 
 ### Why
 - Clear separation of concerns.
@@ -34,7 +36,7 @@ Each `PrePullPolicy` can carry `nodeSelector`/`tolerations` to scope it to a nod
 ## Parallel pull worker semantics
 - A single image pull already performs concurrent layer downloads in containerd/cri.
 - Additional operator-level parallel workers on one node would run multiple image pull tasks at once.
-- For v1 planning, prefer **no dedicated per-image `concurrency` field**; keep pacing in `PrePullPolicy` with node rollout and delay controls.
+- For v1 planning, prefer **no dedicated per-image `concurrency` field**; keep pacing in `PullPolicy` with node rollout and delay controls.
 
 ## Scope note
 No migration path is needed at this stage because implementation has not started.
@@ -42,7 +44,7 @@ No migration path is needed at this stage because implementation has not started
 ## Example
 ```yaml
 apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullPolicy
+kind: PullPolicy
 metadata:
   name: safe-default
 spec:
@@ -55,7 +57,7 @@ spec:
   repullPolicyDefault: OnSchedule
 ---
 apiVersion: puller.corewire.io/v1alpha1
-kind: PrePullImage
+kind: CachedImage
 metadata:
   name: gitlab-runner-helper
 spec:
