@@ -8,8 +8,10 @@ Run realistic operator scenarios in ephemeral Kubernetes clusters.
 - **Kyverno Chainsaw** for scenario-based Kubernetes workflow tests
 
 ## Planned scenarios
-- Static `PrePullImage` reconciliation and status updates
+- Static `CachedImage` reconciliation and status updates
 - Pull policy/repull policy behavior for moving tags
 - Node selector and toleration scheduling behavior
-- Discovery policy producing expected top-X `PrePullImage` objects
+- `CachedImageSet` managing child `CachedImage` resources
+- `DiscoveryPolicy` producing expected top-X discovered images
 - Failure/backoff and condition reporting
+- Cleanup/GC via ownerReference cascade

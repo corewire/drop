@@ -18,6 +18,7 @@ This directory contains feature-sliced planning docs intended to reduce context 
 - `12-naming-structure-proposals.md` — CRD naming decision (CachedImage/CachedImageSet/PullPolicy/DiscoveryPolicy)
 - `13-discovery-architecture.md` — Discovery architecture: reconciliation flow, query contract, source types, legacy migration
 - `14-architecture.md` — Overall system architecture plan: reconcilers, pull mechanism, pacing, project structure
+- `15-implementation-plan.md` — Detailed implementation plan: tasks, acceptance criteria, dependencies, effort estimates
 
 ## Decided CRD naming
 

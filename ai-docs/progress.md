@@ -4,16 +4,22 @@
 - [x] Decide CRD naming: `CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy` (cluster-scoped)
 - [x] Consolidate all docs to use decided naming and structure
 - [x] Design overall system architecture (reconcilers, pull mechanism, pacing, project layout)
-- [ ] Bootstrap Go operator project using Kubebuilder (controller-runtime)
-- [ ] Define CRDs (`CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`) in `puller.corewire.io/v1alpha1`
-- [ ] Implement `CachedImage` reconciliation with pull throttling and status
-- [ ] Implement `CachedImageSet` reconciliation (static image lists, child management)
-- [ ] Implement `PullPolicy` controller for pacing enforcement
-- [ ] Implement `DiscoveryPolicy` reconciliation (Prometheus + registry)
-- [ ] Add e2e tests with kind and Kyverno Chainsaw
-- [ ] Add automated release pipeline (tags, changelog, artifacts)
-- [ ] Add Helm chart packaging and publishing
-- [ ] Add multi-arch container builds (`linux/amd64`, `linux/arm64`) to GHCR
-- [ ] Add Hugo Hextra docs generation and publishing
-- [ ] Add AI-friendly docs lint/checks in CI
+- [x] Create detailed implementation plan with tasks, acceptance criteria, and dependencies
+- [ ] **Phase 1:** Bootstrap Go operator project using Kubebuilder (controller-runtime)
+- [ ] **Phase 1:** Define CRDs (`CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`) in `puller.corewire.io/v1alpha1`
+- [ ] **Phase 1:** Implement Pod builder (puller Pod construction)
+- [ ] **Phase 1:** Implement pacing engine (shared rate-limiting logic)
+- [ ] **Phase 1:** Implement `CachedImage` reconciler (core pull loop)
+- [ ] **Phase 2:** Multi-node pacing integration tests
+- [ ] **Phase 2:** RepullPolicy for moving tags
+- [ ] **Phase 3:** Implement `CachedImageSet` reconciler (static image lists, child management)
+- [ ] **Phase 4:** Implement Source interface + Prometheus source
+- [ ] **Phase 4:** Implement `DiscoveryPolicy` reconciler
+- [ ] **Phase 4:** Connect CachedImageSet ↔ DiscoveryPolicy
+- [ ] **Phase 5:** Implement registry source + imageTemplate
+- [ ] **Phase 6:** Helm chart packaging and publishing
+- [ ] **Phase 6:** CI pipeline (lint, test, build, e2e, release)
+- [ ] **Phase 6:** E2E tests with kind + Kyverno Chainsaw
+- [ ] **Phase 6:** Multi-arch container builds (`linux/amd64`, `linux/arm64`) to GHCR
+- [ ] **Phase 6:** Hugo Hextra docs generation and publishing
 - [ ] Evaluate Kamera simulation workflows for controller verification
