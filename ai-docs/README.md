@@ -14,3 +14,4 @@ This directory contains feature-sliced planning docs intended to reduce context 
 - `08-advanced-debugging-kamera.md` — simulation/debugging plan with Kamera
 - `09-crd-reference.md` — CRD field reference and slow-pull safety model
 - `10-policy-redesign-proposals.md` — simplified policy-driven cluster-wide pull pacing design
+- `11-example-scenarios.md` — concrete CR examples for real-world operator scenarios

@@ -16,9 +16,14 @@ Putting all pacing controls on `PrePullImage` is not enough for large clusters.
 - `failureBackoff`: retry backoff config.
 - `repullPolicyDefault`: default behavior for moving tags.
 - `maxUnavailableNodes`: maximum nodes simultaneously marked busy by rollout for this pull operation.
+- `nodeSelector` (map, optional): bind this policy to a specific node pool.
+- `tolerations` (list, optional): allow targeting tainted nodes in the pool.
 
 `maxConcurrentNodes` controls active pull throughput.  
 `maxUnavailableNodes` controls rollout disruption budget (how many nodes can be taken out of normal scheduling posture for pull work at once).
+
+### Per-pool policy binding
+Each `PrePullPolicy` can carry `nodeSelector`/`tolerations` to scope it to a node pool. This enables heterogeneous clusters (build, GPU, burst pools) to have independent pacing without a separate CRD kind.
 
 ### Why
 - Clear separation of concerns.
