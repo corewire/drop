@@ -16,6 +16,7 @@ This directory contains feature-sliced planning docs intended to reduce context 
 - `10-policy-redesign-proposals.md` — simplified PullPolicy design for cluster-wide pacing
 - `11-example-scenarios.md` — concrete CR examples for real-world operator scenarios
 - `12-naming-structure-proposals.md` — CRD naming decision (CachedImage/CachedImageSet/PullPolicy/DiscoveryPolicy)
+- `13-discovery-architecture.md` — Discovery architecture: reconciliation flow, query contract, source types, legacy migration
 
 ## Decided CRD naming
 
