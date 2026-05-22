@@ -4,10 +4,12 @@ K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Cont
 ## AI Docs
 
 - See `/ai-docs/README.md` for feature-sliced planning documents and `/ai-docs/progress.md` for tracking.
+- **Architecture plan: `/ai-docs/14-architecture.md`** — system design, reconcilers, pull mechanism, pacing, project structure.
 - CRD field reference: `/ai-docs/09-crd-reference.md`.
 - Pull policy design: `/ai-docs/10-policy-redesign-proposals.md`.
 - Example scenarios: `/ai-docs/11-example-scenarios.md`.
 - Naming decision: `/ai-docs/12-naming-structure-proposals.md`.
+- Discovery architecture: `/ai-docs/13-discovery-architecture.md`.
 
 ## Draft Plan
 

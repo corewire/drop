@@ -17,6 +17,7 @@ This directory contains feature-sliced planning docs intended to reduce context 
 - `11-example-scenarios.md` — concrete CR examples for real-world operator scenarios
 - `12-naming-structure-proposals.md` — CRD naming decision (CachedImage/CachedImageSet/PullPolicy/DiscoveryPolicy)
 - `13-discovery-architecture.md` — Discovery architecture: reconciliation flow, query contract, source types, legacy migration
+- `14-architecture.md` — Overall system architecture plan: reconcilers, pull mechanism, pacing, project structure
 
 ## Decided CRD naming
 

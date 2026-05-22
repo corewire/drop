@@ -3,6 +3,7 @@
 - [x] Create AI docs structure and feature-sliced plan files
 - [x] Decide CRD naming: `CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy` (cluster-scoped)
 - [x] Consolidate all docs to use decided naming and structure
+- [x] Design overall system architecture (reconcilers, pull mechanism, pacing, project layout)
 - [ ] Bootstrap Go operator project using Kubebuilder (controller-runtime)
 - [ ] Define CRDs (`CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`) in `puller.corewire.io/v1alpha1`
 - [ ] Implement `CachedImage` reconciliation with pull throttling and status
