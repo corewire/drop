@@ -15,3 +15,4 @@ This directory contains feature-sliced planning docs intended to reduce context 
 - `09-crd-reference.md` — CRD field reference and slow-pull safety model
 - `10-policy-redesign-proposals.md` — simplified policy-driven cluster-wide pull pacing design
 - `11-example-scenarios.md` — concrete CR examples for real-world operator scenarios
+- `12-naming-structure-proposals.md` — CRD naming and hierarchy proposals (PrePullImage/PrePullImageSet/PrePullPolicy)
