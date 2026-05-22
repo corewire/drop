@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cachedimage-pacing
+spec:
+  description: |
+    Verify that PullPolicy pacing is respected: with maxConcurrentNodes=1,
+    only one puller Pod should exist at any time.
+  steps:
+    - name: Create PullPolicy
+      try:
+        - apply:
+            file: 01-pullpolicy.yaml
+    - name: Create CachedImage referencing policy
+      try:
+        - apply:
+            file: 02-cachedimage.yaml
+    - name: Verify only one active Pod at a time
+      try:
+        - assert:
+            file: 03-assert-single-pod.yaml
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: CachedImage
+              name: test-paced
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: PullPolicy
+              name: test-conservative

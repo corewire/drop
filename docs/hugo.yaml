@@ -1,0 +1,39 @@
+baseURL: "https://breee.github.io/puller/"
+title: Puller Operator
+languageCode: en-us
+
+module:
+  imports:
+    - path: github.com/imfing/hextra
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+  highlight:
+    noClasses: false
+
+menu:
+  main:
+    - name: Documentation
+      pageRef: /docs
+      weight: 1
+    - name: GitHub
+      url: https://github.com/Breee/puller
+      weight: 2
+      params:
+        icon: github
+
+params:
+  description: Kubernetes operator that caches container images on cluster nodes.
+  navbar:
+    displayTitle: true
+    displayLogo: false
+  footer:
+    displayPoweredBy: false
+  docs:
+    sidebar:
+      defaultOpen: true
+  editURL:
+    enable: true
+    base: https://github.com/Breee/puller/edit/main/docs/content

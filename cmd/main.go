@@ -39,6 +39,7 @@ import (
 
 	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
 	"github.com/Breee/puller/internal/controller"
+	_ "github.com/Breee/puller/internal/metrics" // Register custom metrics
 	"github.com/Breee/puller/internal/pacing"
 	// +kubebuilder:scaffold:imports
 )
@@ -207,6 +208,7 @@ func main() {
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),
 		PacingEngine: pacing.NewEngine(mgr.GetClient()),
+		Recorder:     mgr.GetEventRecorderFor("cachedimage-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CachedImage")
 		os.Exit(1)

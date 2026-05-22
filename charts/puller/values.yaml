@@ -29,6 +29,16 @@ metrics:
 serviceMonitor:
   enabled: false
   interval: 30s
+  scrapeTimeout: ""
+  additionalLabels: {}
+
+# cert-manager integration for metrics TLS certificates.
+# Assumes cert-manager is installed in the cluster.
+certManager:
+  enabled: false
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
 
 nodeSelector: {}
 tolerations: []

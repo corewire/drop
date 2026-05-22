@@ -30,6 +30,9 @@ spec:
             {{- else }}
             - --metrics-bind-address=0
             {{- end }}
+            {{- if .Values.certManager.enabled }}
+            - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
+            {{- end }}
             - --health-probe-bind-address=:8081
           ports:
             - name: metrics
@@ -57,6 +60,18 @@ spec:
             capabilities:
               drop:
                 - ALL
+          {{- if .Values.certManager.enabled }}
+          volumeMounts:
+            - name: metrics-certs
+              mountPath: /tmp/k8s-metrics-server/metrics-certs
+              readOnly: true
+          {{- end }}
+      {{- if .Values.certManager.enabled }}
+      volumes:
+        - name: metrics-certs
+          secret:
+            secretName: {{ include "puller.fullname" . }}-metrics-tls
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

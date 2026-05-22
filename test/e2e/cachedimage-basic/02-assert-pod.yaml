@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: puller
+    puller.corewire.io/cachedimage: test-nginx
+spec:
+  containers:
+    - name: puller
+      image: docker.io/library/nginx:1.25-alpine
+      command: ["true"]

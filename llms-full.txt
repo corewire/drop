@@ -1,0 +1,176 @@
+# Puller Operator — Full Context for AI Agents
+
+## Project Identity
+
+- **Name**: puller
+- **Language**: Go 1.23+
+- **Framework**: Kubebuilder / controller-runtime v0.20.4
+- **API Group**: `puller.corewire.io/v1alpha1`
+- **Scope**: All CRDs are cluster-scoped
+- **License**: Apache-2.0
+
+## CRD Types
+
+### CachedImage
+Declares a single container image to cache on target nodes.
+
+```yaml
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: nginx-latest
+spec:
+  image: docker.io/library/nginx:latest
+  nodeSelector:
+    node-role.kubernetes.io/worker: ""
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "build"
+      effect: "NoSchedule"
+  policyRef:
+    name: conservative
+  pullPolicy: Always        # Always | IfNotPresent
+  repullInterval: 24h       # Re-pull interval for moving tags
+```
+
+Status tracks: `phase` (Pending/Pulling/Ready/Degraded), `nodesTargeted`, `nodesReady`, `lastPulledAt`, conditions.
+
+### CachedImageSet
+Manages a collection of CachedImage children.
+
+```yaml
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: ci-images
+spec:
+  images:
+    - docker.io/library/golang:1.23
+    - docker.io/library/node:20
+  discoveryPolicyRef:
+    name: prometheus-popular
+  nodeSelector:
+    team: platform
+  policyRef:
+    name: default-pacing
+```
+
+### PullPolicy
+Pacing configuration referenced by CachedImage/CachedImageSet.
+
+```yaml
+apiVersion: puller.corewire.io/v1alpha1
+kind: PullPolicy
+metadata:
+  name: conservative
+spec:
+  maxConcurrentNodes: 2
+  minDelayBetweenPulls: 30s
+  failureBackoff: 5m
+```
+
+### DiscoveryPolicy
+Multi-source image discovery.
+
+```yaml
+apiVersion: puller.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: prometheus-popular
+spec:
+  interval: 1h
+  topX: 30
+  imageFilter: "^docker\\.io/.*"
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        query: 'count(container_memory_working_set_bytes{container!=""}) by (image)'
+      secretRef:
+        name: prometheus-creds
+    - type: registry
+      registry:
+        url: https://registry.gitlab.com
+        repositories:
+          - gitlab-org/gitlab-runner/gitlab-runner-helper
+        tagFilter: "^v\\d+\\.\\d+\\.\\d+$"
+        topX: 5
+        imageTemplate: "registry.gitlab.com/{{ .Repository }}:x86_64-{{ .Tag }}"
+      secretRef:
+        name: registry-creds
+```
+
+## Project Layout
+
+```
+├── api/v1alpha1/              # CRD type definitions
+│   ├── cachedimage_types.go
+│   ├── cachedimageset_types.go
+│   ├── pullpolicy_types.go
+│   ├── discoverypolicy_types.go
+│   └── groupversion_info.go
+├── cmd/main.go                # Entrypoint
+├── internal/
+│   ├── controller/            # Reconcilers
+│   │   ├── cachedimage_controller.go
+│   │   ├── cachedimageset_controller.go
+│   │   └── discoverypolicy_controller.go
+│   ├── podbuilder/            # Pod construction
+│   ├── pacing/                # Pacing engine
+│   ├── discovery/             # Source interface + impls
+│   └── metrics/               # Custom Prometheus metrics
+├── charts/puller/             # Helm chart
+├── config/                    # Kustomize manifests
+├── test/e2e/                  # Chainsaw E2E tests
+├── docs/                      # Hugo Hextra documentation site
+├── hack/                      # Scripts and utilities
+└── ai-docs/                   # AI-optimized planning docs
+```
+
+## Development Commands
+
+```bash
+make build          # Compile the operator binary
+make test           # Run unit + integration tests (requires envtest binaries)
+make lint           # Run golangci-lint
+make manifests      # Regenerate CRD manifests
+make generate       # Regenerate DeepCopy methods
+make docker-build   # Build container image
+make test-e2e       # Run E2E tests with kind + chainsaw
+make docs-serve     # Local Hugo docs preview
+make helm-lint      # Lint Helm chart
+```
+
+## Design Principles
+
+1. **Simple but powerful** — no over-abstraction, no premature optimization
+2. **Single-concern resources** — each CRD does one thing
+3. **Non-disruptive pulls** — never affects node schedulability
+4. **Idempotent reconciliation** — ownerRefs for GC, status subresource, leader election
+5. **Extensible discovery** — single `Source` interface, one `Fetch` method
+6. **Standard patterns** — Kubebuilder layout, controller-runtime conventions
+
+## Pull Mechanism
+
+Short-lived Pods with:
+- `spec.nodeName` for direct placement (no scheduler)
+- `command: ["true"]` — exits immediately after kubelet pulls the image
+- Non-privileged, zero resource requests
+- `automountServiceAccountToken: false`
+- Cleaned up after success/failure
+
+## Pacing
+
+Controlled by PullPolicy:
+- `maxConcurrentNodes` — how many nodes can pull simultaneously
+- `minDelayBetweenPulls` — minimum time between starting new pull Pods
+- `failureBackoff` — wait time after a failed pull before retry
+
+Pacing state derived from active Pod count via label selectors — no external state store.
+
+## Observability
+
+- **Metrics**: `puller_images_cached_total`, `puller_pull_duration_seconds`, `puller_pull_errors_total`, `puller_discovery_images_found`, `puller_active_pulls`
+- **Events**: Normal/Warning events on CachedImage resources for pull start/success/failure
+- **Status conditions**: Standard `metav1.Condition` on all resources

@@ -1,0 +1,9 @@
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  labels:
+    puller.corewire.io/imageset: test-set
+  ownerReferences:
+    - apiVersion: puller.corewire.io/v1alpha1
+      kind: CachedImageSet
+      name: test-set

@@ -1,0 +1,7 @@
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: test-nginx
+status:
+  phase: Ready
+  nodesReady: 1

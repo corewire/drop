@@ -38,6 +38,7 @@ import (
 
 	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
 	"github.com/Breee/puller/internal/discovery"
+	pullermetrics "github.com/Breee/puller/internal/metrics"
 )
 
 // DiscoveryPolicyReconciler reconciles a DiscoveryPolicy object
@@ -90,6 +91,7 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				Score: results[j].Score,
 			}
 		}
+		pullermetrics.DiscoveryImagesFound.WithLabelValues(dp.Name, src.Type).Set(float64(len(results)))
 		allResults = append(allResults, results...)
 	}
 

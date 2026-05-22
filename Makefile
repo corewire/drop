@@ -223,3 +223,53 @@ mv $(1) $(1)-$(3) ;\
 } ;\
 ln -sf $(1)-$(3) $(1)
 endef
+
+##@ Development Tools
+
+CHAINSAW ?= $(LOCALBIN)/chainsaw
+CHAINSAW_VERSION ?= v0.2.12
+
+.PHONY: chainsaw
+chainsaw: $(CHAINSAW) ## Download chainsaw locally if necessary.
+$(CHAINSAW): $(LOCALBIN)
+	$(call go-install-tool,$(CHAINSAW),github.com/kyverno/chainsaw,$(CHAINSAW_VERSION))
+
+.PHONY: kind-create
+kind-create: ## Create a local kind cluster for development.
+	$(KIND) create cluster --name puller-dev --wait 5m
+	@echo "Kind cluster 'puller-dev' is ready."
+
+.PHONY: kind-delete
+kind-delete: ## Delete the local kind cluster.
+	$(KIND) delete cluster --name puller-dev
+
+.PHONY: kind-load
+kind-load: docker-build ## Load the operator image into kind.
+	$(KIND) load docker-image ${IMG} --name puller-dev
+
+.PHONY: test-e2e-chainsaw
+test-e2e-chainsaw: chainsaw manifests ## Run Chainsaw E2E tests (requires kind cluster).
+	$(CHAINSAW) test test/e2e/
+
+.PHONY: helm-lint
+helm-lint: ## Lint the Helm chart.
+	helm lint charts/puller
+
+.PHONY: helm-template
+helm-template: ## Render Helm chart templates locally.
+	helm template puller charts/puller
+
+.PHONY: docs-serve
+docs-serve: ## Serve Hugo docs locally for preview.
+	cd docs && hugo server --buildDrafts --port 1313
+
+.PHONY: dev-setup
+dev-setup: ## Install all development dependencies.
+	@echo "Installing development tools..."
+	@$(MAKE) kustomize controller-gen envtest golangci-lint chainsaw
+	@echo "All tools installed to $(LOCALBIN)"
+
+.PHONY: demo
+demo: ## Run the operator demo script showing end-to-end functionality.
+	@hack/demo.sh
+

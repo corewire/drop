@@ -27,11 +27,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
+	pullermetrics "github.com/Breee/puller/internal/metrics"
 	"github.com/Breee/puller/internal/pacing"
 	"github.com/Breee/puller/internal/podbuilder"
 )
@@ -49,6 +51,7 @@ type CachedImageReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	PacingEngine *pacing.Engine
+	Recorder     record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=puller.corewire.io,resources=cachedimages,verbs=get;list;watch;create;update;patch;delete
@@ -57,6 +60,7 @@ type CachedImageReconciler struct {
 // +kubebuilder:rbac:groups=puller.corewire.io,resources=pullpolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // nodeState tracks the pull state for a single node.
 type nodeState struct {
@@ -95,7 +99,7 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// 7-8. Process pod states
-	nodesReady, requeueNeeded := r.processPodStates(ctx, stateMap)
+	nodesReady, requeueNeeded := r.processPodStates(ctx, ci, stateMap)
 
 	// 9-10. Schedule pulls for nodes that need them
 	requeueAfter, pullRequeue, err := r.schedulePulls(ctx, ci, policy, stateMap)
@@ -189,7 +193,7 @@ func (r *CachedImageReconciler) buildNodeStateMap(ctx context.Context, ci *pulle
 }
 
 // processPodStates evaluates completed/failed/running pods and returns ready count.
-func (r *CachedImageReconciler) processPodStates(ctx context.Context, stateMap map[string]*nodeState) (int32, bool) {
+func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *pullerv1alpha1.CachedImage, stateMap map[string]*nodeState) (int32, bool) {
 	log := logf.FromContext(ctx)
 	var nodesReady int32
 	var requeueNeeded bool
@@ -203,11 +207,15 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, stateMap m
 		case corev1.PodSucceeded:
 			state.ready = true
 			nodesReady++
+			pullermetrics.ImagesCachedTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
+			r.Recorder.Eventf(ci, corev1.EventTypeNormal, "PullSucceeded", "Image %s cached on node %s", ci.Spec.Image, nodeName)
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting succeeded pod", "pod", state.pod.Name, "node", nodeName)
 			}
 		case corev1.PodFailed:
 			state.failed = true
+			pullermetrics.PullErrorsTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
+			r.Recorder.Eventf(ci, corev1.EventTypeWarning, "PullFailed", "Failed to pull image %s on node %s", ci.Spec.Image, nodeName)
 			log.Info("puller pod failed", "pod", state.pod.Name, "node", nodeName)
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting failed pod", "pod", state.pod.Name, "node", nodeName)
@@ -254,6 +262,8 @@ func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *pullerv1a
 				return 0, false, fmt.Errorf("creating puller pod: %w", err)
 			}
 		} else {
+			pullermetrics.ActivePulls.Inc()
+			r.Recorder.Eventf(ci, corev1.EventTypeNormal, "PullStarted", "Started pulling image %s on node %s", ci.Spec.Image, nodeName)
 			log.Info("created puller pod", "pod", pod.Name, "node", nodeName, "image", ci.Spec.Image)
 		}
 

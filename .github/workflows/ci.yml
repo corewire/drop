@@ -48,3 +48,44 @@ jobs:
       - uses: azure/setup-helm@v4
       - name: Lint Helm chart
         run: helm lint charts/puller
+      - name: Template Helm chart
+        run: helm template puller charts/puller
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+      - name: Create kind cluster
+        run: kind create cluster --wait 60s
+      - name: Build and load image
+        run: |
+          make docker-build IMG=controller:ci
+          kind load docker-image controller:ci
+      - name: Install CRDs
+        run: |
+          make manifests
+          kubectl apply -f config/crd/bases/
+      - name: Deploy operator
+        run: |
+          helm install puller charts/puller \
+            --namespace puller-system \
+            --create-namespace \
+            --set image.repository=controller \
+            --set image.tag=ci \
+            --set image.pullPolicy=Never \
+            --set leaderElection.enabled=false \
+            --set metrics.enabled=false \
+            --wait --timeout 120s
+      - name: Install chainsaw
+        run: go install github.com/kyverno/chainsaw@v0.2.12
+      - name: Run E2E tests
+        run: chainsaw test test/e2e/

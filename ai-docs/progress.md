@@ -5,21 +5,30 @@
 - [x] Consolidate all docs to use decided naming and structure
 - [x] Design overall system architecture (reconcilers, pull mechanism, pacing, project layout)
 - [x] Create detailed implementation plan with tasks, acceptance criteria, and dependencies
-- [ ] **Phase 1:** Bootstrap Go operator project using Kubebuilder (controller-runtime)
-- [ ] **Phase 1:** Define CRDs (`CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`) in `puller.corewire.io/v1alpha1`
-- [ ] **Phase 1:** Implement Pod builder (puller Pod construction)
-- [ ] **Phase 1:** Implement pacing engine (shared rate-limiting logic)
-- [ ] **Phase 1:** Implement `CachedImage` reconciler (core pull loop)
-- [ ] **Phase 2:** Multi-node pacing integration tests
-- [ ] **Phase 2:** RepullPolicy for moving tags
-- [ ] **Phase 3:** Implement `CachedImageSet` reconciler (static image lists, child management)
-- [ ] **Phase 4:** Implement Source interface + Prometheus source
-- [ ] **Phase 4:** Implement `DiscoveryPolicy` reconciler
-- [ ] **Phase 4:** Connect CachedImageSet ↔ DiscoveryPolicy
-- [ ] **Phase 5:** Implement registry source + imageTemplate
-- [ ] **Phase 6:** Helm chart packaging and publishing
-- [ ] **Phase 6:** CI pipeline (lint, test, build, e2e, release)
-- [ ] **Phase 6:** E2E tests with kind + Kyverno Chainsaw
-- [ ] **Phase 6:** Multi-arch container builds (`linux/amd64`, `linux/arm64`) to GHCR
-- [ ] **Phase 6:** Hugo Hextra docs generation and publishing
-- [ ] Evaluate Kamera simulation workflows for controller verification
+- [x] **Phase 1:** Bootstrap Go operator project using Kubebuilder (controller-runtime)
+- [x] **Phase 1:** Define CRDs (`CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`) in `puller.corewire.io/v1alpha1`
+- [x] **Phase 1:** Implement Pod builder (puller Pod construction)
+- [x] **Phase 1:** Implement pacing engine (shared rate-limiting logic)
+- [x] **Phase 1:** Implement `CachedImage` reconciler (core pull loop)
+- [x] **Phase 2:** Multi-node pacing integration tests
+- [ ] **Phase 2:** RepullPolicy for moving tags (reconciler-level requeue)
+- [x] **Phase 3:** Implement `CachedImageSet` reconciler (static image lists, child management)
+- [x] **Phase 4:** Implement Source interface + Prometheus source
+- [x] **Phase 4:** Implement `DiscoveryPolicy` reconciler
+- [x] **Phase 4:** Connect CachedImageSet ↔ DiscoveryPolicy
+- [x] **Phase 5:** Implement registry source + imageTemplate
+- [x] **Phase 6:** Helm chart packaging and publishing
+- [x] **Phase 6:** CI pipeline (lint, test, build, e2e, release)
+- [x] **Phase 6:** Multi-arch container builds (`linux/amd64`, `linux/arm64`) to GHCR
+- [x] AI-friendly docs (llms.txt, llms-full.txt)
+- [x] Hugo Hextra docs site (docs/ directory with getting-started, CRDs, discovery, observability)
+- [x] Helm chart ServiceMonitor + metrics Service
+- [x] Helm chart cert-manager Certificate integration
+- [x] Custom Prometheus metrics (puller_images_cached_total, puller_pull_duration_seconds, etc.)
+- [x] Kubernetes events on CachedImage (PullStarted, PullSucceeded, PullFailed)
+- [x] Developer tooling (Tiltfile, pre-commit, enhanced Makefile, demo script)
+- [x] E2E test scaffolding with Kyverno Chainsaw (5 scenarios)
+- [x] Kamera evaluation documentation (post-MVP decision)
+- [ ] Hugo Hextra docs generation CI workflow
+- [ ] RepullPolicy implementation (requeueAfter for moving tags)
+

@@ -1,0 +1,8 @@
+apiVersion: puller.corewire.io/v1alpha1
+kind: PullPolicy
+metadata:
+  name: test-conservative
+spec:
+  maxConcurrentNodes: 1
+  minDelayBetweenPulls: 5s
+  failureBackoff: 30s

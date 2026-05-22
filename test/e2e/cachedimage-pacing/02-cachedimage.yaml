@@ -1,0 +1,8 @@
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: test-paced
+spec:
+  image: docker.io/library/busybox:latest
+  policyRef:
+    name: test-conservative

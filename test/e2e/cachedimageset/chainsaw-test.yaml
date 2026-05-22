@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cachedimageset
+spec:
+  description: |
+    Verify that a CachedImageSet creates child CachedImage resources
+    and manages their lifecycle via ownerReferences.
+  steps:
+    - name: Create CachedImageSet
+      try:
+        - apply:
+            file: 01-cachedimageset.yaml
+    - name: Verify child CachedImages created
+      try:
+        - assert:
+            timeout: 30s
+            file: 02-assert-children.yaml
+    - name: Delete CachedImageSet and verify GC
+      try:
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: CachedImageSet
+              name: test-set
+        - error:
+            timeout: 30s
+            file: 03-assert-deleted.yaml
