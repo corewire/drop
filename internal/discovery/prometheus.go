@@ -64,7 +64,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("querying prometheus: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -80,7 +80,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 		return nil, fmt.Errorf("prometheus query failed with status: %s", promResp.Status)
 	}
 
-	var results []ImageResult
+	results := make([]ImageResult, 0, len(promResp.Data.Result))
 	for _, r := range promResp.Data.Result {
 		image, ok := r.Metric["image"]
 		if !ok || image == "" {

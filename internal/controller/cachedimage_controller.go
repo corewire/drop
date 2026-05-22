@@ -38,6 +38,10 @@ import (
 
 const (
 	conditionTypeReady = "Ready"
+	phasePending       = "Pending"
+	phaseReady         = "Ready"
+	phasePulling       = "Pulling"
+	phaseDegraded      = "Degraded"
 )
 
 // CachedImageReconciler reconciles a CachedImage object
@@ -54,10 +58,15 @@ type CachedImageReconciler struct {
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
+// nodeState tracks the pull state for a single node.
+type nodeState struct {
+	pod    *corev1.Pod
+	ready  bool
+	failed bool
+}
+
 // Reconcile moves the cluster state closer to the desired state for a CachedImage.
 func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := logf.FromContext(ctx)
-
 	// 1. Fetch CachedImage
 	ci := &pullerv1alpha1.CachedImage{}
 	if err := r.Get(ctx, req.NamespacedName, ci); err != nil {
@@ -67,48 +76,97 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	// 2. List nodes matching nodeSelector
+	// 2-3. Resolve target nodes
+	targetNodes, err := r.resolveTargetNodes(ctx, ci)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// 4. Fetch referenced PullPolicy
+	policy, err := r.fetchPullPolicy(ctx, ci)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// 5-6. Build per-node state from owned Pods
+	stateMap, err := r.buildNodeStateMap(ctx, ci, targetNodes)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// 7-8. Process pod states
+	nodesReady, requeueNeeded := r.processPodStates(ctx, stateMap)
+
+	// 9-10. Schedule pulls for nodes that need them
+	requeueAfter, pullRequeue, err := r.schedulePulls(ctx, ci, policy, stateMap)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	requeueNeeded = requeueNeeded || pullRequeue
+
+	// 11. Update status
+	nodesTargeted := int32(len(targetNodes))
+	now := metav1.Now()
+	r.updateCachedImageStatus(ci, stateMap, nodesTargeted, nodesReady, now)
+
+	if err := r.Status().Update(ctx, ci); err != nil {
+		return ctrl.Result{}, fmt.Errorf("updating status: %w", err)
+	}
+
+	// 12. Determine requeue
+	if requeueNeeded {
+		if requeueAfter == 0 {
+			requeueAfter = 5 * time.Second
+		}
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// resolveTargetNodes lists and filters nodes matching the CachedImage spec.
+func (r *CachedImageReconciler) resolveTargetNodes(ctx context.Context, ci *pullerv1alpha1.CachedImage) ([]corev1.Node, error) {
 	nodeList := &corev1.NodeList{}
 	listOpts := &client.ListOptions{}
 	if len(ci.Spec.NodeSelector) > 0 {
 		listOpts.LabelSelector = labels.SelectorFromSet(ci.Spec.NodeSelector)
 	}
 	if err := r.List(ctx, nodeList, listOpts); err != nil {
-		return ctrl.Result{}, fmt.Errorf("listing nodes: %w", err)
+		return nil, fmt.Errorf("listing nodes: %w", err)
 	}
+	return filterNodesByTolerations(nodeList.Items, ci.Spec.Tolerations), nil
+}
 
-	// 3. Filter nodes by tolerations
-	targetNodes := filterNodesByTolerations(nodeList.Items, ci.Spec.Tolerations)
-
-	// 4. Fetch referenced PullPolicy
-	var policy *pullerv1alpha1.PullPolicy
-	if ci.Spec.PolicyRef != nil {
-		policy = &pullerv1alpha1.PullPolicy{}
-		policyKey := client.ObjectKey{Name: ci.Spec.PolicyRef.Name}
-		if err := r.Get(ctx, policyKey, policy); err != nil {
-			if !errors.IsNotFound(err) {
-				return ctrl.Result{}, fmt.Errorf("fetching PullPolicy: %w", err)
-			}
-			log.Info("referenced PullPolicy not found, using defaults", "policy", ci.Spec.PolicyRef.Name)
-			policy = nil
+// fetchPullPolicy retrieves the referenced PullPolicy, if any.
+func (r *CachedImageReconciler) fetchPullPolicy(ctx context.Context, ci *pullerv1alpha1.CachedImage) (*pullerv1alpha1.PullPolicy, error) {
+	if ci.Spec.PolicyRef == nil {
+		return nil, nil
+	}
+	log := logf.FromContext(ctx)
+	policy := &pullerv1alpha1.PullPolicy{}
+	policyKey := client.ObjectKey{Name: ci.Spec.PolicyRef.Name}
+	if err := r.Get(ctx, policyKey, policy); err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("fetching PullPolicy: %w", err)
 		}
+		log.Info("referenced PullPolicy not found, using defaults", "policy", ci.Spec.PolicyRef.Name)
+		return nil, nil
 	}
+	return policy, nil
+}
 
-	// 5. List owned Pods
+// buildNodeStateMap creates the per-node state map from owned Pods.
+func (r *CachedImageReconciler) buildNodeStateMap(ctx context.Context, ci *pullerv1alpha1.CachedImage, targetNodes []corev1.Node) (map[string]*nodeState, error) {
+	log := logf.FromContext(ctx)
+
 	podList := &corev1.PodList{}
 	if err := r.List(ctx, podList, client.MatchingLabels{
 		podbuilder.LabelManagedBy:   podbuilder.LabelManagedByValue,
 		podbuilder.LabelCachedImage: ci.Name,
 	}); err != nil {
-		return ctrl.Result{}, fmt.Errorf("listing owned pods: %w", err)
+		return nil, fmt.Errorf("listing owned pods: %w", err)
 	}
 
-	// 6. Build per-node state map
-	type nodeState struct {
-		pod    *corev1.Pod
-		ready  bool
-		failed bool
-	}
 	stateMap := make(map[string]*nodeState, len(targetNodes))
 	for i := range targetNodes {
 		stateMap[targetNodes[i].Name] = &nodeState{}
@@ -119,7 +177,6 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		nodeName := pod.Labels[podbuilder.LabelNode]
 		state, exists := stateMap[nodeName]
 		if !exists {
-			// Pod for node no longer in target set — delete it
 			if err := r.Delete(ctx, pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting orphan pod", "pod", pod.Name)
 			}
@@ -128,10 +185,14 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		state.pod = pod
 	}
 
-	// 7-8. Process pod states
+	return stateMap, nil
+}
+
+// processPodStates evaluates completed/failed/running pods and returns ready count.
+func (r *CachedImageReconciler) processPodStates(ctx context.Context, stateMap map[string]*nodeState) (int32, bool) {
+	log := logf.FromContext(ctx)
 	var nodesReady int32
 	var requeueNeeded bool
-	now := metav1.Now()
 
 	for nodeName, state := range stateMap {
 		if state.pod == nil {
@@ -140,36 +201,39 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 		switch state.pod.Status.Phase {
 		case corev1.PodSucceeded:
-			// Mark ready, cleanup pod
 			state.ready = true
 			nodesReady++
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting succeeded pod", "pod", state.pod.Name, "node", nodeName)
 			}
 		case corev1.PodFailed:
-			// Record failure, cleanup pod
 			state.failed = true
 			log.Info("puller pod failed", "pod", state.pod.Name, "node", nodeName)
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting failed pod", "pod", state.pod.Name, "node", nodeName)
 			}
 		case corev1.PodRunning, corev1.PodPending:
-			// Still in progress
 			requeueNeeded = true
 		}
 	}
 
-	// 9-10. For nodes needing pulls, check pacing and create pods
+	return nodesReady, requeueNeeded
+}
+
+// schedulePulls creates puller pods for nodes that need them, respecting pacing.
+func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *pullerv1alpha1.CachedImage, policy *pullerv1alpha1.PullPolicy, stateMap map[string]*nodeState) (time.Duration, bool, error) {
+	log := logf.FromContext(ctx)
 	var requeueAfter time.Duration
+	var requeueNeeded bool
+
 	for nodeName, state := range stateMap {
 		if state.ready || state.pod != nil {
 			continue
 		}
 
-		// Check pacing
 		decision, err := r.PacingEngine.CanStartPull(ctx, policy, ci.Name)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("checking pacing: %w", err)
+			return 0, false, fmt.Errorf("checking pacing: %w", err)
 		}
 
 		if !decision.Allowed {
@@ -180,15 +244,14 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			continue
 		}
 
-		// Create puller pod
 		pod, err := podbuilder.BuildPullerPod(ci, nodeName, r.Scheme)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("building puller pod: %w", err)
+			return 0, false, fmt.Errorf("building puller pod: %w", err)
 		}
 
 		if err := r.Create(ctx, pod); err != nil {
 			if !errors.IsAlreadyExists(err) {
-				return ctrl.Result{}, fmt.Errorf("creating puller pod: %w", err)
+				return 0, false, fmt.Errorf("creating puller pod: %w", err)
 			}
 		} else {
 			log.Info("created puller pod", "pod", pod.Name, "node", nodeName, "image", ci.Spec.Image)
@@ -198,19 +261,21 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		break // Create one pod at a time, respecting pacing
 	}
 
-	// 11. Update status
-	nodesTargeted := int32(len(targetNodes))
-	phase := "Pending"
+	return requeueAfter, requeueNeeded, nil
+}
+
+// updateCachedImageStatus computes and sets the status fields on the CachedImage.
+func (r *CachedImageReconciler) updateCachedImageStatus(ci *pullerv1alpha1.CachedImage, stateMap map[string]*nodeState, nodesTargeted, nodesReady int32, now metav1.Time) {
+	phase := phasePending
 	if nodesReady == nodesTargeted && nodesTargeted > 0 {
-		phase = "Ready"
+		phase = phaseReady
 	} else if nodesReady > 0 {
-		phase = "Pulling"
+		phase = phasePulling
 	}
 
-	// Check for degraded state (any failed nodes without ready state)
 	for _, state := range stateMap {
 		if state.failed && !state.ready {
-			phase = "Degraded"
+			phase = phaseDegraded
 			break
 		}
 	}
@@ -229,7 +294,7 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		ObservedGeneration: ci.Generation,
 		LastTransitionTime: now,
 	}
-	if phase == "Ready" {
+	if phase == phaseReady {
 		readyCondition.Status = metav1.ConditionTrue
 		readyCondition.Reason = "AllNodesCached"
 		readyCondition.Message = fmt.Sprintf("Image cached on all %d target nodes", nodesTargeted)
@@ -239,20 +304,6 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		readyCondition.Message = fmt.Sprintf("%d/%d nodes ready", nodesReady, nodesTargeted)
 	}
 	meta.SetStatusCondition(&ci.Status.Conditions, readyCondition)
-
-	if err := r.Status().Update(ctx, ci); err != nil {
-		return ctrl.Result{}, fmt.Errorf("updating status: %w", err)
-	}
-
-	// 12. Determine requeue
-	if requeueNeeded {
-		if requeueAfter == 0 {
-			requeueAfter = 5 * time.Second
-		}
-		return ctrl.Result{RequeueAfter: requeueAfter}, nil
-	}
-
-	return ctrl.Result{}, nil
 }
 
 // filterNodesByTolerations returns nodes whose taints are tolerated.

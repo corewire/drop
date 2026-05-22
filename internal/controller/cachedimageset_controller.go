@@ -125,7 +125,7 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	var imagesReady int32
 	for i := range existingChildren.Items {
-		if existingChildren.Items[i].Status.Phase == "Ready" {
+		if existingChildren.Items[i].Status.Phase == phaseReady {
 			imagesReady++
 		}
 	}
@@ -135,11 +135,11 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	imageSet.Status.ImagesReady = imagesReady
 
 	if imagesReady == int32(len(desiredImages)) && len(desiredImages) > 0 {
-		imageSet.Status.Phase = "Ready"
+		imageSet.Status.Phase = phaseReady
 	} else if imagesReady > 0 {
-		imageSet.Status.Phase = "Pending"
+		imageSet.Status.Phase = phasePending
 	} else {
-		imageSet.Status.Phase = "Pending"
+		imageSet.Status.Phase = phasePending
 	}
 
 	now := metav1.Now()
@@ -148,7 +148,7 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		ObservedGeneration: imageSet.Generation,
 		LastTransitionTime: now,
 	}
-	if imageSet.Status.Phase == "Ready" {
+	if imageSet.Status.Phase == phaseReady {
 		readyCondition.Status = metav1.ConditionTrue
 		readyCondition.Reason = "AllImagesReady"
 		readyCondition.Message = fmt.Sprintf("All %d images are cached", imagesReady)
