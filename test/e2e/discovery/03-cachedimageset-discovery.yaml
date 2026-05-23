@@ -5,5 +5,3 @@ metadata:
 spec:
   discoveryPolicyRef:
     name: e2e-prometheus
-  policyRef:
-    name: ""
