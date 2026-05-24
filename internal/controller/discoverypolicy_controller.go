@@ -20,14 +20,18 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,30 +63,42 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// 1. Fetch DiscoveryPolicy
 	dp := &pullerv1alpha1.DiscoveryPolicy{}
 	if err := r.Get(ctx, req.NamespacedName, dp); err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
 	// 2. Query each source
+	patch := client.MergeFrom(dp.DeepCopy())
 	var allResults []discovery.ImageResult
 	allSourcesHealthy := true
+	var lastFailReason, lastFailMessage string
 
 	for i, src := range dp.Spec.Sources {
 		source, err := r.buildSource(ctx, src)
 		if err != nil {
 			log.Error(err, "building source", "index", i, "type", src.Type)
 			allSourcesHealthy = false
+			lastFailReason, lastFailMessage = classifyError(err)
+			pullermetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(0)
 			continue
 		}
 
+		start := time.Now()
 		results, err := source.Fetch(ctx)
+		elapsed := time.Since(start).Seconds()
+		pullermetrics.DiscoverySourceLatencySeconds.WithLabelValues(dp.Name, src.Type).Observe(elapsed)
+
 		if err != nil {
 			log.Error(err, "fetching from source", "index", i, "type", src.Type)
 			allSourcesHealthy = false
+			lastFailReason, lastFailMessage = classifyError(err)
+			pullermetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(0)
 			continue
 		}
+
+		pullermetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(1)
 
 		// Tag results with source type
 		for j := range results {
@@ -172,20 +188,47 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		Type:               conditionTypeReady,
 		ObservedGeneration: dp.Generation,
 		LastTransitionTime: now,
-		Status:             metav1.ConditionTrue,
-		Reason:             "Synced",
-		Message:            fmt.Sprintf("Discovered %d images", len(dp.Status.DiscoveredImages)),
+	}
+	if allSourcesHealthy {
+		readyCondition.Status = metav1.ConditionTrue
+		readyCondition.Reason = "Synced"
+		readyCondition.Message = fmt.Sprintf("Discovered %d images", len(dp.Status.DiscoveredImages))
+	} else if len(dp.Status.DiscoveredImages) > 0 {
+		readyCondition.Status = metav1.ConditionTrue
+		readyCondition.Reason = "PartiallyFailed"
+		readyCondition.Message = fmt.Sprintf("Discovered %d images, but some sources failed: %s", len(dp.Status.DiscoveredImages), lastFailMessage)
+	} else {
+		readyCondition.Status = metav1.ConditionFalse
+		readyCondition.Reason = lastFailReason
+		if lastFailReason == "" {
+			readyCondition.Reason = "SyncFailed"
+		}
+		if lastFailMessage != "" {
+			readyCondition.Message = lastFailMessage
+		} else {
+			readyCondition.Message = "All sources failed, no images discovered"
+		}
 	}
 	meta.SetStatusCondition(&dp.Status.Conditions, readyCondition)
 
-	if err := r.Status().Update(ctx, dp); err != nil {
-		return ctrl.Result{}, fmt.Errorf("updating status: %w", err)
+	// Set scalar counts for printer columns
+	dp.Status.SourceCount = int32(len(dp.Spec.Sources))
+	dp.Status.ImageCount = int32(len(dp.Status.DiscoveredImages))
+
+	if err := r.Status().Patch(ctx, dp, patch); err != nil {
+		return ctrl.Result{}, fmt.Errorf("patching status: %w", err)
 	}
 
 	// 8. Requeue after sync interval
 	syncInterval := dp.Spec.SyncInterval.Duration
 	if syncInterval == 0 {
 		syncInterval = 30 * time.Minute
+	}
+
+	// If sources failed, return error → controller-runtime rate limiter
+	// applies exponential backoff (standard k8s pattern).
+	if !allSourcesHealthy && len(dp.Status.DiscoveredImages) == 0 {
+		return ctrl.Result{}, fmt.Errorf("discovery sync failed: %s", lastFailMessage)
 	}
 
 	return ctrl.Result{RequeueAfter: syncInterval}, nil
@@ -203,7 +246,11 @@ func (r *DiscoveryPolicyReconciler) buildSource(ctx context.Context, src pullerv
 		if src.Prometheus == nil {
 			return nil, fmt.Errorf("prometheus config is required when type=prometheus")
 		}
-		return discovery.NewPrometheusSource(src.Prometheus.Endpoint, src.Prometheus.Query, httpClient), nil
+		var lookback time.Duration
+		if src.Prometheus.Lookback != nil {
+			lookback = src.Prometheus.Lookback.Duration
+		}
+		return discovery.NewPrometheusSource(src.Prometheus.Endpoint, src.Prometheus.Query, lookback, src.Prometheus.Step, httpClient), nil
 	case "registry":
 		if src.Registry == nil {
 			return nil, fmt.Errorf("registry config is required when type=registry")
@@ -323,4 +370,137 @@ func (r *DiscoveryPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&pullerv1alpha1.DiscoveryPolicy{}).
 		Named("discoverypolicy").
 		Complete(r)
+}
+
+// sourceEndpoint returns the endpoint URL for a discovery source (for metric labels).
+func sourceEndpoint(src pullerv1alpha1.DiscoverySource) string {
+	switch src.Type {
+	case "prometheus":
+		if src.Prometheus != nil {
+			return src.Prometheus.Endpoint
+		}
+	case "registry":
+		if src.Registry != nil {
+			return src.Registry.URL
+		}
+	}
+	return "unknown"
+}
+
+// classifyError maps a source fetch error into a k8s-style reason and human-readable message.
+func classifyError(err error) (reason, message string) {
+	if err == nil {
+		return "", ""
+	}
+
+	errStr := err.Error()
+
+	// Network-level errors (typed)
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return "Timeout", cleanMessage(errStr)
+	}
+
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return "DNSError", fmt.Sprintf("cannot resolve host %q", dnsErr.Name)
+	}
+
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		if opErr.Op == "dial" {
+			// Check if the underlying error is DNS
+			if strings.Contains(opErr.Err.Error(), "lookup") || strings.Contains(opErr.Err.Error(), "no such host") || strings.Contains(opErr.Err.Error(), "server misbehaving") {
+				host := extractHost(errStr)
+				return "DNSError", fmt.Sprintf("cannot resolve host %q", host)
+			}
+			host := extractHost(errStr)
+			return "ConnectionRefused", fmt.Sprintf("cannot connect to %s", host)
+		}
+	}
+
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		inner := urlErr.Err.Error()
+		if strings.Contains(inner, "no such host") || strings.Contains(inner, "server misbehaving") || strings.Contains(inner, "lookup") {
+			host := extractHost(errStr)
+			return "DNSError", fmt.Sprintf("cannot resolve host %q", host)
+		}
+		if strings.Contains(inner, "connection refused") {
+			host := extractHost(errStr)
+			return "ConnectionRefused", fmt.Sprintf("cannot connect to %s", host)
+		}
+	}
+
+	// HTTP status-based errors
+	if strings.Contains(errStr, "status 401") {
+		return "Unauthorized", cleanMessage(errStr)
+	}
+	if strings.Contains(errStr, "status 403") {
+		return "Forbidden", cleanMessage(errStr)
+	}
+	if strings.Contains(errStr, "status 404") {
+		return "NotFound", cleanMessage(errStr)
+	}
+	if strings.Contains(errStr, "status 5") {
+		return "ServerError", cleanMessage(errStr)
+	}
+
+	// String-based fallbacks
+	if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "server misbehaving") {
+		host := extractHost(errStr)
+		return "DNSError", fmt.Sprintf("cannot resolve host %q", host)
+	}
+	if strings.Contains(errStr, "connection refused") {
+		host := extractHost(errStr)
+		return "ConnectionRefused", fmt.Sprintf("cannot connect to %s", host)
+	}
+	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "deadline exceeded") {
+		return "Timeout", cleanMessage(errStr)
+	}
+	if strings.Contains(errStr, "certificate") || strings.Contains(errStr, "x509") {
+		return "TLSError", cleanMessage(errStr)
+	}
+	if strings.Contains(errStr, "decoding") || strings.Contains(errStr, "unmarshal") || strings.Contains(errStr, "invalid") {
+		return "InvalidResponse", cleanMessage(errStr)
+	}
+
+	return "SyncFailed", cleanMessage(errStr)
+}
+
+// extractHost pulls the hostname (or host:port) from a Go error string like
+// "... lookup nonexistent-prometheus on 10.96.0.10:53 ..." or
+// "... dial tcp nonexistent-registry:5000 ..."
+func extractHost(errStr string) string {
+	// Try "lookup <host> on" pattern (DNS errors)
+	if idx := strings.Index(errStr, "lookup "); idx != -1 {
+		rest := errStr[idx+len("lookup "):]
+		if end := strings.IndexAny(rest, " :"); end != -1 {
+			return rest[:end]
+		}
+		return rest
+	}
+	// Try to extract from URL pattern "://<host>..."
+	if idx := strings.Index(errStr, "://"); idx != -1 {
+		rest := errStr[idx+3:]
+		if end := strings.IndexAny(rest, "/?"); end != -1 {
+			return rest[:end]
+		}
+		return rest
+	}
+	return "unknown"
+}
+
+// cleanMessage truncates verbose Go error chains for human display.
+func cleanMessage(errStr string) string {
+	// Take the last meaningful segment after the last colon-space
+	parts := strings.Split(errStr, ": ")
+	if len(parts) > 2 {
+		// Keep last 2 segments for context
+		return strings.Join(parts[len(parts)-2:], ": ")
+	}
+	if len(errStr) > 120 {
+		return errStr[:120] + "..."
+	}
+	return errStr
 }
