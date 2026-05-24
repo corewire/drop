@@ -1,9 +1,12 @@
 ---
 title: Kamera Integration
 weight: 5
+description: Simulation-based controller verification with Kamera.
+llmsDescription: |
+  Kamera integration for simulation-based verification of puller controllers.
+  Uses deterministic simulation to test controller behaviour without a real
+  cluster. Catches race conditions and edge cases in reconciliation logic.
 ---
-
-# Kamera — Simulation-Based Controller Verification
 
 [Kamera](https://github.com/tgoodwin/Kamera) uses simulation to verify Kubernetes controller logic without running a real cluster.
 

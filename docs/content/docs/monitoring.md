@@ -1,15 +1,15 @@
 ---
-title: Observability
+title: Monitoring
 weight: 4
-description: Monitoring the puller operator with Prometheus and Kubernetes events.
+aliases:
+  - /puller/docs/observability/
+description: Prometheus metrics, events, and health checks.
 llmsDescription: |
-  Observability for puller: Prometheus metrics (puller_images_cached_total,
+  Monitoring for puller: Prometheus metrics (puller_images_cached_total,
   puller_pull_errors_total, puller_pull_duration_seconds, etc.), Kubernetes
   events on CachedImage/CachedImageSet, and metav1.Condition status with
   type Ready. ServiceMonitor included for Prometheus Operator integration.
 ---
-
-The puller operator provides comprehensive observability through Prometheus metrics, Kubernetes events, and status conditions.
 
 ## Prometheus Metrics
 
@@ -22,22 +22,20 @@ The puller operator provides comprehensive observability through Prometheus metr
 | `puller_active_pulls` | Gauge | — | Currently active pull Pods |
 | `puller_reconcile_total` | Counter | `controller`, `result` | Reconciliation attempts |
 
-### Enabling Metrics
-
-Metrics are enabled by default on port 8443 with secure serving. To scrape with Prometheus Operator:
+### Enable ServiceMonitor
 
 ```bash
 helm install puller oci://ghcr.io/breee/charts/puller \
   --set serviceMonitor.enabled=true
 ```
 
-### Example Grafana Queries
+### Example Queries
 
 ```promql
-# Pull success rate over last hour
+# Pull success rate
 rate(puller_images_cached_total[1h])
 
-# Average pull duration
+# p95 pull duration
 histogram_quantile(0.95, rate(puller_pull_duration_seconds_bucket[1h]))
 
 # Error rate by image
@@ -49,15 +47,11 @@ puller_active_pulls
 
 ## Kubernetes Events
 
-The operator emits events on CachedImage resources:
-
-| Event | Type | Reason | Description |
-|-------|------|--------|-------------|
-| Pull started | Normal | `PullStarted` | Image pull Pod created on a node |
-| Pull succeeded | Normal | `PullSucceeded` | Image successfully cached on a node |
-| Pull failed | Warning | `PullFailed` | Image pull failed on a node |
-
-View events:
+| Reason | Type | Description |
+|--------|------|-------------|
+| `PullStarted` | Normal | Image pull Pod created on a node |
+| `PullSucceeded` | Normal | Image successfully cached on a node |
+| `PullFailed` | Warning | Image pull failed on a node |
 
 ```bash
 kubectl get events --field-selector involvedObject.kind=CachedImage
@@ -65,7 +59,7 @@ kubectl get events --field-selector involvedObject.kind=CachedImage
 
 ## Status Conditions
 
-All resources maintain standard Kubernetes conditions:
+All resources use `metav1.Condition` with type `Ready`:
 
 ```yaml
 status:
@@ -74,7 +68,6 @@ status:
       status: "True"
       reason: Cached
       message: "Image cached on all 5 target nodes"
-      lastTransitionTime: "2024-01-15T10:30:00Z"
 ```
 
 ## Health Endpoints

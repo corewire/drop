@@ -1,9 +1,15 @@
 ---
 title: Discovery
 weight: 3
+aliases:
+  - /puller/docs/discovery/
+description: Automatic image discovery with DiscoveryPolicy.
+llmsDescription: |
+  DiscoveryPolicy CRD enables automatic image discovery from Prometheus metrics
+  or OCI registries. Referenced by CachedImageSet via discoveryPolicyRef.
+  Discovered images are materialized as CachedImage resources. Supports
+  filtering, deduplication, and periodic re-discovery.
 ---
-
-# Image Discovery
 
 The DiscoveryPolicy CRD enables automatic image discovery from external sources. When referenced by a CachedImageSet, discovered images are automatically materialized as CachedImage resources.
 

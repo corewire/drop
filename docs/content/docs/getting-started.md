@@ -1,9 +1,13 @@
 ---
 title: Getting Started
-weight: 1
+weight: 2
+description: Install and configure the puller operator.
+llmsDescription: |
+  Installation guide for the puller operator. Prerequisites: Kubernetes 1.28+.
+  Install via Helm chart (charts/puller/). Create CachedImage or CachedImageSet
+  resources to start caching images. Operator watches for these resources and
+  creates short-lived Pods on target nodes to pull images via kubelet.
 ---
-
-# Getting Started
 
 ## Prerequisites
 
@@ -80,6 +84,6 @@ spec:
 
 ## Next Steps
 
-- [CRD Reference](../crds/) — full field documentation
+- [CRD Reference](../reference/_generated_crds/) — full field documentation
 - [Discovery](../discovery/) — automatic image discovery
 - [Observability](../observability/) — metrics and monitoring

@@ -1,9 +1,14 @@
 ---
 title: CRD Reference
 weight: 2
+description: Overview of all puller Custom Resource Definitions.
+llmsDescription: |
+  Overview of puller CRDs under puller.corewire.io/v1alpha1. CachedImage caches
+  a single image, CachedImageSet caches a list via imageListSpec or
+  discoveryPolicyRef, PullPolicy configures pull behaviour (nodeSelector,
+  imagePullSecrets, scheduling), DiscoveryPolicy discovers images from external
+  sources (Prometheus, OCI registry). All cluster-scoped.
 ---
-
-# CRD Reference
 
 All CRDs are cluster-scoped under `puller.corewire.io/v1alpha1`.
 

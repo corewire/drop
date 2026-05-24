@@ -1,0 +1,4 @@
+{{- /* Advertise markdown alternate for AI agent discovery */ -}}
+{{- with .OutputFormats.Get "markdown" -}}
+<link href="{{ .Permalink }}" rel="alternate" type="text/markdown" title="{{ $.Title }}" />
+{{- end -}}
