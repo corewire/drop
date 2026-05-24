@@ -32,16 +32,16 @@ type CachedImageSpec struct {
 	// Digest to pull (immutable reference). Mutually exclusive with Tag.
 	// +optional
 	Digest string `json:"digest,omitempty"`
-	// PullPolicy controls whether to pull if image exists on node.
-	// +kubebuilder:default=IfNotPresent
-	// +kubebuilder:validation:Enum=IfNotPresent;Always
+	// ImagePullPolicy controls when kubelet pulls the image.
+	// Defaults to Always (checks upstream digest, only downloads if changed).
+	// Set to IfNotPresent to skip the registry check when the tag already exists locally.
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	// +kubebuilder:default=Always
 	// +optional
-	PullPolicy string `json:"pullPolicy,omitempty"`
-	// RepullPolicy controls refresh behavior for cached images.
-	// +kubebuilder:default=Never
-	// +kubebuilder:validation:Enum=Never;OnSchedule;Always
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// ImagePullSecrets are references to secrets for pulling from private registries.
 	// +optional
-	RepullPolicy string `json:"repullPolicy,omitempty"`
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// NodeSelector restricts which nodes to cache the image on.
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -70,13 +70,27 @@ type CachedImageStatus struct {
 	// Phase summarizes the overall state.
 	// +kubebuilder:validation:Enum=Pending;Pulling;Ready;Degraded
 	Phase string `json:"phase,omitempty"`
+	// Ready is a human-readable "nodesReady/nodesTargeted" fraction for display.
+	Ready string `json:"ready,omitempty"`
+	// ResolvedDigest is the sha256 digest of the image as reported by the container runtime after pull.
+	// +optional
+	ResolvedDigest string `json:"resolvedDigest,omitempty"`
 	// NodesTargeted is the number of nodes that should have this image.
 	NodesTargeted int32 `json:"nodesTargeted,omitempty"`
 	// NodesReady is the number of nodes that have successfully pulled the image.
 	NodesReady int32 `json:"nodesReady,omitempty"`
+	// CachedNodes is the list of node names that have successfully cached the image.
+	// +optional
+	CachedNodes []string `json:"cachedNodes,omitempty"`
+	// ConsecutiveFailures counts sequential reconcile failures for backoff calculation.
+	// +optional
+	ConsecutiveFailures int32 `json:"consecutiveFailures,omitempty"`
 	// LastPulledAt is the timestamp of the most recent successful pull.
 	// +optional
 	LastPulledAt *metav1.Time `json:"lastPulledAt,omitempty"`
+	// LastAttemptedAt is the timestamp of the most recent pull attempt (success or failure).
+	// +optional
+	LastAttemptedAt *metav1.Time `json:"lastAttemptedAt,omitempty"`
 	// Conditions represent the latest available observations.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -84,12 +98,16 @@ type CachedImageStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,categories=puller
 // +kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
-// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
-// +kubebuilder:printcolumn:name="Ready",type=integer,JSONPath=`.status.nodesReady`
-// +kubebuilder:printcolumn:name="Target",type=integer,JSONPath=`.status.nodesTargeted`
+// +kubebuilder:printcolumn:name="Tag",type=string,JSONPath=`.spec.tag`
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:printcolumn:name="Digest",type=string,JSONPath=`.status.resolvedDigest`,priority=1
+// +kubebuilder:printcolumn:name="Set",type=string,JSONPath=`.metadata.labels.puller\.corewire\.io/imageset`,description="Parent CachedImageSet",priority=1
+// +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
+// +kubebuilder:printcolumn:name="Policy",type=string,JSONPath=`.spec.policyRef.name`,priority=1
 
 // CachedImage is the Schema for the cachedimages API.
 type CachedImage struct {

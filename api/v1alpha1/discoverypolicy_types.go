@@ -62,6 +62,15 @@ type PrometheusSource struct {
 	// Query is the PromQL query that must return an 'image' label.
 	// +kubebuilder:validation:MinLength=1
 	Query string `json:"query"`
+	// Lookback is the time window to aggregate over (e.g. "7d", "24h").
+	// When set, uses query_range and sums values to rank by total usage.
+	// When unset, uses an instant query (point-in-time).
+	// +optional
+	Lookback *metav1.Duration `json:"lookback,omitempty"`
+	// Step is the query resolution step for range queries.
+	// +kubebuilder:default="5m"
+	// +optional
+	Step string `json:"step,omitempty"`
 }
 
 // RegistrySource defines OCI registry tag listing configuration.
@@ -93,6 +102,12 @@ type DiscoveryPolicyStatus struct {
 	// DiscoveredImages is the list of discovered images from all sources.
 	// +optional
 	DiscoveredImages []DiscoveredImage `json:"discoveredImages,omitempty"`
+	// ImageCount is the number of discovered images.
+	// +optional
+	ImageCount int32 `json:"imageCount,omitempty"`
+	// SourceCount is the number of configured sources.
+	// +optional
+	SourceCount int32 `json:"sourceCount,omitempty"`
 	// Conditions represent the latest available observations.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -110,10 +125,12 @@ type DiscoveredImage struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster
-// +kubebuilder:printcolumn:name="Sources",type=integer,JSONPath=`.spec.sources`,priority=1
-// +kubebuilder:printcolumn:name="Images",type=integer,JSONPath=`.status.discoveredImages`,priority=1
+// +kubebuilder:resource:scope=Cluster,categories=puller
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
+// +kubebuilder:printcolumn:name="Sources",type=integer,JSONPath=`.status.sourceCount`
+// +kubebuilder:printcolumn:name="Images",type=integer,JSONPath=`.status.imageCount`
 // +kubebuilder:printcolumn:name="LastSync",type=date,JSONPath=`.status.lastSyncTime`
+// +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // DiscoveryPolicy is the Schema for the discoverypolicies API.

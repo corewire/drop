@@ -8,13 +8,28 @@ metadata:
 spec:
   group: puller.corewire.io
   names:
+    categories:
+    - puller
     kind: PullPolicy
     listKind: PullPolicyList
     plural: pullpolicies
     singular: pullpolicy
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.maxConcurrentNodes
+      name: MaxNodes
+      type: integer
+    - jsonPath: .spec.minDelayBetweenPulls
+      name: MinDelay
+      type: string
+    - jsonPath: .spec.repullInterval
+      name: RepullInterval
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: |-
@@ -71,14 +86,9 @@ spec:
                   type: string
                 description: NodeSelector scopes this policy to a specific node pool.
                 type: object
-              repullPolicyDefault:
-                default: Never
-                description: RepullPolicyDefault is the default repull behavior for
-                  images referencing this policy.
-                enum:
-                - Never
-                - OnSchedule
-                - Always
+              repullInterval:
+                description: RepullInterval is how often to re-pull cached images.
+                  Zero or unset means never re-pull.
                 type: string
               tolerations:
                 description: Tolerations match tainted nodes in the pool.
@@ -123,3 +133,4 @@ spec:
         type: object
     served: true
     storage: true
+    subresources: {}

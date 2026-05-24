@@ -33,10 +33,9 @@ type PullPolicySpec struct {
 	// FailureBackoff configures retry delays on pull failures.
 	// +optional
 	FailureBackoff *BackoffConfig `json:"failureBackoff,omitempty"`
-	// RepullPolicyDefault is the default repull behavior for images referencing this policy.
-	// +kubebuilder:default=Never
-	// +kubebuilder:validation:Enum=Never;OnSchedule;Always
-	RepullPolicyDefault string `json:"repullPolicyDefault,omitempty"`
+	// RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull.
+	// +optional
+	RepullInterval *metav1.Duration `json:"repullInterval,omitempty"`
 	// NodeSelector scopes this policy to a specific node pool.
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -56,7 +55,11 @@ type BackoffConfig struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,categories=puller
+// +kubebuilder:printcolumn:name="MaxNodes",type=integer,JSONPath=`.spec.maxConcurrentNodes`
+// +kubebuilder:printcolumn:name="MinDelay",type=string,JSONPath=`.spec.minDelayBetweenPulls`
+// +kubebuilder:printcolumn:name="RepullInterval",type=string,JSONPath=`.spec.repullInterval`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // PullPolicy is the Schema for the pullpolicies API.
 // It is a configuration-only resource with no status.

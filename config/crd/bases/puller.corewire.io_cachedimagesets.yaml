@@ -8,6 +8,8 @@ metadata:
 spec:
   group: puller.corewire.io
   names:
+    categories:
+    - puller
     kind: CachedImageSet
     listKind: CachedImageSetList
     plural: cachedimagesets
@@ -15,15 +17,22 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.phase
-      name: Phase
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Status
+      type: string
+    - jsonPath: .status.imagesReady
+      name: Ready
       type: string
     - jsonPath: .status.imagesManaged
       name: Managed
       type: integer
-    - jsonPath: .status.imagesReady
-      name: Ready
-      type: integer
+    - jsonPath: .spec.discoveryPolicyRef.name
+      name: Source
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Message
+      priority: 1
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -98,21 +107,6 @@ spec:
                 required:
                 - name
                 type: object
-              pullPolicy:
-                default: IfNotPresent
-                description: PullPolicy default for child CachedImage resources.
-                enum:
-                - IfNotPresent
-                - Always
-                type: string
-              repullPolicy:
-                default: Never
-                description: RepullPolicy default for child CachedImage resources.
-                enum:
-                - Never
-                - OnSchedule
-                - Always
-                type: string
               tolerations:
                 description: Tolerations allow targeting tainted nodes (propagated
                   to children).

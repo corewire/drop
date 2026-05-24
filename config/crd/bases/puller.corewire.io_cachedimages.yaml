@@ -8,6 +8,8 @@ metadata:
 spec:
   group: puller.corewire.io
   names:
+    categories:
+    - puller
     kind: CachedImage
     listKind: CachedImageList
     plural: cachedimages
@@ -18,18 +20,35 @@ spec:
     - jsonPath: .spec.image
       name: Image
       type: string
-    - jsonPath: .status.phase
-      name: Phase
+    - jsonPath: .spec.tag
+      name: Tag
       type: string
-    - jsonPath: .status.nodesReady
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Status
+      type: string
+    - jsonPath: .status.ready
       name: Ready
-      type: integer
-    - jsonPath: .status.nodesTargeted
-      name: Target
-      type: integer
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.resolvedDigest
+      name: Digest
+      priority: 1
+      type: string
+    - description: Parent CachedImageSet
+      jsonPath: .metadata.labels.puller\.corewire\.io/imageset
+      name: Set
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Message
+      priority: 1
+      type: string
+    - jsonPath: .spec.policyRef.name
+      name: Policy
+      priority: 1
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -84,22 +103,6 @@ spec:
                   first).
                 format: int32
                 type: integer
-              pullPolicy:
-                default: IfNotPresent
-                description: PullPolicy controls whether to pull if image exists on
-                  node.
-                enum:
-                - IfNotPresent
-                - Always
-                type: string
-              repullPolicy:
-                default: Never
-                description: RepullPolicy controls refresh behavior for cached images.
-                enum:
-                - Never
-                - OnSchedule
-                - Always
-                type: string
               tag:
                 description: Tag to pull. Mutually exclusive with Digest.
                 type: string
@@ -148,6 +151,12 @@ spec:
           status:
             description: CachedImageStatus defines the observed state of CachedImage.
             properties:
+              cachedNodes:
+                description: CachedNodes is the list of node names that have successfully
+                  cached the image.
+                items:
+                  type: string
+                type: array
               conditions:
                 description: Conditions represent the latest available observations.
                 items:
@@ -205,6 +214,16 @@ spec:
                   - type
                   type: object
                 type: array
+              consecutiveFailures:
+                description: ConsecutiveFailures counts sequential reconcile failures
+                  for backoff calculation.
+                format: int32
+                type: integer
+              lastAttemptedAt:
+                description: LastAttemptedAt is the timestamp of the most recent pull
+                  attempt (success or failure).
+                format: date-time
+                type: string
               lastPulledAt:
                 description: LastPulledAt is the timestamp of the most recent successful
                   pull.
@@ -231,6 +250,14 @@ spec:
                 - Pulling
                 - Ready
                 - Degraded
+                type: string
+              ready:
+                description: Ready is a human-readable "nodesReady/nodesTargeted"
+                  fraction for display.
+                type: string
+              resolvedDigest:
+                description: ResolvedDigest is the sha256 digest of the image as reported
+                  by the container runtime after pull.
                 type: string
             type: object
         type: object

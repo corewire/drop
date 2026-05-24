@@ -29,6 +29,14 @@ type CachedImageSetSpec struct {
 	// DiscoveryPolicyRef references a DiscoveryPolicy for dynamic image lists.
 	// +optional
 	DiscoveryPolicyRef *DiscoveryPolicyReference `json:"discoveryPolicyRef,omitempty"`
+	// ImagePullPolicy controls when kubelet pulls the image (propagated to children).
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	// +kubebuilder:default=Always
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// ImagePullSecrets are references to secrets for pulling from private registries (propagated to children).
+	// +optional
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// NodeSelector restricts which nodes to cache images on (propagated to children).
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -38,16 +46,6 @@ type CachedImageSetSpec struct {
 	// Images is a static list of images to cache.
 	// +optional
 	Images []ImageEntry `json:"images,omitempty"`
-	// PullPolicy default for child CachedImage resources.
-	// +kubebuilder:default=IfNotPresent
-	// +kubebuilder:validation:Enum=IfNotPresent;Always
-	// +optional
-	PullPolicy string `json:"pullPolicy,omitempty"`
-	// RepullPolicy default for child CachedImage resources.
-	// +kubebuilder:default=Never
-	// +kubebuilder:validation:Enum=Never;OnSchedule;Always
-	// +optional
-	RepullPolicy string `json:"repullPolicy,omitempty"`
 }
 
 // ImageEntry defines a single image to include in a set.
@@ -88,10 +86,12 @@ type CachedImageSetStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster
-// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
+// +kubebuilder:resource:scope=Cluster,categories=puller
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.imagesReady`
 // +kubebuilder:printcolumn:name="Managed",type=integer,JSONPath=`.status.imagesManaged`
-// +kubebuilder:printcolumn:name="Ready",type=integer,JSONPath=`.status.imagesReady`
+// +kubebuilder:printcolumn:name="Source",type=string,JSONPath=`.spec.discoveryPolicyRef.name`
+// +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // CachedImageSet is the Schema for the cachedimagesets API.
