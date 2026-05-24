@@ -37,4 +37,4 @@ docs/resources/
 docs/.hugo_build.lock
 
 # Generated docs-gen binary
-gen-ai-docs
+/gen-ai-docs

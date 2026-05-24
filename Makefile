@@ -8,14 +8,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-# CONTAINER_TOOL defines the container tool to be used for building images.
-# Be aware that the target commands are only tested with Docker which is
-# scaffolded by default. However, you might want to replace it to use other
-# tools. (i.e. podman)
 CONTAINER_TOOL ?= docker
-
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
@@ -24,194 +17,168 @@ all: build
 
 ##@ General
 
-# The help target prints out all targets with their descriptions organized
-# beneath their categories. The categories are represented by '##@' and the
-# target descriptions by '##'. The awk command is responsible for reading the
-# entire set of makefiles included in this invocation, looking for lines of the
-# file as xyz: ## something, and then pretty-format the target and help. Then,
-# if there's a line with ##@ something, that gets pretty-printed as a category.
-# More info on the usage of ANSI control characters for terminal formatting:
-# https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
-# More info on the awk command:
-# http://linuxcommand.org/lc3_adv_awk.php
-
 .PHONY: help
 help: ## Display this help.
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
 
-.PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-
-.PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-
-.PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
-
-.PHONY: test
-test: manifests generate fmt vet setup-envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
-
-# TODO(user): To use a different vendor for e2e tests, modify the setup under 'tests/e2e'.
-# The default setup assumes Kind is pre-installed and builds/loads the Manager Docker image locally.
-# CertManager is installed by default; skip with:
-# - CERT_MANAGER_INSTALL_SKIP=true
-.PHONY: test-e2e
-test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated environment using Kind.
-	@command -v $(KIND) >/dev/null 2>&1 || { \
-		echo "Kind is not installed. Please install Kind manually."; \
-		exit 1; \
-	}
-	@$(KIND) get clusters | grep -q 'kind' || { \
-		echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
-		exit 1; \
-	}
-	go test ./test/e2e/ -v -ginkgo.v
-
-.PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run
-
-.PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
-
-.PHONY: lint-config
-lint-config: golangci-lint ## Verify golangci-lint linter configuration
-	$(GOLANGCI_LINT) config verify
-
-##@ Build
-
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+build: ## Build manager binary.
+go build -o bin/manager cmd/main.go
 
 .PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+run: ## Run controller from your host.
+go run ./cmd/main.go
 
-# If you wish to build the manager image targeting other platforms you can use the --platform flag.
-# (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
-# More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-.PHONY: docker-build
-docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+.PHONY: fmt
+fmt: ## Run go fmt.
+go fmt ./...
 
-.PHONY: docker-push
-docker-push: ## Push docker image with the manager.
-	$(CONTAINER_TOOL) push ${IMG}
+.PHONY: vet
+vet: ## Run go vet.
+go vet ./...
 
-# PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
-# architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
-# - be able to use docker buildx. More info: https://docs.docker.com/build/buildx/
-# - have enabled BuildKit. More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-# - be able to push the image to your registry (i.e. if you do not set a valid value via IMG=<myregistry/image:<tag>> then the export will fail)
-# To adequately provide solutions that are compatible with multiple platforms, you should consider using this option.
-PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
-.PHONY: docker-buildx
-docker-buildx: ## Build and push docker image for the manager for cross-platform support
-	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-	- $(CONTAINER_TOOL) buildx create --name puller-builder
-	$(CONTAINER_TOOL) buildx use puller-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
-	- $(CONTAINER_TOOL) buildx rm puller-builder
-	rm Dockerfile.cross
+.PHONY: lint
+lint: golangci-lint ## Run golangci-lint.
+$(GOLANGCI_LINT) run
 
-.PHONY: build-installer
-build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
-	mkdir -p dist
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default > dist/install.yaml
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Run golangci-lint with auto-fix.
+$(GOLANGCI_LINT) run --fix
 
-##@ Deployment
+##@ Code Generation
 
-ifndef ignore-not-found
-  ignore-not-found = false
-endif
+.PHONY: generate
+generate: controller-gen ## Generate DeepCopy methods.
+$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+.PHONY: manifests
+manifests: controller-gen ## Generate CRD and RBAC manifests.
+$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+.PHONY: codegen
+codegen: generate manifests docs-gen ## Run all code generation (deepcopy + CRDs + docs).
+
+##@ Testing
+
+.PHONY: test
+test: setup-envtest ## Run unit tests.
+KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+
+.PHONY: test-e2e
+test-e2e: chainsaw ## Run Chainsaw E2E tests (requires kind cluster).
+$(CHAINSAW) test test/e2e/
+
+##@ Cluster
+
+.PHONY: kind-create
+kind-create: ## Create kind cluster for development.
+$(KIND) create cluster --name puller-dev --config hack/kind-config.yaml --wait 5m
+
+.PHONY: kind-delete
+kind-delete: ## Delete the kind cluster.
+$(KIND) delete cluster --name puller-dev
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
+install: manifests kustomize ## Install CRDs into cluster.
+$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
 
 .PHONY: uninstall
-uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+uninstall: manifests kustomize ## Uninstall CRDs from cluster.
+$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found -f -
 
-.PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+.PHONY: e2e-infra
+e2e-infra: ## Deploy Prometheus + Registry for E2E/dev.
+@chmod +x hack/e2e-infra/setup.sh && hack/e2e-infra/setup.sh
 
-.PHONY: undeploy
-undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+##@ Docker
 
-##@ Dependencies
+.PHONY: docker-build
+docker-build: ## Build docker image.
+$(CONTAINER_TOOL) build -t ${IMG} .
 
-## Location to install dependencies to
+.PHONY: docker-push
+docker-push: ## Push docker image.
+$(CONTAINER_TOOL) push ${IMG}
+
+.PHONY: kind-load
+kind-load: docker-build ## Build and load image into kind.
+$(KIND) load docker-image ${IMG} --name puller-dev
+
+##@ Helm & Docs
+
+.PHONY: helm-lint
+helm-lint: ## Lint the Helm chart.
+helm lint charts/puller
+
+.PHONY: helm-template
+helm-template: ## Render Helm templates locally.
+helm template puller charts/puller
+
+.PHONY: docs-serve
+docs-serve: ## Serve Hugo docs locally.
+cd docs && hugo server --buildDrafts --port 1313
+
+.PHONY: docs-gen
+docs-gen: ## Regenerate AI agent docs (llms.txt, instructions, etc.) from source.
+	go run ./hack/gen-ai-docs/
+
+.PHONY: docs-gen-check
+docs-gen-check: docs-gen ## Verify generated AI docs are up to date.
+	@git diff --exit-code knowledge.yaml llms.txt llms-full.txt .github/copilot-instructions.md .cursorrules AGENTS.md docs/doc-generation.md docs/content/docs/reference/_generated_*.md || \
+		(echo "ERROR: generated docs are out of date — run 'make docs-gen'" && exit 1)
+
+@$(MAKE) kustomize controller-gen envtest golangci-lint chainsaw
+@command -v hugo >/dev/null 2>&1 || echo "WARNING: hugo not found — needed for docs"
+@command -v helm >/dev/null 2>&1 || echo "WARNING: helm not found — needed for chart dev"
+
+##@ Tool Dependencies
+
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
-	mkdir -p $(LOCALBIN)
+mkdir -p $(LOCALBIN)
 
-## Tool Binaries
 KUBECTL ?= kubectl
 KIND ?= kind
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
+CHAINSAW ?= $(LOCALBIN)/chainsaw
 
-## Tool Versions
 KUSTOMIZE_VERSION ?= v5.6.0
 CONTROLLER_TOOLS_VERSION ?= v0.17.2
-#ENVTEST_VERSION is the version of controller-runtime release branch to fetch the envtest setup script (i.e. release-0.20)
 ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
-#ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries (i.e. 1.31)
 ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
 GOLANGCI_LINT_VERSION ?= v1.63.4
+CHAINSAW_VERSION ?= v0.2.12
 
 .PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
+kustomize: $(KUSTOMIZE)
 $(KUSTOMIZE): $(LOCALBIN)
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
+$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
 
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
+controller-gen: $(CONTROLLER_GEN)
 $(CONTROLLER_GEN): $(LOCALBIN)
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
+$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
 
 .PHONY: setup-envtest
-setup-envtest: envtest ## Download the binaries required for ENVTEST in the local bin directory.
-	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..."
-	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path || { \
-		echo "Error: Failed to set up envtest binaries for version $(ENVTEST_K8S_VERSION)."; \
-		exit 1; \
-	}
-
-.PHONY: envtest
-envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
+setup-envtest: $(ENVTEST)
 $(ENVTEST): $(LOCALBIN)
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
 .PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
 
-# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
-# $1 - target path with name of binary
-# $2 - package url which can be installed
-# $3 - specific version of package
+.PHONY: chainsaw
+chainsaw: $(CHAINSAW)
+$(CHAINSAW): $(LOCALBIN)
+$(call go-install-tool,$(CHAINSAW),github.com/kyverno/chainsaw,$(CHAINSAW_VERSION))
+
 define go-install-tool
 @[ -f "$(1)-$(3)" ] || { \
 set -e; \
@@ -223,117 +190,3 @@ mv $(1) $(1)-$(3) ;\
 } ;\
 ln -sf $(1)-$(3) $(1)
 endef
-
-##@ Development Tools
-
-CHAINSAW ?= $(LOCALBIN)/chainsaw
-CHAINSAW_VERSION ?= v0.2.12
-
-.PHONY: chainsaw
-chainsaw: $(CHAINSAW) ## Download chainsaw locally if necessary.
-$(CHAINSAW): $(LOCALBIN)
-	$(call go-install-tool,$(CHAINSAW),github.com/kyverno/chainsaw,$(CHAINSAW_VERSION))
-
-.PHONY: kind-create
-kind-create: ## Create a local kind cluster for development (1 control-plane + 2 workers).
-	$(KIND) create cluster --name puller-dev --config hack/kind-config.yaml --wait 5m
-	@echo "Kind cluster 'puller-dev' is ready."
-
-.PHONY: kind-delete
-kind-delete: ## Delete the local kind cluster.
-	$(KIND) delete cluster --name puller-dev
-
-.PHONY: kind-load
-kind-load: docker-build ## Load the operator image into kind.
-	$(KIND) load docker-image ${IMG} --name puller-dev
-
-.PHONY: test-e2e-chainsaw
-test-e2e-chainsaw: chainsaw manifests ## Run Chainsaw E2E tests (requires kind cluster).
-	$(CHAINSAW) test test/e2e/
-
-.PHONY: e2e-infra
-e2e-infra: ## Deploy Prometheus + Registry into the current cluster for E2E/dev.
-	@chmod +x hack/e2e-infra/setup.sh
-	@hack/e2e-infra/setup.sh
-
-.PHONY: helm-lint
-helm-lint: ## Lint the Helm chart.
-	helm lint charts/puller
-
-.PHONY: helm-template
-helm-template: ## Render Helm chart templates locally.
-	helm template puller charts/puller
-
-.PHONY: docs-build
-docs-build: ## Build Hugo docs locally (same as CI).
-	cd docs && hugo mod get && hugo --minify
-
-.PHONY: docs-serve
-docs-serve: ## Serve Hugo docs locally for preview.
-	cd docs && hugo server --buildDrafts --port 1313
-
-.PHONY: dev-setup
-dev-setup: ## Install all development dependencies.
-	@echo "Installing development tools..."
-	@$(MAKE) kustomize controller-gen envtest golangci-lint chainsaw
-	@command -v hugo >/dev/null 2>&1 || echo "WARNING: hugo not found. Install from https://gohugo.io/installation/ for docs development."
-	@command -v helm >/dev/null 2>&1 || echo "WARNING: helm not found. Install from https://helm.sh/docs/intro/install/ for chart development."
-	@command -v kind >/dev/null 2>&1 || echo "WARNING: kind not found. Install from https://kind.sigs.k8s.io/ for E2E testing."
-	@echo "All Go tools installed to $(LOCALBIN)"
-	@echo ""
-	@echo "Run 'make verify' to run all CI checks locally."
-
-.PHONY: demo
-demo: ## Run the operator demo script showing end-to-end functionality.
-	@hack/demo.sh
-
-.PHONY: prove
-prove: ## Run detailed proof-of-operation script (creates kind cluster, deploys operator, exercises all features).
-	@hack/prove-operator.sh
-
-##@ Local CI Verification
-
-.PHONY: verify
-verify: lint test build helm-lint docs-build ## Run all CI-verifiable checks locally (lint, test, build, helm, docs).
-	@echo ""
-	@echo "✅ All CI checks passed locally."
-	@echo "   (Excluded: image push, helm publish, pages deploy — these require CI credentials.)"
-
-.PHONY: e2e-local
-e2e-local: ## Run full E2E test suite locally (creates kind cluster, deploys infra + operator, runs chainsaw tests).
-	@echo "=== Creating kind cluster ==="
-	@$(KIND) delete cluster --name puller-e2e 2>/dev/null || true
-	@$(KIND) create cluster --name puller-e2e --wait 60s
-	@echo ""
-	@echo "=== Building and loading operator image ==="
-	@$(MAKE) docker-build IMG=controller:e2e
-	@$(KIND) load docker-image controller:e2e --name puller-e2e
-	@echo ""
-	@echo "=== Installing CRDs ==="
-	@$(MAKE) manifests
-	@kubectl apply -f config/crd/bases/
-	@echo ""
-	@echo "=== Deploying E2E infrastructure (Prometheus + Registry) ==="
-	@chmod +x hack/e2e-infra/setup.sh
-	@hack/e2e-infra/setup.sh
-	@echo ""
-	@echo "=== Deploying operator via Helm ==="
-	@helm install puller charts/puller \
-		--namespace puller-system \
-		--create-namespace \
-		--set image.repository=controller \
-		--set image.tag=e2e \
-		--set image.pullPolicy=Never \
-		--set leaderElection.enabled=false \
-		--set metrics.enabled=true \
-		--set metrics.secureServing=false \
-		--wait --timeout 120s
-	@echo ""
-	@echo "=== Running Chainsaw E2E tests ==="
-	@$(MAKE) chainsaw
-	@$(CHAINSAW) test test/e2e/
-	@echo ""
-	@echo "=== Cleaning up ==="
-	@$(KIND) delete cluster --name puller-e2e
-	@echo "✅ E2E tests passed."
-

@@ -1,0 +1,70 @@
+# Copilot Instructions for Puller
+
+## Project
+
+Kubernetes operator (Go 1.23.0, Kubebuilder, controller-runtime) that pre-caches container images on cluster nodes.
+API group: `puller.corewire.io/v1alpha1`. All CRDs are cluster-scoped.
+
+## Build Commands
+
+```bash
+make generate      # regenerate deepcopy
+make manifests     # regenerate CRD + RBAC YAML
+make codegen       # both of the above
+go build ./...     # compile
+make test          # unit tests (envtest)
+make test-e2e      # e2e tests (chainsaw, needs kind)
+make lint          # golangci-lint
+make docs-gen      # regenerate AI docs from source
+```
+
+## Code Conventions
+
+- All CRDs are cluster-scoped
+- Status uses metav1.Condition with type "Ready"
+- No privileged containers — kubelet-based image pulls only
+- Single responsibility reconcilers — one controller per CRD
+- Pod builder is a pure function in internal/podbuilder/ (no k8s client)
+- Pacing logic lives exclusively in internal/pacing/
+- ownerReferences: CachedImageSet→CachedImage, controller→Pod
+- Table-driven tests preferred; envtest for controllers
+- Pods use nodeName placement + command: ["true"]
+- Don't manually edit generated files — run make docs-gen
+
+## Testing Patterns
+
+- Controller tests use envtest (`internal/controller/*_test.go`)
+- Table-driven tests preferred
+- E2E uses Kyverno Chainsaw in `test/e2e/`
+- Test fixtures in `config/samples/` and `hack/dev-samples.yaml`
+
+## CRD Quick Reference
+
+| Kind | Controller | Purpose |
+|------|-----------|---------|
+| CachedImage | internal/controller/cachedimage_controller.go | CachedImage is the Schema for the cachedimages API. |
+| CachedImageSet | internal/controller/cachedimageset_controller.go | CachedImageSet is the Schema for the cachedimagesets API. |
+| PullPolicy |  | PullPolicy is the Schema for the pullpolicies API. It is a configuration-only resource with no status. |
+| DiscoveryPolicy | internal/controller/discoverypolicy_controller.go | DiscoveryPolicy is the Schema for the discoverypolicies API. |
+
+## Package Dependency Graph
+
+```
+api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the puller v1alpha1 API group.
+internal/controller — Reconciler implementations (one per CRD)
+  imports: api/v1alpha1, internal/discovery, internal/metrics, internal/pacing, internal/podbuilder
+internal/discovery — Discovery source interface + implementations
+internal/metrics — Prometheus metrics registration
+internal/pacing — Shared pacing engine for rate-limited pulls
+  imports: api/v1alpha1, internal/podbuilder
+internal/podbuilder — Pure Pod construction function (no k8s client)
+  imports: api/v1alpha1
+```
+
+## Don'ts
+
+- Don't add CRI socket access or privileged containers — we use kubelet image pulls only
+- Don't put pacing logic outside `internal/pacing/`
+- Don't create namespaced CRDs — all resources are cluster-scoped
+- Don't manually edit generated files (`zz_generated.deepcopy.go`, `config/crd/bases/`)
+- Don't manually edit `llms.txt`, `llms-full.txt`, `.cursorrules`, `AGENTS.md` — run `make docs-gen`

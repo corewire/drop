@@ -1,0 +1,50 @@
+# Cursor Rules for Puller
+
+## Project Context
+Kubernetes operator (Go 1.23.0, Kubebuilder, controller-runtime).
+Module: github.com/Breee/puller
+API group: puller.corewire.io/v1alpha1. All CRDs cluster-scoped.
+
+## Key Commands
+- Build: go build ./...
+- Test: make test
+- Lint: make lint
+- CRD gen: make manifests
+- Deepcopy gen: make generate
+- All codegen: make codegen
+- AI docs gen: make docs-gen
+
+## Structure
+- api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the puller v1alpha1 API group.
+- internal/controller — Reconciler implementations (one per CRD)
+- internal/discovery — Discovery source interface + implementations
+- internal/metrics — Prometheus metrics registration
+- internal/pacing — Shared pacing engine for rate-limited pulls
+- internal/podbuilder — Pure Pod construction function (no k8s client)
+- charts/puller/ — Helm chart
+- test/e2e/ — Chainsaw E2E tests
+- hack/gen-ai-docs/ — generates all docs from source
+
+## CRDs → Controllers
+- CachedImage → internal/controller/cachedimage_controller.go
+- CachedImageSet → internal/controller/cachedimageset_controller.go
+- PullPolicy (config-only, no controller)
+- DiscoveryPolicy → internal/controller/discoverypolicy_controller.go
+
+## Conventions
+- All CRDs are cluster-scoped
+- Status uses metav1.Condition with type "Ready"
+- No privileged containers — kubelet-based image pulls only
+- Single responsibility reconcilers — one controller per CRD
+- Pod builder is a pure function in internal/podbuilder/ (no k8s client)
+- Pacing logic lives exclusively in internal/pacing/
+- ownerReferences: CachedImageSet→CachedImage, controller→Pod
+- Table-driven tests preferred; envtest for controllers
+- Pods use nodeName placement + command: ["true"]
+- Don't manually edit generated files — run make docs-gen
+
+## Don't
+- Edit generated files (zz_generated.deepcopy.go, config/crd/bases/, llms.txt, llms-full.txt, knowledge.yaml)
+- Add privileged containers or CRI socket mounts
+- Create namespaced CRDs
+- Put pacing logic outside internal/pacing/
