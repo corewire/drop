@@ -1,0 +1,11 @@
+{"version": 2, "width": 120, "height": 22, "timestamp": 1779633798, "env": {}}
+[0.005057, "o", "$ kubectl get events --field-selector reason!=LeaderElection --watch-only\r\n"]
+[3.276926, "o", "LAST SEEN   TYPE     REASON    OBJECT                      MESSAGE\r\n0s          Normal   Pulling   pod/pull-nginx-demo-t58qv   Pulling image \"docker.io/library/nginx:1.27\"\r\n"]
+[3.988758, "o", "0s          Normal   Pulled    pod/pull-nginx-demo-t58qv   Successfully pulled image \"docker.io/library/nginx:1.27\" in 704ms (704ms including waiting). Image size: 72406859 bytes.\r\n"]
+[4.027182, "o", "0s          Normal   Created   pod/pull-nginx-demo-t58qv   Container created\r\n"]
+[4.169234, "o", "0s          Normal   Started   pod/pull-nginx-demo-t58qv   Container started\r\n"]
+[5.717687, "o", "0s          Normal   Pulling   pod/pull-nginx-demo-g5xtm   Pulling image \"docker.io/library/nginx:1.27\""]
+[5.717903, "o", "\r\n"]
+[6.424978, "o", "0s          Normal   Pulled    pod/pull-nginx-demo-g5xtm   Successfully pulled image \"docker.io/library/nginx:1.27\" in 696ms (696ms including waiting). Image size: 72406859 bytes.\r\n"]
+[6.463686, "o", "0s          Normal   Created   pod/pull-nginx-demo-g5xtm   Container created\r\n"]
+[6.590277, "o", "0s          Normal   Started   pod/pull-nginx-demo-g5xtm   Container started\r\n"]
