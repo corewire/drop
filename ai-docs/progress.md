@@ -31,4 +31,5 @@
 - [x] Kamera evaluation documentation (post-MVP decision)
 - [ ] Hugo Hextra docs generation CI workflow
 - [ ] RepullPolicy implementation (requeueAfter for moving tags)
+- [ ] Add a base of instructions to all instruction files so coding agents do not waste time
 
