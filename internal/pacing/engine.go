@@ -60,6 +60,10 @@ func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, 
 	for i := range podList.Items {
 		pod := &podList.Items[i]
 		if pod.Status.Phase == corev1.PodPending || pod.Status.Phase == corev1.PodRunning {
+			// Skip pods stuck in image pull errors — they're about to be cleaned up
+			if isStuckImagePull(pod) {
+				continue
+			}
 			if policy != nil && len(policy.Spec.NodeSelector) > 0 {
 				if !nodeMatchesSelector(pod.Spec.NodeName, policy.Spec.NodeSelector) {
 					continue
@@ -100,4 +104,17 @@ func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, 
 // on specific nodes via nodeName — the pacing scope is informational.
 func nodeMatchesSelector(_ string, _ map[string]string) bool {
 	return true
+}
+
+// isStuckImagePull returns true if a pod has a container waiting due to image pull failure.
+func isStuckImagePull(pod *corev1.Pod) bool {
+	for _, cs := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
+		if cs.State.Waiting != nil {
+			switch cs.State.Waiting.Reason {
+			case "ErrImagePull", "ImagePullBackOff", "InvalidImageName", "RegistryUnavailable":
+				return true
+			}
+		}
+	}
+	return false
 }

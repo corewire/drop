@@ -117,6 +117,7 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// 5. Update status
 	// Re-list children after mutations
+	patch := client.MergeFrom(imageSet.DeepCopy())
 	if err := r.List(ctx, existingChildren, client.MatchingLabels{
 		"puller.corewire.io/imageset": imageSet.Name,
 	}); err != nil {
@@ -124,9 +125,21 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	var imagesReady int32
+	var worstReason, worstMessage string
+	var hasDegraded bool
 	for i := range existingChildren.Items {
-		if existingChildren.Items[i].Status.Phase == phaseReady {
+		child := &existingChildren.Items[i]
+		if child.Status.Phase == phaseReady {
 			imagesReady++
+		} else if child.Status.Phase == phaseDegraded {
+			hasDegraded = true
+			// Extract the child's failure reason for propagation
+			for _, c := range child.Status.Conditions {
+				if c.Type == conditionTypeReady && c.Status == metav1.ConditionFalse && c.Reason != "InProgress" {
+					worstReason = c.Reason
+					worstMessage = c.Message
+				}
+			}
 		}
 	}
 
@@ -136,8 +149,8 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if imagesReady == int32(len(desiredImages)) && len(desiredImages) > 0 {
 		imageSet.Status.Phase = phaseReady
-	} else if imagesReady > 0 {
-		imageSet.Status.Phase = phasePending
+	} else if hasDegraded {
+		imageSet.Status.Phase = phaseDegraded
 	} else {
 		imageSet.Status.Phase = phasePending
 	}
@@ -148,19 +161,27 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		ObservedGeneration: imageSet.Generation,
 		LastTransitionTime: now,
 	}
-	if imageSet.Status.Phase == phaseReady {
+	switch {
+	case imageSet.Status.Phase == phaseReady:
 		readyCondition.Status = metav1.ConditionTrue
-		readyCondition.Reason = "AllImagesReady"
+		readyCondition.Reason = "Ready"
 		readyCondition.Message = fmt.Sprintf("All %d images are cached", imagesReady)
-	} else {
+	case hasDegraded && worstReason != "":
 		readyCondition.Status = metav1.ConditionFalse
-		readyCondition.Reason = "InProgress"
-		readyCondition.Message = fmt.Sprintf("%d/%d images ready", imagesReady, len(desiredImages))
+		readyCondition.Reason = "Degraded"
+		readyCondition.Message = fmt.Sprintf("%d/%d images cached, failing: %s", imagesReady, len(desiredImages), worstReason)
+		if worstMessage != "" {
+			readyCondition.Message = fmt.Sprintf("%d/%d images cached: %s", imagesReady, len(desiredImages), worstMessage)
+		}
+	default:
+		readyCondition.Status = metav1.ConditionFalse
+		readyCondition.Reason = "Progressing"
+		readyCondition.Message = fmt.Sprintf("%d/%d images cached", imagesReady, len(desiredImages))
 	}
 	meta.SetStatusCondition(&imageSet.Status.Conditions, readyCondition)
 
-	if err := r.Status().Update(ctx, imageSet); err != nil {
-		return ctrl.Result{}, fmt.Errorf("updating status: %w", err)
+	if err := r.Status().Patch(ctx, imageSet, patch); err != nil {
+		return ctrl.Result{}, fmt.Errorf("patching status: %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -224,14 +245,14 @@ func (r *CachedImageSetReconciler) buildChildCachedImage(parent *pullerv1alpha1.
 			},
 		},
 		Spec: pullerv1alpha1.CachedImageSpec{
-			Image:        img.Image,
-			Tag:          img.Tag,
-			Digest:       img.Digest,
-			PullPolicy:   parent.Spec.PullPolicy,
-			RepullPolicy: parent.Spec.RepullPolicy,
-			NodeSelector: parent.Spec.NodeSelector,
-			Tolerations:  parent.Spec.Tolerations,
-			PolicyRef:    parent.Spec.PolicyRef,
+			Image:            img.Image,
+			Tag:              img.Tag,
+			Digest:           img.Digest,
+			ImagePullPolicy:  parent.Spec.ImagePullPolicy,
+			ImagePullSecrets: parent.Spec.ImagePullSecrets,
+			NodeSelector:     parent.Spec.NodeSelector,
+			Tolerations:      parent.Spec.Tolerations,
+			PolicyRef:        parent.Spec.PolicyRef,
 		},
 	}
 

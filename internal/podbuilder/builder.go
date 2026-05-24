@@ -28,9 +28,9 @@ const (
 func BuildPullerPod(ci *v1alpha1.CachedImage, nodeName, namespace string) (*corev1.Pod, error) {
 	imageRef := buildImageRef(ci)
 
-	pullPolicy := corev1.PullIfNotPresent
-	if ci.Spec.PullPolicy == "Always" {
-		pullPolicy = corev1.PullAlways
+	pullPolicy := corev1.PullAlways
+	if ci.Spec.ImagePullPolicy != "" {
+		pullPolicy = ci.Spec.ImagePullPolicy
 	}
 
 	if namespace == "" {
@@ -39,7 +39,7 @@ func BuildPullerPod(ci *v1alpha1.CachedImage, nodeName, namespace string) (*core
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("puller-%s-", ci.Name),
+			GenerateName: fmt.Sprintf("pull-%s-", ci.Name),
 			Namespace:    namespace,
 			Labels: map[string]string{
 				LabelManagedBy:   LabelManagedByValue,
@@ -48,9 +48,10 @@ func BuildPullerPod(ci *v1alpha1.CachedImage, nodeName, namespace string) (*core
 			},
 		},
 		Spec: corev1.PodSpec{
-			NodeName:      nodeName,
-			RestartPolicy: corev1.RestartPolicyNever,
-			Tolerations:   ci.Spec.Tolerations,
+			NodeName:         nodeName,
+			RestartPolicy:    corev1.RestartPolicyNever,
+			Tolerations:      ci.Spec.Tolerations,
+			ImagePullSecrets: ci.Spec.ImagePullSecrets,
 			Containers: []corev1.Container{
 				{
 					Name:            "pull",

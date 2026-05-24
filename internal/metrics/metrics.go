@@ -59,6 +59,25 @@ var (
 		},
 		[]string{"controller", "result"},
 	)
+
+	// DiscoverySourceHealth reports whether a discovery source is reachable (1=healthy, 0=unhealthy).
+	DiscoverySourceHealth = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "puller_discovery_source_health",
+			Help: "Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy).",
+		},
+		[]string{"policy", "source_type", "endpoint"},
+	)
+
+	// DiscoverySourceLatencySeconds tracks the query duration per source.
+	DiscoverySourceLatencySeconds = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "puller_discovery_source_latency_seconds",
+			Help:    "Latency of discovery source queries in seconds.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"policy", "source_type"},
+	)
 )
 
 func init() {
@@ -69,5 +88,7 @@ func init() {
 		DiscoveryImagesFound,
 		ActivePulls,
 		ReconcileTotal,
+		DiscoverySourceHealth,
+		DiscoverySourceLatencySeconds,
 	)
 }
