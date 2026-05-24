@@ -1,0 +1,10 @@
+# Assert broken registry shows DNSError reason
+apiVersion: puller.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-broken-registry
+status:
+  conditions:
+    - type: Ready
+      status: "False"
+      reason: DNSError

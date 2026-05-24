@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cachedimageset-discovery
+spec:
+  description: |
+    Verify that a CachedImageSet with discoveryPolicyRef creates child CachedImages
+    from a registry-based DiscoveryPolicy, with policyRef propagated to children.
+  steps:
+    - name: Create PullPolicy
+      try:
+        - apply:
+            file: 01-pullpolicy.yaml
+    - name: Create Registry DiscoveryPolicy
+      try:
+        - apply:
+            file: 02-discoverypolicy.yaml
+    - name: Wait for discovery to sync
+      try:
+        - assert:
+            timeout: 90s
+            file: 03-assert-discovery-ready.yaml
+    - name: Create CachedImageSet with discoveryPolicyRef and policyRef
+      try:
+        - apply:
+            file: 04-cachedimageset.yaml
+    - name: Verify child CachedImages created with policyRef
+      try:
+        - assert:
+            timeout: 60s
+            file: 05-assert-children.yaml
+    - name: Verify CachedImageSet status shows Ready
+      try:
+        - assert:
+            timeout: 60s
+            file: 06-assert-set-status.yaml
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: CachedImageSet
+              name: test-discovered-set
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: test-registry-discovery
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: PullPolicy
+              name: test-set-policy

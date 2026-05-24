@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cachedimage-failure
+spec:
+  description: |
+    Verify that a CachedImage with an unreachable registry transitions to
+    Degraded phase with an appropriate reason (ErrImagePull/ImagePullBackOff).
+  steps:
+    - name: Create PullPolicy
+      try:
+        - apply:
+            file: 01-pullpolicy.yaml
+    - name: Create broken CachedImage
+      try:
+        - apply:
+            file: 02-cachedimage-broken.yaml
+    - name: Wait for Degraded status with failure reason
+      try:
+        - assert:
+            timeout: 120s
+            file: 03-assert-degraded.yaml
+    - name: Verify consecutiveFailures is tracked
+      try:
+        - assert:
+            timeout: 30s
+            file: 04-assert-backoff.yaml
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: CachedImage
+              name: test-broken-image
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: PullPolicy
+              name: test-backoff-policy

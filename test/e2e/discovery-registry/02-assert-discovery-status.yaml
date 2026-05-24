@@ -1,10 +1,14 @@
-# Assert that DiscoveryPolicy status contains images from registry.
+# Assert that DiscoveryPolicy status contains images from registry and Ready condition.
 # The registry source lists tags for test/myapp and builds refs as host/repo:tag.
 apiVersion: puller.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: e2e-registry
 status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Synced
   discoveredImages:
     - image: "registry.e2e-infra.svc.cluster.local:5000/test/myapp:v1"
       score: 1

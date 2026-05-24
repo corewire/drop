@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: seed-registry
+  namespace: e2e-infra
 spec:
   backoffLimit: 2
   template:
@@ -9,79 +10,54 @@ spec:
       restartPolicy: Never
       containers:
         - name: seed
-          image: curlimages/curl:8.7.1
+          image: ghcr.io/regclient/regctl:v0.7.1-alpine
           command:
             - /bin/sh
             - -c
             - |
-              # Create minimal OCI manifests in the registry using curl
-              REGISTRY="http://registry.e2e-infra.svc.cluster.local:5000"
+              REGISTRY="registry.e2e-infra.svc.cluster.local:5000"
+
+              # Configure regctl for insecure local registry
+              regctl registry set "$REGISTRY" --tls disabled
 
               # Wait for registry to be ready
               echo "Waiting for registry..."
               for i in $(seq 1 30); do
-                if curl -sf "${REGISTRY}/v2/" > /dev/null 2>&1; then
+                if regctl tag ls "${REGISTRY}/v2" 2>/dev/null || wget -qO- "http://${REGISTRY}/v2/" >/dev/null 2>&1; then
                   echo "Registry is ready"
                   break
                 fi
                 sleep 2
               done
 
-              # Push a minimal config blob
-              CONFIG='{"architecture":"amd64","os":"linux","rootfs":{"type":"layers","diff_ids":[]}}'
-              CONFIG_DIGEST="sha256:$(echo -n "$CONFIG" | sha256sum | cut -d' ' -f1)"
-              CONFIG_SIZE=$(echo -n "$CONFIG" | wc -c)
+              # Copy a single small image from Docker Hub, then retag locally
+              echo "Pulling base image..."
+              regctl image copy docker.io/library/alpine:3.19 "${REGISTRY}/test/myapp:v1"
 
-              for REPO in "test/myapp" "test/worker" "test/tools"; do
-                for TAG in "v1" "v2" "v3"; do
-                  echo "Pushing ${REPO}:${TAG}..."
+              # Now retag within the local registry (no Docker Hub pulls needed)
+              echo "Retagging within local registry..."
+              TAGS="
+              test/myapp:v1|test/myapp:v2
+              test/myapp:v1|test/myapp:v3
+              test/myapp:v1|test/worker:v1
+              test/myapp:v1|test/worker:v2
+              test/myapp:v1|test/worker:v3
+              test/myapp:v1|test/tools:v1
+              test/myapp:v1|test/tools:v2
+              test/myapp:v1|test/tools:v3
+              "
 
-                  # Start blob upload and complete in single POST (monolithic upload)
-                  curl -sf -X POST \
-                    -H "Content-Type: application/octet-stream" \
-                    -d "$CONFIG" \
-                    "${REGISTRY}/v2/${REPO}/blobs/uploads/?digest=${CONFIG_DIGEST}" || \
-                  {
-                    # Fallback: two-step upload (POST to get location, PUT to complete)
-                    LOCATION=$(curl -sf -X POST "${REGISTRY}/v2/${REPO}/blobs/uploads/" -D - -o /dev/null | grep -i "location:" | tr -d '\r' | awk '{print $2}')
-                    if [ -n "$LOCATION" ]; then
-                      # Handle relative vs absolute URLs
-                      case "$LOCATION" in
-                        http*) UPLOAD_URL="$LOCATION" ;;
-                        *)     UPLOAD_URL="${REGISTRY}${LOCATION}" ;;
-                      esac
-                      # Append digest separator
-                      case "$UPLOAD_URL" in
-                        *"?"*) UPLOAD_URL="${UPLOAD_URL}&digest=${CONFIG_DIGEST}" ;;
-                        *)     UPLOAD_URL="${UPLOAD_URL}?digest=${CONFIG_DIGEST}" ;;
-                      esac
-                      curl -sf -X PUT \
-                        -H "Content-Type: application/octet-stream" \
-                        -d "$CONFIG" \
-                        "$UPLOAD_URL" || echo "  WARN: blob upload failed for ${REPO}:${TAG}"
-                    fi
-                  }
-
-                  # Create and push manifest
-                  MANIFEST="{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"size\":${CONFIG_SIZE},\"digest\":\"${CONFIG_DIGEST}\"},\"layers\":[]}"
-
-                  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
-                    -H "Content-Type: application/vnd.oci.image.manifest.v1+json" \
-                    -d "$MANIFEST" \
-                    "${REGISTRY}/v2/${REPO}/manifests/${TAG}")
-
-                  if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
-                    echo "  OK: ${REPO}:${TAG}"
-                  else
-                    echo "  WARN: manifest push returned HTTP ${HTTP_CODE} for ${REPO}:${TAG}"
-                  fi
-                done
+              for ENTRY in $TAGS; do
+                SRC=$(echo "$ENTRY" | cut -d'|' -f1)
+                DST=$(echo "$ENTRY" | cut -d'|' -f2)
+                echo "  ${REGISTRY}/${SRC} -> ${REGISTRY}/${DST}"
+                regctl image copy "${REGISTRY}/${SRC}" "${REGISTRY}/${DST}" || echo "  FAILED"
               done
 
               echo ""
               echo "Verifying tags..."
               for REPO in "test/myapp" "test/worker" "test/tools"; do
-                TAGS=$(curl -sf "${REGISTRY}/v2/${REPO}/tags/list" 2>/dev/null || echo "FAILED")
+                TAGS=$(regctl tag ls "${REGISTRY}/${REPO}" 2>/dev/null || echo "FAILED")
                 echo "  ${REPO}: ${TAGS}"
               done
 

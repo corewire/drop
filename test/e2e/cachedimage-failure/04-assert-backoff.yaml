@@ -1,0 +1,7 @@
+# Assert consecutiveFailures is being tracked (at least 1 failure recorded).
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: test-broken-image
+status:
+  (consecutiveFailures > `0`): true

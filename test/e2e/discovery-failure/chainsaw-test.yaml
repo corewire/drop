@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: discovery-failure
+spec:
+  description: |
+    Verify that DiscoveryPolicy with broken sources reports appropriate error
+    reasons: DNSError for unreachable endpoints, NotFound for missing repos.
+  steps:
+    - name: Create broken Prometheus DiscoveryPolicy (DNS failure)
+      try:
+        - apply:
+            file: 01-broken-prometheus.yaml
+    - name: Create broken Registry DiscoveryPolicy (DNS failure)
+      try:
+        - apply:
+            file: 02-broken-registry.yaml
+    - name: Create DiscoveryPolicy with nonexistent repo (NotFound)
+      try:
+        - apply:
+            file: 03-notfound-registry.yaml
+    - name: Assert broken Prometheus shows DNSError
+      try:
+        - assert:
+            timeout: 90s
+            file: 04-assert-dns-prometheus.yaml
+    - name: Assert broken registry shows DNSError
+      try:
+        - assert:
+            timeout: 90s
+            file: 05-assert-dns-registry.yaml
+    - name: Assert notfound repo shows error
+      try:
+        - assert:
+            timeout: 90s
+            file: 06-assert-notfound.yaml
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: test-broken-prom
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: test-broken-registry
+        - delete:
+            ref:
+              apiVersion: puller.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: test-notfound-repo

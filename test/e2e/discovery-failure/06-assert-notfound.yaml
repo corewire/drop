@@ -1,0 +1,9 @@
+# Assert notfound repo shows error (Ready=False with a reason)
+apiVersion: puller.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-notfound-repo
+status:
+  conditions:
+    - type: Ready
+      status: "False"

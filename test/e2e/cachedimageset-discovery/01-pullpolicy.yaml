@@ -1,0 +1,10 @@
+apiVersion: puller.corewire.io/v1alpha1
+kind: PullPolicy
+metadata:
+  name: test-set-policy
+spec:
+  maxConcurrentNodes: 1
+  minDelayBetweenPulls: 1s
+  failureBackoff:
+    initial: 10s
+    max: 1m

@@ -1,0 +1,13 @@
+apiVersion: puller.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-broken-registry
+spec:
+  sources:
+    - type: registry
+      registry:
+        url: "http://nonexistent-registry:5000"
+        repositories:
+          - "test/nope"
+  syncInterval: 30m
+  maxImages: 10

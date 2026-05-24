@@ -1,11 +1,9 @@
+# Assert CachedImageSet shows healthy status
 apiVersion: puller.corewire.io/v1alpha1
-kind: CachedImage
+kind: CachedImageSet
 metadata:
-  name: test-nginx
+  name: test-discovered-set
 status:
-  phase: Ready
-  nodesReady: 1
   conditions:
     - type: Ready
       status: "True"
-      reason: Cached

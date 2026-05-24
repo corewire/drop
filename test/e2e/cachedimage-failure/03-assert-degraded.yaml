@@ -1,0 +1,10 @@
+# Assert CachedImage transitions to Degraded with a pull failure reason.
+apiVersion: puller.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: test-broken-image
+status:
+  phase: Degraded
+  conditions:
+    - type: Ready
+      status: "False"

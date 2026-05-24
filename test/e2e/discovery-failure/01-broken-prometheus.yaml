@@ -1,0 +1,12 @@
+apiVersion: puller.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-broken-prom
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://nonexistent-prometheus:9090"
+        query: "up{}"
+  syncInterval: 30m
+  maxImages: 10
