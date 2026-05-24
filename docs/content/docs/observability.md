@@ -68,7 +68,7 @@ status:
   conditions:
     - type: Ready
       status: "True"
-      reason: AllNodesCached
+      reason: Cached
       message: "Image cached on all 5 target nodes"
       lastTransitionTime: "2024-01-15T10:30:00Z"
 ```

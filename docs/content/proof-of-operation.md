@@ -116,7 +116,7 @@ nginx-proof   docker.io/library/nginx   Ready   2       2        45s
     {
       "type": "Ready",
       "status": "True",
-      "reason": "AllNodesCached",
+      "reason": "Cached",
       "message": "Image cached on 2/2 target nodes"
     }
   ]

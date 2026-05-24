@@ -235,8 +235,8 @@ $(CHAINSAW): $(LOCALBIN)
 	$(call go-install-tool,$(CHAINSAW),github.com/kyverno/chainsaw,$(CHAINSAW_VERSION))
 
 .PHONY: kind-create
-kind-create: ## Create a local kind cluster for development.
-	$(KIND) create cluster --name puller-dev --wait 5m
+kind-create: ## Create a local kind cluster for development (1 control-plane + 2 workers).
+	$(KIND) create cluster --name puller-dev --config hack/kind-config.yaml --wait 5m
 	@echo "Kind cluster 'puller-dev' is ready."
 
 .PHONY: kind-delete

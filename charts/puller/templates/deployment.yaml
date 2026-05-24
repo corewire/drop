@@ -27,6 +27,9 @@ spec:
             {{- end }}
             {{- if .Values.metrics.enabled }}
             - --metrics-bind-address=:8443
+            {{- if not .Values.metrics.secureServing }}
+            - --metrics-secure=false
+            {{- end }}
             {{- else }}
             - --metrics-bind-address=0
             {{- end }}

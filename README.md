@@ -1,105 +1,79 @@
 # puller
-K8s Operator that pre-pulls images onto Kubernetes nodes without destroying Containerd
 
-## AI Docs
+A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery.
 
-- See `/ai-docs/README.md` for feature-sliced planning documents and `/ai-docs/progress.md` for tracking.
-- **Architecture plan: `/ai-docs/14-architecture.md`** — system design, reconcilers, pull mechanism, pacing, project structure.
-- **Implementation plan: `/ai-docs/15-implementation-plan.md`** — detailed tasks, acceptance criteria, dependencies, effort estimates.
-- CRD field reference: `/ai-docs/09-crd-reference.md`.
-- Pull policy design: `/ai-docs/10-policy-redesign-proposals.md`.
-- Example scenarios: `/ai-docs/11-example-scenarios.md`.
-- Naming decision: `/ai-docs/12-naming-structure-proposals.md`.
-- Discovery architecture: `/ai-docs/13-discovery-architecture.md`.
+## What it does
 
-## Draft Plan
+- **Pre-caches images** on selected nodes before workloads need them
+- **Discovers images** automatically from Prometheus metrics or OCI registries
+- **Paces pulls** to avoid saturating node bandwidth or registry rate limits
+- **Reports errors** using standard Kubernetes status patterns (`ErrImagePull`, `ConnectionRefused`, etc.)
 
-### 1) API / CRDs (`puller.corewire.io/v1alpha1`, all cluster-scoped)
+## Quick Start
 
-- `CachedImage`: declarative record for a single image that should be cached on selected nodes.
-  - Spec: `image`, optional `tag`/`digest`, `pullPolicy`, `repullPolicy`, `nodeSelector`, `tolerations`, `priority`, `policyRef`.
-    - `pullPolicy`: image pull behavior (`IfNotPresent`/`Always`).
-    - `repullPolicy`: refresh behavior for moving tags (`Never`/`OnSchedule`/`Always`).
-    - no per-image concurrency knob: node-level image layer parallelism is already handled by the container runtime.
-  - Status: `observedGeneration`, `phase`, `lastPulledAt`, `nodesTargeted`, `nodesReady`, `conditions`.
+```bash
+# Install CRDs and operator via Helm
+helm install puller charts/puller -n puller-system --create-namespace
 
-- `CachedImageSet`: declares a group of images to cache, with shared config.
-  - Spec: `policyRef`, `discoveryPolicyRef`, `nodeSelector`, `tolerations`, `images` (static list), `pullPolicy`, `repullPolicy`.
-  - Owns child `CachedImage` resources via ownerReferences for GC.
-  - Status: `phase`, `imagesManaged`, `imagesReady`, `conditions`.
-
-- `PullPolicy`: shared execution policy for pacing and safety.
-  - Spec: `maxConcurrentNodes`, `minDelayBetweenPulls`, `failureBackoff`, `repullPolicyDefault`, `nodeSelector`, `tolerations`.
-  - Referenced by `CachedImage`/`CachedImageSet` via `policyRef`.
-
-- `DiscoveryPolicy`: declares how dynamic image lists are produced.
-  - Spec: `sources` (list of backends: prometheus, registry, extensible), `imageFilter`, `syncInterval`, `maxImages`. Each source has optional `secretRef` for auth/TLS/headers via k8s Secret.
-  - Referenced by `CachedImageSet` via `discoveryPolicyRef`.
-  - Status: `lastSyncTime`, `discoveredImages`, `conditions`.
-
-### 2) Operator Control Loops
-- Reconciler A (`CachedImage`):
-  - Ensures a DaemonSet/Job-based pull mechanism exists for each declared image.
-  - Throttles rollout via referenced `PullPolicy` (`maxConcurrentNodes`, backoff, jitter).
-  - Updates status from node-level pull completion signals.
-- Reconciler B (`CachedImageSet`):
-  - Manages child `CachedImage` resources (create/update/delete).
-  - Reads discovered images from referenced `DiscoveryPolicy` status if configured.
-- Reconciler C (`DiscoveryPolicy`):
-  - Periodically executes Prometheus queries or registry lookups.
-  - Reports discovered images in status for `CachedImageSet` to consume.
-
-### 3) Prometheus Integration
-- Query source metrics from kube-state-metrics/cAdvisor/container runtime metrics (cluster dependent).
-- Provide configurable query templates, for example:
-  - “Top images used in namespaces N over last T hours”.
-  - “Top gitlab helper images over last T hours”.
-- Normalize image names (registry/repo/tag), deduplicate, and rank by usage frequency.
-
-### 4) Registry Top-X Tag Discovery
-- Add registry client support (OCI distribution API) to list tags for a repository.
-- Filter tags (regex/semver/channel), sort by recency or semantic version, select top X.
-- Use auth via Kubernetes Secret references.
-- Feed selected tags into managed `CachedImage` resources.
-
-### 5) Safe Pulling Strategy
-- Use init containers in a managed DaemonSet for ordered pulls, one image per init step.
-- Cap concurrent pulls across cluster via `PullPolicy` (global rate limits).
-- Retry with exponential backoff; quarantine failing images via status conditions.
-
-### 6) Observability & Operations
-- Expose operator metrics: reconcile duration, discovery errors, pull success/failure, queue depth.
-- Emit Kubernetes events for failures and policy drift.
-- Add dashboards/alerts for:
-  - Node pull lag
-  - Repeated image pull failures
-  - Discovery sync failures
-
-### 7) Delivery Phases
-1. Bootstrap CRDs + static `CachedImage` reconciliation.
-2. Add safe/throttled DaemonSet pull orchestration with `PullPolicy`.
-3. Add `CachedImageSet` with static image lists.
-4. Add `DiscoveryPolicy` with Prometheus integration.
-5. Add registry tag discovery.
-6. Harden RBAC, leader election, and SLO-based alerting.
-
-### Example `CachedImage`
-```yaml
+# Cache a single image
+kubectl apply -f - <<YAML
 apiVersion: puller.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
-  name: gitlab-runner-helper
+  name: nginx
 spec:
-  image: gitlab/gitlab-runner-helper
-  tag: v17.0.0
-  pullPolicy: IfNotPresent
-  repullPolicy: Always
-  nodeSelector:
-    node-role.kubernetes.io/ci: "true"
-  tolerations:
-    - key: "node-role.kubernetes.io/ci"
-      operator: "Exists"
-      effect: "NoSchedule"
-  policyRef:
-    name: safe-default
+  image: docker.io/library/nginx
+  tag: 1.25-alpine
+YAML
+
+# Check status
+kubectl get cachedimage nginx -o wide
 ```
+
+## CRDs
+
+All resources are **cluster-scoped** under `puller.corewire.io/v1alpha1`.
+
+| Kind | Purpose |
+|------|---------|
+| `CachedImage` | Cache a single image on target nodes |
+| `CachedImageSet` | Manage a group of images (static or from discovery) |
+| `PullPolicy` | Shared pacing/safety config (concurrency, backoff) |
+| `DiscoveryPolicy` | Auto-discover images from Prometheus or registries |
+
+```
+kubectl get puller          # shows all puller resources
+kubectl get puller -o wide  # includes error messages
+```
+
+## Status at a glance
+
+The STATUS column shows what's happening — using the same terminology you see in `kubectl describe pod`:
+
+```
+NAME               IMAGE                TAG      STATUS             CACHED  TARGET  AGE
+nginx              docker.io/nginx      1.25     Cached             2       2       5m
+broken-img         registry.bad/x       latest   ErrImagePull       0       2       2m
+auth-fail          private.io/app       v1       ImagePullBackOff   0       1       3m
+
+NAME               STATUS              SOURCES  IMAGES  LASTSYNC  AGE
+dev-registry       Synced              1        3       30s       1h
+broken-prom        ConnectionRefused   1        0                 5m
+bad-auth           Unauthorized        1        0                 2m
+```
+
+## Development
+
+```bash
+# Prerequisites: Go 1.23+, Kind, Tilt, Helm
+make generate      # deepcopy
+make manifests     # CRDs + RBAC
+go build ./...     # compile
+
+# Local dev loop (Kind + Tilt)
+tilt up
+```
+
+## Docs
+
+Full documentation at **[corewire.io/puller](https://corewire.io/puller)** (GitHub Pages).
