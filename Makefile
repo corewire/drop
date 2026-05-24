@@ -19,43 +19,43 @@ all: build
 
 .PHONY: help
 help: ## Display this help.
-@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
 
 .PHONY: build
 build: ## Build manager binary.
-go build -o bin/manager cmd/main.go
+	go build -o bin/manager cmd/main.go
 
 .PHONY: run
 run: ## Run controller from your host.
-go run ./cmd/main.go
+	go run ./cmd/main.go
 
 .PHONY: fmt
 fmt: ## Run go fmt.
-go fmt ./...
+	go fmt ./...
 
 .PHONY: vet
 vet: ## Run go vet.
-go vet ./...
+	go vet ./...
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint.
-$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint with auto-fix.
-$(GOLANGCI_LINT) run --fix
+	$(GOLANGCI_LINT) run --fix
 
 ##@ Code Generation
 
 .PHONY: generate
 generate: controller-gen ## Generate DeepCopy methods.
-$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: manifests
 manifests: controller-gen ## Generate CRD and RBAC manifests.
-$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: codegen
 codegen: generate manifests docs-gen ## Run all code generation (deepcopy + CRDs + docs).
@@ -64,61 +64,61 @@ codegen: generate manifests docs-gen ## Run all code generation (deepcopy + CRDs
 
 .PHONY: test
 test: setup-envtest ## Run unit tests.
-KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
 
 .PHONY: test-e2e
 test-e2e: chainsaw ## Run Chainsaw E2E tests (requires kind cluster).
-$(CHAINSAW) test test/e2e/
+	$(CHAINSAW) test test/e2e/
 
 ##@ Cluster
 
 .PHONY: kind-create
 kind-create: ## Create kind cluster for development.
-$(KIND) create cluster --name puller-dev --config hack/kind-config.yaml --wait 5m
+	$(KIND) create cluster --name puller-dev --config hack/kind-config.yaml --wait 5m
 
 .PHONY: kind-delete
 kind-delete: ## Delete the kind cluster.
-$(KIND) delete cluster --name puller-dev
+	$(KIND) delete cluster --name puller-dev
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into cluster.
-$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from cluster.
-$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found -f -
+	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found -f -
 
 .PHONY: e2e-infra
 e2e-infra: ## Deploy Prometheus + Registry for E2E/dev.
-@chmod +x hack/e2e-infra/setup.sh && hack/e2e-infra/setup.sh
+	@chmod +x hack/e2e-infra/setup.sh && hack/e2e-infra/setup.sh
 
 ##@ Docker
 
 .PHONY: docker-build
 docker-build: ## Build docker image.
-$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image.
-$(CONTAINER_TOOL) push ${IMG}
+	$(CONTAINER_TOOL) push ${IMG}
 
 .PHONY: kind-load
 kind-load: docker-build ## Build and load image into kind.
-$(KIND) load docker-image ${IMG} --name puller-dev
+	$(KIND) load docker-image ${IMG} --name puller-dev
 
 ##@ Helm & Docs
 
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart.
-helm lint charts/puller
+	helm lint charts/puller
 
 .PHONY: helm-template
 helm-template: ## Render Helm templates locally.
-helm template puller charts/puller
+	helm template puller charts/puller
 
 .PHONY: docs-serve
 docs-serve: ## Serve Hugo docs locally.
-cd docs && hugo server --buildDrafts --port 1313
+	cd docs && hugo server --buildDrafts --port 1313
 
 .PHONY: docs-gen
 docs-gen: ## Regenerate AI agent docs (llms.txt, instructions, etc.) from source.
@@ -129,15 +129,17 @@ docs-gen-check: docs-gen ## Verify generated AI docs are up to date.
 	@git diff --exit-code knowledge.yaml llms.txt llms-full.txt .github/copilot-instructions.md .cursorrules AGENTS.md docs/doc-generation.md docs/content/docs/reference/_generated_*.md || \
 		(echo "ERROR: generated docs are out of date — run 'make docs-gen'" && exit 1)
 
-@$(MAKE) kustomize controller-gen envtest golangci-lint chainsaw
-@command -v hugo >/dev/null 2>&1 || echo "WARNING: hugo not found — needed for docs"
-@command -v helm >/dev/null 2>&1 || echo "WARNING: helm not found — needed for chart dev"
+.PHONY: tools
+tools: ## Install local tooling and check optional docs/chart binaries.
+	@$(MAKE) kustomize controller-gen setup-envtest golangci-lint chainsaw
+	@command -v hugo >/dev/null 2>&1 || echo "WARNING: hugo not found — needed for docs"
+	@command -v helm >/dev/null 2>&1 || echo "WARNING: helm not found — needed for chart dev"
 
 ##@ Tool Dependencies
 
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
-mkdir -p $(LOCALBIN)
+	mkdir -p $(LOCALBIN)
 
 KUBECTL ?= kubectl
 KIND ?= kind
