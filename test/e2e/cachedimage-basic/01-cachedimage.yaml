@@ -5,4 +5,4 @@ metadata:
 spec:
   image: docker.io/library/nginx
   tag: "1.25-alpine"
-  pullPolicy: IfNotPresent
+  imagePullPolicy: IfNotPresent
