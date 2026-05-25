@@ -2,6 +2,12 @@
   <img src="docs/static/images/drop-logo.png" alt="Drop logo" width="500">
 </p>
 
+<p align="center">
+  <a href="https://github.com/Breee/drop/releases/latest"><img src="https://img.shields.io/github/v/tag/Breee/drop" alt="Latest Release"></a>
+  <a href="https://github.com/Breee/drop/actions"><img src="https://github.com/Breee/drop/workflows/CI/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/github/go-mod/go-version/Breee/drop" alt="Go Version">
+</p>
+
 
 A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery. 
 
