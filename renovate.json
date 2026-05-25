@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "Automerge minor, patch, and digest updates",
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Major updates require manual approval",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}
