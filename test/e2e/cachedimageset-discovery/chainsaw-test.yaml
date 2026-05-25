@@ -38,8 +38,8 @@ spec:
               deadline=$(( $(date +%s) + 120 ))
               while [ "$(date +%s)" -lt "$deadline" ]; do
                 ready=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
-                images_managed=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.imagesManaged}' 2>/dev/null || echo 0)
-                images_ready=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.imagesReady}' 2>/dev/null || echo 0)
+                images_managed=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.imagesManaged}' 2>/dev/null || true)
+                images_ready=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.imagesReady}' 2>/dev/null || true)
 
                 case "$images_managed" in
                   ''|*[!0-9]*) images_managed=0 ;;
@@ -48,7 +48,7 @@ spec:
                   ''|*[!0-9]*) images_ready=0 ;;
                 esac
 
-                if [ -n "$images_managed" ] && [ "$images_managed" -ge 1 ] && [ "$images_ready" = "$images_managed" ] && [ "$ready" = "True" ]; then
+                if [ "$images_managed" -ge 1 ] && [ "$images_ready" = "$images_managed" ] && [ "$ready" = "True" ]; then
                   echo "OK: CachedImageSet is Ready with $images_ready/$images_managed images cached"
                   exit 0
                 fi
