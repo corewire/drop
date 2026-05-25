@@ -1,9 +1,11 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
-  labels:
-    app.kubernetes.io/name: drop
-    app.kubernetes.io/managed-by: kustomize
-  name: cachedimage-sample
+  name: nginx
 spec:
-  # TODO(user): Add fields here
+  image: docker.io/library/nginx
+  tag: "1.25-alpine"
+  policyRef:
+    name: default
+  nodeSelector:
+    kubernetes.io/arch: amd64

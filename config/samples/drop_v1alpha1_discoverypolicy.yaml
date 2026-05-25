@@ -1,9 +1,15 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  labels:
-    app.kubernetes.io/name: drop
-    app.kubernetes.io/managed-by: kustomize
-  name: discoverypolicy-sample
+  name: registry-discovery
 spec:
-  # TODO(user): Add fields here
+  sources:
+    - type: registry
+      registry:
+        url: "https://registry.example.com"
+        repositories:
+          - "myorg/myapp"
+          - "myorg/worker"
+        topX: 5
+  syncInterval: 5m
+  maxImages: 20

@@ -41,6 +41,7 @@ type Knowledge struct {
 	Metrics       []Metric      `yaml:"metrics"`
 	MakeTargets   []MakeTarget  `yaml:"makeTargets"`
 	Samples       string        `yaml:"samples"`
+	SampleGroups  []SampleGroup `yaml:"sampleGroups,omitempty"`
 }
 
 type Project struct {
@@ -115,6 +116,13 @@ type MakeTarget struct {
 	Desc string `yaml:"desc"`
 }
 
+// SampleGroup represents a group of related example manifests for the examples page.
+type SampleGroup struct {
+	Title       string `yaml:"title"`
+	Description string `yaml:"description"`
+	YAML        string `yaml:"yaml"`
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 func main() {
@@ -141,11 +149,12 @@ func main() {
 	generateFile(root, filepath.Join("docs", "content", "docs", "reference", "_generated_errors.md"), hugoErrorsTmpl, k)
 	generateFile(root, filepath.Join("docs", "content", "docs", "reference", "_generated_metrics.md"), hugoMetricsTmpl, k)
 	generateFile(root, filepath.Join("docs", "content", "docs", "reference", "_generated_architecture.md"), hugoArchTmpl, k)
+	generateFile(root, filepath.Join("docs", "content", "docs", "_generated_examples.md"), hugoExamplesTmpl, k)
 
 	// Repo-level doc generation diagram
 	generateFile(root, filepath.Join("docs", "doc-generation.md"), docGenDiagramTmpl, k)
 
-	fmt.Println("✓ Generated: knowledge.yaml + llms.txt + llms-full.txt + agent instructions + Hugo reference pages + doc-generation.md")
+	fmt.Println("✓ Generated: knowledge.yaml + llms.txt + llms-full.txt + agent instructions + Hugo reference pages + examples + doc-generation.md")
 }
 
 func findRepoRoot() string {
@@ -188,6 +197,7 @@ func buildKnowledge(root string) Knowledge {
 	k.Metrics = extractMetrics(filepath.Join(root, "internal", "metrics", "metrics.go"))
 	k.MakeTargets = extractMakeTargets(filepath.Join(root, "Makefile"))
 	k.Samples = readFileStr(filepath.Join(root, "hack", "dev-samples.yaml"))
+	k.SampleGroups = parseSampleGroups(k.Samples)
 
 	k.Conventions = []Convention{
 		{Rule: "All CRDs are cluster-scoped", Scope: []string{"code", "use"}},
@@ -203,6 +213,110 @@ func buildKnowledge(root string) Knowledge {
 	}
 
 	return k
+}
+
+// ─── Sample Parser ───────────────────────────────────────────────────────────
+
+// parseSampleGroups splits dev-samples.yaml into logical groups by comment headers.
+func parseSampleGroups(raw string) []SampleGroup {
+	var groups []SampleGroup
+	lines := strings.Split(raw, "\n")
+
+	type docBlock struct {
+		comment string
+		yaml    []string
+	}
+	var blocks []docBlock
+	var current *docBlock
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Detect "# === Title ===" comment blocks
+		if strings.HasPrefix(trimmed, "# ===") && strings.HasSuffix(trimmed, "===") {
+			if current != nil {
+				blocks = append(blocks, *current)
+			}
+			comment := strings.TrimPrefix(trimmed, "# ===")
+			comment = strings.TrimSuffix(comment, "===")
+			comment = strings.TrimSpace(comment)
+			current = &docBlock{comment: comment}
+			continue
+		}
+		// Skip the leading "# Dev samples:" line
+		if current == nil && (trimmed == "" || strings.HasPrefix(trimmed, "#")) {
+			continue
+		}
+		// Skip document separator at the very start
+		if current == nil && trimmed == "---" {
+			continue
+		}
+		if current == nil {
+			current = &docBlock{comment: "Other"}
+		}
+		current.yaml = append(current.yaml, line)
+	}
+	if current != nil {
+		blocks = append(blocks, *current)
+	}
+
+	// Merge blocks by kind pattern into groups
+	kindGroups := map[string]*SampleGroup{}
+	kindOrder := []string{}
+	for _, b := range blocks {
+		// Determine group by CRD kind mentioned in comment
+		kind := "Other"
+		lc := strings.ToLower(b.comment)
+		switch {
+		case strings.Contains(lc, "pullpolicy"):
+			kind = "PullPolicy"
+		case strings.Contains(lc, "cachedimage:") || strings.Contains(lc, "cachedimage "):
+			kind = "CachedImage"
+		case strings.Contains(lc, "cachedimageset"):
+			kind = "CachedImageSet"
+		case strings.Contains(lc, "discoverypolicy"):
+			kind = "DiscoveryPolicy"
+		}
+
+		if _, exists := kindGroups[kind]; !exists {
+			kindGroups[kind] = &SampleGroup{Title: kind}
+			kindOrder = append(kindOrder, kind)
+		}
+		g := kindGroups[kind]
+		// Add separator between multiple resources in same group
+		yaml := strings.TrimRight(strings.Join(b.yaml, "\n"), "\n")
+		// Strip leading/trailing YAML document separators
+		yaml = strings.TrimRight(yaml, "\n")
+		for strings.HasPrefix(yaml, "---\n") {
+			yaml = strings.TrimPrefix(yaml, "---\n")
+		}
+		for strings.HasSuffix(yaml, "\n---") {
+			yaml = strings.TrimSuffix(yaml, "\n---")
+		}
+		yaml = strings.TrimPrefix(yaml, "---")
+		yaml = strings.TrimSpace(yaml)
+		if yaml == "" {
+			continue
+		}
+		if g.YAML != "" {
+			g.YAML += "\n---\n"
+		}
+		g.YAML += yaml
+	}
+
+	// Build final list with descriptions
+	descriptions := map[string]string{
+		"PullPolicy":      "PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes.",
+		"CachedImage":     "CachedImage ensures a single container image is pre-cached on cluster nodes.",
+		"CachedImageSet":  "CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy.",
+		"DiscoveryPolicy": "DiscoveryPolicy automatically discovers images from registries or Prometheus metrics.",
+	}
+	for _, kind := range kindOrder {
+		g := kindGroups[kind]
+		g.Description = descriptions[kind]
+		groups = append(groups, *g)
+	}
+
+	return groups
 }
 
 // ─── Type Parser ─────────────────────────────────────────────────────────────

@@ -804,3 +804,148 @@ samples: |
             - "this/does-not-exist"
     syncInterval: 30m
     maxImages: 10
+sampleGroups:
+  - title: PullPolicy
+    description: PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes.
+    yaml: |-
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: PullPolicy
+      metadata:
+        name: dev-conservative
+      spec:
+        maxConcurrentNodes: 1
+        minDelayBetweenPulls: 5s
+        repullInterval: 1h
+        failureBackoff:
+          initial: 30s
+          max: 5m
+  - title: CachedImage
+    description: CachedImage ensures a single container image is pre-cached on cluster nodes.
+    yaml: |-
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: CachedImage
+      metadata:
+        name: dev-nginx
+      spec:
+        image: docker.io/library/nginx
+        tag: "1.25-alpine"
+        policyRef:
+          name: dev-conservative
+      ---
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: CachedImage
+      metadata:
+        name: dev-redis
+      spec:
+        image: docker.io/library/redis
+        tag: "7-alpine"
+        policyRef:
+          name: dev-conservative
+      ---
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: CachedImage
+      metadata:
+        name: test-invalid-image
+      spec:
+        image: registry.invalid.local:9999/does-not-exist
+        tag: "nope"
+        policyRef:
+          name: dev-conservative
+  - title: CachedImageSet
+    description: CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy.
+    yaml: |-
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: CachedImageSet
+      metadata:
+        name: dev-set
+      spec:
+        policyRef:
+          name: dev-conservative
+        images:
+          - image: docker.io/library/alpine
+            tag: "3.19"
+          - image: docker.io/library/busybox
+            tag: "1.36"
+      ---
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: CachedImageSet
+      metadata:
+        name: dev-set-discovered
+      spec:
+        policyRef:
+          name: dev-conservative
+        discoveryPolicyRef:
+          name: dev-registry
+  - title: DiscoveryPolicy
+    description: DiscoveryPolicy automatically discovers images from registries or Prometheus metrics.
+    yaml: |-
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: DiscoveryPolicy
+      metadata:
+        name: dev-prometheus
+      spec:
+        sources:
+          - type: prometheus
+            prometheus:
+              endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+              query: 'count(container_memory_working_set_bytes{container!="", namespace="build-stuff"}) by (image)'
+              lookback: 24h
+              step: 5m
+        syncInterval: 30s
+        maxImages: 10
+      ---
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: DiscoveryPolicy
+      metadata:
+        name: dev-registry
+      spec:
+        sources:
+          - type: registry
+            registry:
+              url: "http://registry.e2e-infra.svc.cluster.local:5000"
+              repositories:
+                - "test/myapp"
+              topX: 3
+        syncInterval: 30s
+        maxImages: 10
+      ---
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: DiscoveryPolicy
+      metadata:
+        name: test-broken-prom
+      spec:
+        sources:
+          - type: prometheus
+            prometheus:
+              endpoint: "http://nonexistent-prometheus:9090"
+              query: "up{}"
+        syncInterval: 30m
+        maxImages: 10
+      ---
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: DiscoveryPolicy
+      metadata:
+        name: test-broken-registry
+      spec:
+        sources:
+          - type: registry
+            registry:
+              url: "http://nonexistent-registry:5000"
+              repositories:
+                - "test/nope"
+        syncInterval: 30m
+        maxImages: 10
+      ---
+      apiVersion: drop.corewire.io/v1alpha1
+      kind: DiscoveryPolicy
+      metadata:
+        name: test-notfound-repo
+      spec:
+        sources:
+          - type: registry
+            registry:
+              url: "http://registry.e2e-infra.svc.cluster.local:5000"
+              repositories:
+                - "this/does-not-exist"
+        syncInterval: 30m
+        maxImages: 10

@@ -39,6 +39,7 @@ flowchart TD
     ERRORS["reference/_generated_errors.md"]
     METRICSH["reference/_generated_metrics.md"]
     ARCH["reference/_generated_architecture.md"]
+    EXAMPLES["_generated_examples.md"]
   end
 
   TYPES --> PARSE
@@ -60,6 +61,7 @@ flowchart TD
   RENDER --> ERRORS
   RENDER --> METRICSH
   RENDER --> ARCH
+  RENDER --> EXAMPLES
 ```
 
 ## Three Audiences
