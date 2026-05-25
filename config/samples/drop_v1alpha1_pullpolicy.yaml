@@ -1,9 +1,11 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
-  labels:
-    app.kubernetes.io/name: drop
-    app.kubernetes.io/managed-by: kustomize
-  name: pullpolicy-sample
+  name: default
 spec:
-  # TODO(user): Add fields here
+  maxConcurrentNodes: 2
+  minDelayBetweenPulls: 5s
+  repullInterval: 1h
+  failureBackoff:
+    initial: 30s
+    max: 5m

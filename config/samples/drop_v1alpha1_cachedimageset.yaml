@@ -1,9 +1,14 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
-  labels:
-    app.kubernetes.io/name: drop
-    app.kubernetes.io/managed-by: kustomize
-  name: cachedimageset-sample
+  name: core-images
 spec:
-  # TODO(user): Add fields here
+  policyRef:
+    name: default
+  images:
+    - image: docker.io/library/alpine
+      tag: "3.19"
+    - image: docker.io/library/busybox
+      tag: "1.36"
+    - image: docker.io/library/redis
+      tag: "7-alpine"
