@@ -60,18 +60,23 @@ kubectl get drop -o wide  # includes error messages
 
 ## Status at a glance
 
-The STATUS column shows what's happening — using the same terminology you see in `kubectl describe pod`:
-
 ```
-NAME               IMAGE                TAG      STATUS             CACHED  TARGET  AGE
-nginx              docker.io/nginx      1.25     Cached             2       2       5m
-broken-img         registry.bad/x       latest   ErrImagePull       0       2       2m
-auth-fail          private.io/app       v1       ImagePullBackOff   0       1       3m
+$ kubectl get cachedimages
+NAME         IMAGE              TAG           STATUS             READY   AGE
+nginx        docker.io/nginx    1.25-alpine   Cached             2/2     5m
+broken-img   registry.bad/x     latest        ErrImagePull       0/2     2m
+auth-fail    private.io/app     v1            ImagePullBackOff   0/1     3m
 
-NAME               STATUS              SOURCES  IMAGES  LASTSYNC  AGE
-dev-registry       Synced              1        3       30s       1h
-broken-prom        ConnectionRefused   1        0                 5m
-bad-auth           Unauthorized        1        0                 2m
+$ kubectl get cachedimagesets
+NAME       STATUS      READY   MANAGED   SOURCE         AGE
+dev-set    AllReady    3/3     3         dev-registry   1h
+web-apps   Degraded    1/3     3                        10m
+
+$ kubectl get discoverypolicies
+NAME             STATUS              SOURCES   IMAGES   LASTSYNC   AGE
+dev-registry     Synced              1         3        30s        1h
+broken-prom      ConnectionRefused   1         0                   5m
+bad-auth         Unauthorized        1         0                   2m
 ```
 
 ## Development
