@@ -27,6 +27,8 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
+  attestations: write
 
 jobs:
   ci:
@@ -113,6 +115,7 @@ jobs:
 
       - name: Build and push multi-arch image
         if: steps.changes.outputs.skip != 'true'
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -122,6 +125,14 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Attest build provenance
+        if: steps.changes.outputs.skip != 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
       - name: Package and push Helm chart
         if: steps.changes.outputs.skip != 'true'
