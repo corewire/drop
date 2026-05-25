@@ -141,18 +141,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Compute lowercase image name
+        if: steps.changes.outputs.skip != 'true'
+        id: image
+        run: echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Sign image with cosign
         if: steps.changes.outputs.skip != 'true'
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          cosign sign --yes ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
+          cosign sign --yes "${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}"
 
       - name: Attest build provenance
         if: steps.changes.outputs.skip != 'true'
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ghcr.io/${{ github.repository }}
+          subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
