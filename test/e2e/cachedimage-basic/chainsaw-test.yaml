@@ -21,11 +21,18 @@ spec:
         - script:
             timeout: 90s
             content: |
-              deadline=$((SECONDS + 90))
-              while [ "$SECONDS" -lt "$deadline" ]; do
+              deadline=$(( $(date +%s) + 90 ))
+              while [ "$(date +%s)" -lt "$deadline" ]; do
                 phase=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.phase}' 2>/dev/null || true)
-                nodes_ready=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.nodesReady}' 2>/dev/null || true)
-                nodes_targeted=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.nodesTargeted}' 2>/dev/null || true)
+                nodes_ready=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.nodesReady}' 2>/dev/null || echo 0)
+                nodes_targeted=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.nodesTargeted}' 2>/dev/null || echo 0)
+
+                case "$nodes_ready" in
+                  ''|*[!0-9]*) nodes_ready=0 ;;
+                esac
+                case "$nodes_targeted" in
+                  ''|*[!0-9]*) nodes_targeted=0 ;;
+                esac
 
                 if [ -n "$nodes_ready" ] && [ -n "$nodes_targeted" ] && [ "$nodes_targeted" -ge 1 ] && [ "$nodes_ready" = "$nodes_targeted" ] && [ "$phase" = "Ready" ]; then
                   echo "OK: CachedImage reached Ready with $nodes_ready/$nodes_targeted target nodes"
