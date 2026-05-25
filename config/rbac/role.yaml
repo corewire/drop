@@ -31,7 +31,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - puller.corewire.io
+  - drop.corewire.io
   resources:
   - cachedimages
   - cachedimagesets
@@ -45,7 +45,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - puller.corewire.io
+  - drop.corewire.io
   resources:
   - cachedimages/finalizers
   - cachedimagesets/finalizers
@@ -53,7 +53,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - puller.corewire.io
+  - drop.corewire.io
   resources:
   - cachedimages/status
   - cachedimagesets/status
@@ -63,7 +63,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - puller.corewire.io
+  - drop.corewire.io
   resources:
   - pullpolicies
   verbs:

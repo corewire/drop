@@ -3,7 +3,7 @@ title: Code Conventions
 weight: 6
 description: Naming, patterns, and rules for contributing.
 llmsDescription: |
-  Code conventions for puller. CRDs PascalCase, cluster-scoped. Status uses
+  Code conventions for drop. CRDs PascalCase, cluster-scoped. Status uses
   metav1.Condition type "Ready". Pod builder is pure function. Pacing in
   internal/pacing/ only. Table-driven tests. Import order: stdlib, k8s, project.
 ---
@@ -11,7 +11,7 @@ llmsDescription: |
 ## Naming
 
 - CRD kinds: PascalCase (`CachedImage`, not `Cached_Image`)
-- API group: `puller.corewire.io/v1alpha1`
+- API group: `drop.corewire.io/v1alpha1`
 - Controller files: `<kind>_controller.go` (lowercase)
 - Test files: `<kind>_controller_test.go`
 
@@ -38,8 +38,8 @@ Controllers classify errors into condition reasons:
 
 ## Pod Construction Rules
 
-- Always use `podbuilder.BuildPullerPod()` — never construct Pods inline
-- Pods get labels: `app.kubernetes.io/managed-by=puller`, `puller.corewire.io/cachedimage=<name>`, `puller.corewire.io/node=<node>`
+- Always use `podbuilder.BuildDropPod()` — never construct Pods inline
+- Pods get labels: `app.kubernetes.io/managed-by=drop`, `drop.corewire.io/cachedimage=<name>`, `drop.corewire.io/node=<node>`
 - `RestartPolicy: Never`
 - `AutomountServiceAccountToken: false`
 - `TerminationGracePeriodSeconds: 0`
@@ -56,8 +56,8 @@ import (
     "sigs.k8s.io/controller-runtime/pkg/client"
 
     // project
-    pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
-    "github.com/Breee/puller/internal/pacing"
+    dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
+    "github.com/Breee/drop/internal/pacing"
 )
 ```
 
@@ -75,5 +75,5 @@ import (
 - Don't create namespaced CRDs
 - Don't manually edit generated files (`zz_generated.deepcopy.go`, `config/crd/bases/`)
 - Don't manually edit `llms.txt`, `llms-full.txt`, `.cursorrules`, `AGENTS.md` — run `make docs-gen`
-- Don't construct Pods outside of `podbuilder.BuildPullerPod()`
+- Don't construct Pods outside of `podbuilder.BuildDropPod()`
 - Don't use `client.Mock` — use envtest instead

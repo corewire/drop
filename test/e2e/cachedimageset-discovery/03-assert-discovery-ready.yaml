@@ -1,5 +1,5 @@
 # Assert DiscoveryPolicy is synced and has discovered images
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: test-registry-discovery

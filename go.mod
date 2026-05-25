@@ -1,4 +1,4 @@
-module github.com/Breee/puller
+module github.com/Breee/drop
 
 go 1.26.0
 

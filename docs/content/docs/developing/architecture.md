@@ -3,12 +3,12 @@ title: Architecture
 weight: 1
 description: How the operator is structured internally.
 llmsDescription: |
-  Architecture of puller operator. Three reconcilers (CachedImage, CachedImageSet,
+  Architecture of drop operator. Three reconcilers (CachedImage, CachedImageSet,
   DiscoveryPolicy), shared pacing engine, pure pod builder, discovery sources
   (Prometheus, Registry). All CRDs cluster-scoped. Pods use nodeName + command: ["true"].
 ---
 
-Puller is a Kubernetes operator that pre-caches container images on cluster nodes by creating short-lived Pods.
+Drop is a Kubernetes operator that pre-caches container images on cluster nodes by creating short-lived Pods.
 It uses **kubelet-based image pulls** (no CRI socket, no privileged containers).
 
 ## High-Level Flow
@@ -97,10 +97,10 @@ Pods stuck in `ErrImagePull`/`ImagePullBackOff` are excluded from the active cou
 
 ## Pod Builder
 
-Located in `internal/podbuilder/`. A pure function (`BuildPullerPod`) with no k8s client dependency.
+Located in `internal/podbuilder/`. A pure function (`BuildDropPod`) with no k8s client dependency.
 
 Produces Pods with:
-- Labels: `app.kubernetes.io/managed-by=puller`, `puller.corewire.io/cachedimage=<name>`, `puller.corewire.io/node=<node>`
+- Labels: `app.kubernetes.io/managed-by=drop`, `drop.corewire.io/cachedimage=<name>`, `drop.corewire.io/node=<node>`
 - `command: ["true"]` (no-op, image pull is the side effect)
 - `RestartPolicy: Never`, `AutomountServiceAccountToken: false`
 - `TerminationGracePeriodSeconds: 0`

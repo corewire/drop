@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
+	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
 )
 
 var _ = Describe("CachedImageSet Controller", func() {
@@ -39,18 +39,18 @@ var _ = Describe("CachedImageSet Controller", func() {
 		typeNamespacedName := types.NamespacedName{
 			Name: resourceName,
 		}
-		cachedimageset := &pullerv1alpha1.CachedImageSet{}
+		cachedimageset := &dropv1alpha1.CachedImageSet{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind CachedImageSet")
 			err := k8sClient.Get(ctx, typeNamespacedName, cachedimageset)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &pullerv1alpha1.CachedImageSet{
+				resource := &dropv1alpha1.CachedImageSet{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: resourceName,
 					},
-					Spec: pullerv1alpha1.CachedImageSetSpec{
-						Images: []pullerv1alpha1.ImageEntry{
+					Spec: dropv1alpha1.CachedImageSetSpec{
+						Images: []dropv1alpha1.ImageEntry{
 							{Image: "docker.io/library/nginx", Tag: "1.25"},
 						},
 					},
@@ -60,7 +60,7 @@ var _ = Describe("CachedImageSet Controller", func() {
 		})
 
 		AfterEach(func() {
-			resource := &pullerv1alpha1.CachedImageSet{}
+			resource := &dropv1alpha1.CachedImageSet{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			if err == nil {
 				By("Cleanup the specific resource instance CachedImageSet")

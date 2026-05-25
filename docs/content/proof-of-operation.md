@@ -1,4 +1,4 @@
-# Puller Operator — Proof of Operation
+# Drop Operator — Proof of Operation
 
 This document shows the expected output from `hack/prove-operator.sh`, demonstrating that the operator correctly manages image caching across Kubernetes nodes.
 
@@ -26,28 +26,28 @@ Prerequisites: `kind`, `kubectl`, `helm`, `docker`, `jq`
 [✓] 3-node kind cluster created
 [proof] Nodes:
 NAME                         STATUS   ROLES           AGE   VERSION
-puller-proof-control-plane   Ready    control-plane   30s   v1.31.0
-puller-proof-worker          Ready    <none>          20s   v1.31.0
-puller-proof-worker2         Ready    <none>          20s   v1.31.0
+drop-proof-control-plane   Ready    control-plane   30s   v1.31.0
+drop-proof-worker          Ready    <none>          20s   v1.31.0
+drop-proof-worker2         Ready    <none>          20s   v1.31.0
 
 ── 1.3 Install CRDs ──
 
 [✓] CRDs installed
 [proof] Registered CRDs:
-cachedimages.puller.corewire.io      2024-01-01T00:00:00Z
-cachedimagesets.puller.corewire.io   2024-01-01T00:00:00Z
-discoverypolicies.puller.corewire.io 2024-01-01T00:00:00Z
-pullpolicies.puller.corewire.io      2024-01-01T00:00:00Z
+cachedimages.drop.corewire.io      2024-01-01T00:00:00Z
+cachedimagesets.drop.corewire.io   2024-01-01T00:00:00Z
+discoverypolicies.drop.corewire.io 2024-01-01T00:00:00Z
+pullpolicies.drop.corewire.io      2024-01-01T00:00:00Z
 
 ── 1.4 Deploy operator via Helm ──
 
 [✓] Operator running
 [proof] Operator pod:
 NAME                      READY   STATUS    NODE
-puller-6f8b9d4c7-x2k9l   1/1     Running   puller-proof-control-plane
+drop-6f8b9d4c7-x2k9l   1/1     Running   drop-proof-control-plane
 ```
 
-**What this proves:** The operator deploys correctly, CRDs are registered in the `puller.corewire.io` API group, and it runs as a single replica.
+**What this proves:** The operator deploys correctly, CRDs are registered in the `drop.corewire.io` API group, and it runs as a single replica.
 
 ---
 
@@ -77,19 +77,19 @@ spec:
  PHASE 3: CachedImage — Single Image Pull
 ════════════════════════════════════════════════════════════════
 
-── 3.2 Observe reconciliation (puller Pods created per node) ──
+── 3.2 Observe reconciliation (drop Pods created per node) ──
 
-[✓] Puller pods created (2 found)
-[proof] Puller Pods (one per targeted node):
+[✓] Drop pods created (2 found)
+[proof] Drop Pods (one per targeted node):
 NAMESPACE   NAME                      READY   STATUS    NODE
-default     puller-nginx-proof-abc12  0/1     Pending   puller-proof-worker
-default     puller-nginx-proof-def34  0/1     Pending   puller-proof-worker2
+default     drop-nginx-proof-abc12  0/1     Pending   drop-proof-worker
+default     drop-nginx-proof-def34  0/1     Pending   drop-proof-worker2
 
 ── 3.3 Verify Pod spec ──
 
   Image:       docker.io/library/nginx:1.25-alpine
   Command:     ["true"]
-  NodeName:    puller-proof-worker
+  NodeName:    drop-proof-worker
   PullPolicy:  IfNotPresent
   Privileged:  not set (non-privileged)
 [✓] Pod spec matches design: short-lived, non-privileged, command=['true'], placed on specific node
@@ -141,7 +141,7 @@ nginx-proof   docker.io/library/nginx   Ready   2       2        45s
 
 ── 4.1 Verify maxConcurrentNodes=1 was enforced ──
 
-[proof] With maxConcurrentNodes=1, only 1 puller Pod should run at a time across nodes.
+[proof] With maxConcurrentNodes=1, only 1 drop Pod should run at a time across nodes.
 ```
 
 **What this proves:** The pacing engine enforces sequential rollout. With `maxConcurrentNodes: 1`, the operator creates Pods one-at-a-time rather than blasting all nodes simultaneously.
@@ -168,7 +168,7 @@ proof-set-memcached-1-6-alpine  docker.io/library/memcached  Pending  0       2
 [proof] OwnerReferences on child 'proof-set-alpine-3-19':
 [
   {
-    "apiVersion": "puller.corewire.io/v1alpha1",
+    "apiVersion": "drop.corewire.io/v1alpha1",
     "kind": "CachedImageSet",
     "name": "proof-set",
     "uid": "abc123-...",
@@ -201,7 +201,7 @@ proof-set-memcached-1-6-alpine  docker.io/library/memcached  Pending  0       2
  PHASE 6: Node Targeting (nodeSelector + tolerations)
 ════════════════════════════════════════════════════════════════
 
-[✓] Labeled puller-proof-worker with pool=gpu
+[✓] Labeled drop-proof-worker with pool=gpu
 
 NAME       IMAGE                      PHASE   READY   TARGET   AGE
 gpu-only   docker.io/library/python   Ready   1       1        15s
@@ -210,7 +210,7 @@ gpu-only   docker.io/library/python   Ready   1       1        15s
 [✓] Node targeting works — only 1 node targeted (the gpu-labeled worker)
 ```
 
-**What this proves:** `nodeSelector` correctly restricts the image pull to only matching nodes. The operator doesn't create puller Pods on non-matching nodes.
+**What this proves:** `nodeSelector` correctly restricts the image pull to only matching nodes. The operator doesn't create drop Pods on non-matching nodes.
 
 ---
 
@@ -221,26 +221,26 @@ gpu-only   docker.io/library/python   Ready   1       1        15s
  PHASE 7: Observability — Metrics
 ════════════════════════════════════════════════════════════════
 
-[proof] Custom puller metrics:
-puller_active_pulls 0
-puller_discovery_images_found{policy="...",source_type="..."} 0
-puller_images_cached_total{image="docker.io/library/nginx",node="puller-proof-worker"} 1
-puller_images_cached_total{image="docker.io/library/nginx",node="puller-proof-worker2"} 1
-puller_images_cached_total{image="docker.io/library/busybox",node="puller-proof-worker"} 1
-puller_pull_duration_seconds_bucket{image="docker.io/library/nginx",le="1"} 0
-puller_pull_duration_seconds_bucket{image="docker.io/library/nginx",le="2"} 1
-puller_pull_errors_total{image="...",node="..."} 0
-puller_reconcile_total{controller="cachedimage",result="success"} 12
-puller_reconcile_total{controller="cachedimageset",result="success"} 4
+[proof] Custom drop metrics:
+drop_active_pulls 0
+drop_discovery_images_found{policy="...",source_type="..."} 0
+drop_images_cached_total{image="docker.io/library/nginx",node="drop-proof-worker"} 1
+drop_images_cached_total{image="docker.io/library/nginx",node="drop-proof-worker2"} 1
+drop_images_cached_total{image="docker.io/library/busybox",node="drop-proof-worker"} 1
+drop_pull_duration_seconds_bucket{image="docker.io/library/nginx",le="1"} 0
+drop_pull_duration_seconds_bucket{image="docker.io/library/nginx",le="2"} 1
+drop_pull_errors_total{image="...",node="..."} 0
+drop_reconcile_total{controller="cachedimage",result="success"} 12
+drop_reconcile_total{controller="cachedimageset",result="success"} 4
 
-[✓] Metrics endpoint responds with custom puller_* metrics
+[✓] Metrics endpoint responds with custom drop_* metrics
 ```
 
 **What this proves:**
 1. All 6 custom metrics are registered and exposed
-2. `puller_images_cached_total` increments per image+node combination
-3. `puller_pull_duration_seconds` tracks actual pull durations
-4. `puller_reconcile_total` counts reconciliation cycles per controller
+2. `drop_images_cached_total` increments per image+node combination
+3. `drop_pull_duration_seconds` tracks actual pull durations
+4. `drop_reconcile_total` counts reconciliation cycles per controller
 5. Metrics are Prometheus-scrapeable via the metrics Service + ServiceMonitor
 
 ---
@@ -268,7 +268,7 @@ puller_reconcile_total{controller="cachedimageset",result="success"} 4
 | Pull mechanism | Pods with `command: ["true"]` — kubelet pulls image as scheduling side-effect |
 | Non-disruptive | No cordoning, no drain, no node unavailability — just lightweight Pods |
 | Pacing | `maxConcurrentNodes=1` → sequential Pod creation (not parallel blast) |
-| Node targeting | `nodeSelector` → only matching nodes get puller Pods |
+| Node targeting | `nodeSelector` → only matching nodes get drop Pods |
 | GC chain | ownerRefs → delete parent = delete all children automatically |
 | Status tracking | phase transitions + nodesReady/nodesTargeted counters |
 | Observability | 6 custom Prometheus metrics + Kubernetes events |
@@ -291,7 +291,7 @@ User creates CachedImage spec
 │ 3. List owned Pods  │
 │ 4. For each node:   │
 │    - Check pacing   │ ←── maxConcurrentNodes
-│    - Create Pod     │ ←── podbuilder.BuildPullerPod()
+│    - Create Pod     │ ←── podbuilder.BuildDropPod()
 │ 5. Track completion │
 │ 6. Update status    │
 └─────────────────────┘

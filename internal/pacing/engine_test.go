@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	v1alpha1 "github.com/Breee/puller/api/v1alpha1"
-	"github.com/Breee/puller/internal/podbuilder"
+	v1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	"github.com/Breee/drop/internal/podbuilder"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +46,7 @@ func TestCanStartPull(t *testing.T) {
 			activePods: []corev1.Pod{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:              "puller-test-1",
+						Name:              "drop-test-1",
 						CreationTimestamp: metav1.NewTime(time.Now().Add(-30 * time.Second)),
 						Labels: map[string]string{
 							podbuilder.LabelManagedBy: podbuilder.LabelManagedByValue,
@@ -69,7 +69,7 @@ func TestCanStartPull(t *testing.T) {
 			activePods: []corev1.Pod{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:              "puller-test-1",
+						Name:              "drop-test-1",
 						CreationTimestamp: metav1.NewTime(time.Now().Add(-30 * time.Second)),
 						Labels: map[string]string{
 							podbuilder.LabelManagedBy: podbuilder.LabelManagedByValue,
@@ -92,7 +92,7 @@ func TestCanStartPull(t *testing.T) {
 			activePods: []corev1.Pod{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:              "puller-test-1",
+						Name:              "drop-test-1",
 						CreationTimestamp: metav1.NewTime(time.Now().Add(-5 * time.Second)),
 						Labels: map[string]string{
 							podbuilder.LabelManagedBy: podbuilder.LabelManagedByValue,
@@ -110,7 +110,7 @@ func TestCanStartPull(t *testing.T) {
 			activePods: []corev1.Pod{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:              "puller-test-1",
+						Name:              "drop-test-1",
 						CreationTimestamp: metav1.NewTime(time.Now().Add(-30 * time.Second)),
 						Labels: map[string]string{
 							podbuilder.LabelManagedBy: podbuilder.LabelManagedByValue,
@@ -130,7 +130,7 @@ func TestCanStartPull(t *testing.T) {
 
 			objs := make([]runtime.Object, 0, len(tt.activePods))
 			for i := range tt.activePods {
-				tt.activePods[i].Namespace = "puller-system"
+				tt.activePods[i].Namespace = "drop-system"
 				objs = append(objs, &tt.activePods[i])
 			}
 
@@ -139,7 +139,7 @@ func TestCanStartPull(t *testing.T) {
 				WithRuntimeObjects(objs...).
 				Build()
 
-			engine := NewEngine(fakeClient, "puller-system")
+			engine := NewEngine(fakeClient, "drop-system")
 			decision, err := engine.CanStartPull(context.Background(), tt.policy, "test-image")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)

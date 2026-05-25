@@ -1,4 +1,4 @@
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: test-nginx

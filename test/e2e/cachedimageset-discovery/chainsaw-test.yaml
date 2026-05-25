@@ -57,23 +57,23 @@ spec:
               done
 
               kubectl get cachedimageset test-discovered-set -o yaml
-              kubectl get cachedimage -l puller.corewire.io/imageset=test-discovered-set -o yaml
+              kubectl get cachedimage -l drop.corewire.io/imageset=test-discovered-set -o yaml
               echo "FAIL: CachedImageSet did not become Ready"
               exit 1
     - name: Cleanup
       try:
         - delete:
             ref:
-              apiVersion: puller.corewire.io/v1alpha1
+              apiVersion: drop.corewire.io/v1alpha1
               kind: CachedImageSet
               name: test-discovered-set
         - delete:
             ref:
-              apiVersion: puller.corewire.io/v1alpha1
+              apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
               name: test-registry-discovery
         - delete:
             ref:
-              apiVersion: puller.corewire.io/v1alpha1
+              apiVersion: drop.corewire.io/v1alpha1
               kind: PullPolicy
               name: test-set-policy

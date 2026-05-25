@@ -40,9 +40,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
-	"github.com/Breee/puller/internal/discovery"
-	pullermetrics "github.com/Breee/puller/internal/metrics"
+	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	"github.com/Breee/drop/internal/discovery"
+	dropmetrics "github.com/Breee/drop/internal/metrics"
 )
 
 // DiscoveryPolicyReconciler reconciles a DiscoveryPolicy object
@@ -56,9 +56,9 @@ const (
 	reasonConnectionRefused = "ConnectionRefused"
 )
 
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=discoverypolicies,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=discoverypolicies/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=discoverypolicies/finalizers,verbs=update
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile queries discovery sources and updates the DiscoveryPolicy status.
@@ -66,7 +66,7 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	log := logf.FromContext(ctx)
 
 	// 1. Fetch DiscoveryPolicy
-	dp := &pullerv1alpha1.DiscoveryPolicy{}
+	dp := &dropv1alpha1.DiscoveryPolicy{}
 	if err := r.Get(ctx, req.NamespacedName, dp); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -86,24 +86,24 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			log.Error(err, "building source", "index", i, "type", src.Type)
 			allSourcesHealthy = false
 			lastFailReason, lastFailMessage = classifyError(err)
-			pullermetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(0)
+			dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(0)
 			continue
 		}
 
 		start := time.Now()
 		results, err := source.Fetch(ctx)
 		elapsed := time.Since(start).Seconds()
-		pullermetrics.DiscoverySourceLatencySeconds.WithLabelValues(dp.Name, src.Type).Observe(elapsed)
+		dropmetrics.DiscoverySourceLatencySeconds.WithLabelValues(dp.Name, src.Type).Observe(elapsed)
 
 		if err != nil {
 			log.Error(err, "fetching from source", "index", i, "type", src.Type)
 			allSourcesHealthy = false
 			lastFailReason, lastFailMessage = classifyError(err)
-			pullermetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(0)
+			dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(0)
 			continue
 		}
 
-		pullermetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(1)
+		dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(1)
 
 		// Tag results with source type
 		for j := range results {
@@ -112,7 +112,7 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				Score: results[j].Score,
 			}
 		}
-		pullermetrics.DiscoveryImagesFound.WithLabelValues(dp.Name, src.Type).Set(float64(len(results)))
+		dropmetrics.DiscoveryImagesFound.WithLabelValues(dp.Name, src.Type).Set(float64(len(results)))
 		allResults = append(allResults, results...)
 	}
 
@@ -156,9 +156,9 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if len(merged) == 0 && !allSourcesHealthy && len(dp.Status.DiscoveredImages) > 0 {
 		log.Info("all sources failed, keeping previous discovery results")
 	} else {
-		discoveredImages := make([]pullerv1alpha1.DiscoveredImage, 0, len(merged))
+		discoveredImages := make([]dropv1alpha1.DiscoveredImage, 0, len(merged))
 		for _, r := range merged {
-			discoveredImages = append(discoveredImages, pullerv1alpha1.DiscoveredImage{
+			discoveredImages = append(discoveredImages, dropv1alpha1.DiscoveredImage{
 				Image:  r.Image,
 				Score:  r.Score,
 				Source: "discovery",
@@ -240,7 +240,7 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 // buildSource creates the appropriate Source implementation from a DiscoverySource config.
-func (r *DiscoveryPolicyReconciler) buildSource(ctx context.Context, src pullerv1alpha1.DiscoverySource) (discovery.Source, error) {
+func (r *DiscoveryPolicyReconciler) buildSource(ctx context.Context, src dropv1alpha1.DiscoverySource) (discovery.Source, error) {
 	httpClient, err := r.buildHTTPClient(ctx, src.SecretRef)
 	if err != nil {
 		return nil, fmt.Errorf("building HTTP client: %w", err)
@@ -372,13 +372,13 @@ func deduplicateResults(results []discovery.ImageResult) []discovery.ImageResult
 // SetupWithManager sets up the controller with the Manager.
 func (r *DiscoveryPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&pullerv1alpha1.DiscoveryPolicy{}).
+		For(&dropv1alpha1.DiscoveryPolicy{}).
 		Named("discoverypolicy").
 		Complete(r)
 }
 
 // sourceEndpoint returns the endpoint URL for a discovery source (for metric labels).
-func sourceEndpoint(src pullerv1alpha1.DiscoverySource) string {
+func sourceEndpoint(src dropv1alpha1.DiscoverySource) string {
 	switch src.Type {
 	case "prometheus":
 		if src.Prometheus != nil {

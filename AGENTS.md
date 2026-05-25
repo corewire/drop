@@ -9,7 +9,7 @@
 5. Security: never expose secrets in code or docs.
 6. Tilt handles the dev loop. `tilt up` does everything. Don't suggest manual commands for automated steps.
 
-## Project: Puller
+## Project: Drop
 
 Kubernetes operator (Go 1.23.0) that pre-caches container images on cluster nodes.
 
@@ -24,7 +24,7 @@ make docs-gen      # regenerate AI docs
 
 ## Architecture
 
-- API group: `puller.corewire.io/v1alpha1` (cluster-scoped)
+- API group: `drop.corewire.io/v1alpha1` (cluster-scoped)
 - Framework: Kubebuilder + controller-runtime
 - Pull mechanism: short-lived Pods with `nodeName` + `command: ["true"]`
 
@@ -41,13 +41,13 @@ make docs-gen      # regenerate AI docs
 
 | Path | Contents |
 |------|----------|
-| api/v1alpha1 | Package v1alpha1 contains API Schema definitions for the puller v1alpha1 API group. |
+| api/v1alpha1 | Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group. |
 | internal/controller | Reconciler implementations (one per CRD) |
 | internal/discovery | Discovery source interface + implementations |
 | internal/metrics | Prometheus metrics registration |
 | internal/pacing | Shared pacing engine for rate-limited pulls |
 | internal/podbuilder | Pure Pod construction function (no k8s client) |
-| charts/puller/ | Helm chart |
+| charts/drop/ | Helm chart |
 | test/e2e/ | Chainsaw E2E tests |
 | hack/gen-ai-docs/ | This doc generator |
 

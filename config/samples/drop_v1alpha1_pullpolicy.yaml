@@ -1,8 +1,8 @@
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   labels:
-    app.kubernetes.io/name: puller
+    app.kubernetes.io/name: drop
     app.kubernetes.io/managed-by: kustomize
   name: pullpolicy-sample
 spec:

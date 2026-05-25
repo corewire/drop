@@ -1,7 +1,7 @@
 # Dev samples: deployed by Tilt for interactive testing
 ---
 # === PullPolicy ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: dev-conservative
@@ -14,7 +14,7 @@ spec:
     max: 5m
 ---
 # === CachedImage: healthy ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: dev-nginx
@@ -24,7 +24,7 @@ spec:
   policyRef:
     name: dev-conservative
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: dev-redis
@@ -35,7 +35,7 @@ spec:
     name: dev-conservative
 ---
 # === CachedImage: broken (DNS failure → ImagePullBackOff) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: test-invalid-image
@@ -46,7 +46,7 @@ spec:
     name: dev-conservative
 ---
 # === CachedImageSet: healthy (static images) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: dev-set
@@ -60,7 +60,7 @@ spec:
       tag: "1.36"
 ---
 # === CachedImageSet: dynamic (backed by DiscoveryPolicy) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: dev-set-discovered
@@ -71,7 +71,7 @@ spec:
     name: dev-registry
 ---
 # === DiscoveryPolicy: healthy (Prometheus range query) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: dev-prometheus
@@ -87,7 +87,7 @@ spec:
   maxImages: 10
 ---
 # === DiscoveryPolicy: healthy (registry tag listing) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: dev-registry
@@ -103,7 +103,7 @@ spec:
   maxImages: 10
 ---
 # === DiscoveryPolicy: broken (DNS error → DNSError) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: test-broken-prom
@@ -117,7 +117,7 @@ spec:
   maxImages: 10
 ---
 # === DiscoveryPolicy: broken (DNS error → DNSError) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: test-broken-registry
@@ -132,7 +132,7 @@ spec:
   maxImages: 10
 ---
 # === DiscoveryPolicy: broken (repo doesn't exist → NotFound) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: test-notfound-repo

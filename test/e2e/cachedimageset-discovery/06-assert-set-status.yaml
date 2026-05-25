@@ -1,5 +1,5 @@
 # Assert CachedImageSet shows healthy status
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: test-discovered-set

@@ -33,10 +33,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
+	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
 )
 
-const labelImageSet = "puller.corewire.io/imageset"
+const labelImageSet = "drop.corewire.io/imageset"
 
 // CachedImageSetReconciler reconciles a CachedImageSet object
 type CachedImageSetReconciler struct {
@@ -44,17 +44,17 @@ type CachedImageSetReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=cachedimagesets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=cachedimagesets/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=cachedimagesets/finalizers,verbs=update
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=discoverypolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=cachedimagesets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=cachedimagesets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=cachedimagesets/finalizers,verbs=update
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies,verbs=get;list;watch
 
 // Reconcile manages child CachedImage resources for a CachedImageSet.
 func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
 	// 1. Fetch CachedImageSet
-	imageSet := &pullerv1alpha1.CachedImageSet{}
+	imageSet := &dropv1alpha1.CachedImageSet{}
 	if err := r.Get(ctx, req.NamespacedName, imageSet); err != nil {
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -66,7 +66,7 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	desiredImages := r.buildDesiredImages(ctx, imageSet)
 
 	// 3. List existing child CachedImage resources
-	existingChildren := &pullerv1alpha1.CachedImageList{}
+	existingChildren := &dropv1alpha1.CachedImageList{}
 	if err := r.List(ctx, existingChildren, client.MatchingLabels{
 		labelImageSet: imageSet.Name,
 	}); err != nil {
@@ -74,7 +74,7 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Build map of existing children by image ref
-	existingMap := make(map[string]*pullerv1alpha1.CachedImage, len(existingChildren.Items))
+	existingMap := make(map[string]*dropv1alpha1.CachedImage, len(existingChildren.Items))
 	for i := range existingChildren.Items {
 		child := &existingChildren.Items[i]
 		ref := buildChildImageRef(child)
@@ -82,7 +82,7 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// 4. Diff: create new, delete removed
-	desiredSet := make(map[string]pullerv1alpha1.ImageEntry, len(desiredImages))
+	desiredSet := make(map[string]dropv1alpha1.ImageEntry, len(desiredImages))
 	for _, img := range desiredImages {
 		ref := buildEntryRef(img)
 		desiredSet[ref] = img
@@ -121,7 +121,7 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Re-list children after mutations
 	patch := client.MergeFrom(imageSet.DeepCopy())
 	if err := r.List(ctx, existingChildren, client.MatchingLabels{
-		"puller.corewire.io/imageset": imageSet.Name,
+		"drop.corewire.io/imageset": imageSet.Name,
 	}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("re-listing children: %w", err)
 	}
@@ -191,15 +191,15 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 // buildDesiredImages constructs the desired image list from static images and discovery.
-func (r *CachedImageSetReconciler) buildDesiredImages(ctx context.Context, imageSet *pullerv1alpha1.CachedImageSet) []pullerv1alpha1.ImageEntry {
-	var desired []pullerv1alpha1.ImageEntry
+func (r *CachedImageSetReconciler) buildDesiredImages(ctx context.Context, imageSet *dropv1alpha1.CachedImageSet) []dropv1alpha1.ImageEntry {
+	var desired []dropv1alpha1.ImageEntry
 
 	// Static images
 	desired = append(desired, imageSet.Spec.Images...)
 
 	// Discovery policy images
 	if imageSet.Spec.DiscoveryPolicyRef != nil {
-		dp := &pullerv1alpha1.DiscoveryPolicy{}
+		dp := &dropv1alpha1.DiscoveryPolicy{}
 		key := client.ObjectKey{Name: imageSet.Spec.DiscoveryPolicyRef.Name}
 		if err := r.Get(ctx, key, dp); err == nil {
 			for _, discovered := range dp.Status.DiscoveredImages {
@@ -213,9 +213,9 @@ func (r *CachedImageSetReconciler) buildDesiredImages(ctx context.Context, image
 }
 
 // parseImageRef splits a full image reference into ImageEntry.
-func parseImageRef(ref string) pullerv1alpha1.ImageEntry {
+func parseImageRef(ref string) dropv1alpha1.ImageEntry {
 	if idx := strings.Index(ref, "@"); idx != -1 {
-		return pullerv1alpha1.ImageEntry{
+		return dropv1alpha1.ImageEntry{
 			Image:  ref[:idx],
 			Digest: ref[idx+1:],
 		}
@@ -224,30 +224,30 @@ func parseImageRef(ref string) pullerv1alpha1.ImageEntry {
 		// Ensure it's a tag separator and not a port
 		afterColon := ref[idx+1:]
 		if !strings.Contains(afterColon, "/") {
-			return pullerv1alpha1.ImageEntry{
+			return dropv1alpha1.ImageEntry{
 				Image: ref[:idx],
 				Tag:   afterColon,
 			}
 		}
 	}
-	return pullerv1alpha1.ImageEntry{Image: ref}
+	return dropv1alpha1.ImageEntry{Image: ref}
 }
 
 // buildChildCachedImage creates a CachedImage spec from an ImageEntry.
-func (r *CachedImageSetReconciler) buildChildCachedImage(parent *pullerv1alpha1.CachedImageSet, img pullerv1alpha1.ImageEntry) *pullerv1alpha1.CachedImage {
+func (r *CachedImageSetReconciler) buildChildCachedImage(parent *dropv1alpha1.CachedImageSet, img dropv1alpha1.ImageEntry) *dropv1alpha1.CachedImage {
 	name := sanitizeName(fmt.Sprintf("%s-%s-%s", parent.Name, imageName(img.Image), img.Tag))
 	if img.Digest != "" {
 		name = sanitizeName(fmt.Sprintf("%s-%s-digest", parent.Name, imageName(img.Image)))
 	}
 
-	child := &pullerv1alpha1.CachedImage{
+	child := &dropv1alpha1.CachedImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				"puller.corewire.io/imageset": parent.Name,
+				"drop.corewire.io/imageset": parent.Name,
 			},
 		},
-		Spec: pullerv1alpha1.CachedImageSpec{
+		Spec: dropv1alpha1.CachedImageSpec{
 			Image:            img.Image,
 			Tag:              img.Tag,
 			Digest:           img.Digest,
@@ -263,8 +263,8 @@ func (r *CachedImageSetReconciler) buildChildCachedImage(parent *pullerv1alpha1.
 }
 
 // buildChildImageRef creates a comparable ref from a CachedImage.
-func buildChildImageRef(ci *pullerv1alpha1.CachedImage) string {
-	return buildEntryRef(pullerv1alpha1.ImageEntry{
+func buildChildImageRef(ci *dropv1alpha1.CachedImage) string {
+	return buildEntryRef(dropv1alpha1.ImageEntry{
 		Image:  ci.Spec.Image,
 		Tag:    ci.Spec.Tag,
 		Digest: ci.Spec.Digest,
@@ -272,7 +272,7 @@ func buildChildImageRef(ci *pullerv1alpha1.CachedImage) string {
 }
 
 // buildEntryRef creates a comparable ref from an ImageEntry.
-func buildEntryRef(entry pullerv1alpha1.ImageEntry) string {
+func buildEntryRef(entry dropv1alpha1.ImageEntry) string {
 	if entry.Digest != "" {
 		return fmt.Sprintf("%s@%s", entry.Image, entry.Digest)
 	}
@@ -304,12 +304,12 @@ func sanitizeName(name string) string {
 
 // mapDiscoveryToSets maps DiscoveryPolicy changes to CachedImageSets that reference them.
 func (r *CachedImageSetReconciler) mapDiscoveryToSets(ctx context.Context, obj client.Object) []reconcile.Request {
-	dp, ok := obj.(*pullerv1alpha1.DiscoveryPolicy)
+	dp, ok := obj.(*dropv1alpha1.DiscoveryPolicy)
 	if !ok {
 		return nil
 	}
 
-	setList := &pullerv1alpha1.CachedImageSetList{}
+	setList := &dropv1alpha1.CachedImageSetList{}
 	if err := r.List(ctx, setList); err != nil {
 		return nil
 	}
@@ -329,9 +329,9 @@ func (r *CachedImageSetReconciler) mapDiscoveryToSets(ctx context.Context, obj c
 // SetupWithManager sets up the controller with the Manager.
 func (r *CachedImageSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&pullerv1alpha1.CachedImageSet{}).
-		Owns(&pullerv1alpha1.CachedImage{}).
-		Watches(&pullerv1alpha1.DiscoveryPolicy{}, handler.EnqueueRequestsFromMapFunc(r.mapDiscoveryToSets)).
+		For(&dropv1alpha1.CachedImageSet{}).
+		Owns(&dropv1alpha1.CachedImage{}).
+		Watches(&dropv1alpha1.DiscoveryPolicy{}, handler.EnqueueRequestsFromMapFunc(r.mapDiscoveryToSets)).
 		Named("cachedimageset").
 		Complete(r)
 }

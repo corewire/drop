@@ -170,9 +170,9 @@ func buildKnowledge(root string) Knowledge {
 
 	k := Knowledge{
 		Project: Project{
-			Name:        "puller",
+			Name:        "drop",
 			Description: "Kubernetes operator that pre-caches container images on cluster nodes",
-			APIGroup:    "puller.corewire.io/v1alpha1",
+			APIGroup:    "drop.corewire.io/v1alpha1",
 			GoVersion:   goVer,
 			Module:      module,
 			License:     "Apache-2.0",
@@ -591,7 +591,7 @@ func extractMakeTargets(path string) []MakeTarget {
 func parseGoMod(path string) (string, string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "1.23", "github.com/Breee/puller"
+		return "1.23", "github.com/Breee/drop"
 	}
 	goVer := "1.23"
 	module := ""

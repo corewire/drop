@@ -6,13 +6,13 @@ metadata:
 spec:
   description: |
     Verify that creating a CachedImage resource causes the operator to create
-    a puller Pod on a target node, and that status transitions to Ready on success.
+    a drop Pod on a target node, and that status transitions to Ready on success.
   steps:
     - name: Create CachedImage
       try:
         - apply:
             file: 01-cachedimage.yaml
-    - name: Verify puller Pod is created
+    - name: Verify drop Pod is created
       try:
         - assert:
             file: 02-assert-pod.yaml
@@ -49,6 +49,6 @@ spec:
       try:
         - delete:
             ref:
-              apiVersion: puller.corewire.io/v1alpha1
+              apiVersion: drop.corewire.io/v1alpha1
               kind: CachedImage
               name: test-nginx

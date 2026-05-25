@@ -4,12 +4,12 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
-  name: pullpolicies.puller.corewire.io
+  name: pullpolicies.drop.corewire.io
 spec:
-  group: puller.corewire.io
+  group: drop.corewire.io
   names:
     categories:
-    - puller
+    - drop
     kind: PullPolicy
     listKind: PullPolicyList
     plural: pullpolicies

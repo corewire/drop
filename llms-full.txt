@@ -1,11 +1,11 @@
-# puller — Full Reference for AI Agents
+# drop — Full Reference for AI Agents
 
 ## Project
 
-- **Name**: puller
+- **Name**: drop
 - **Language**: Go 1.23.0
-- **Module**: github.com/Breee/puller
-- **API Group**: puller.corewire.io/v1alpha1
+- **Module**: github.com/Breee/drop
+- **API Group**: drop.corewire.io/v1alpha1
 - **Scope**: All CRDs cluster-scoped
 - **License**: Apache-2.0
 - **Framework**: Kubebuilder / controller-runtime
@@ -219,7 +219,7 @@ graph LR
 | InProgress | CachedImage | Image pulls are actively running on some nodes |  |
 | InvalidImageName | CachedImage | The image reference is malformed | Check spec.image format: registry/repository |
 | PartiallyFailed | DiscoveryPolicy | Some discovery sources failed to sync | Check source endpoints and credentials |
-| PodFailed | CachedImage | Puller Pod failed for a non-image-pull reason | Check node health, resource limits, Pod security policies |
+| PodFailed | CachedImage | Drop Pod failed for a non-image-pull reason | Check node health, resource limits, Pod security policies |
 | Progressing | CachedImageSet | Children are still being pulled |  |
 | PullFailed | CachedImage | One or more nodes failed to pull the image | Check image name, tag, registry connectivity, imagePullSecrets |
 | Ready | CachedImageSet | All child CachedImages are ready |  |
@@ -232,14 +232,14 @@ graph LR
 
 | Name | Type | Description |
 |------|------|-------------|
-| `puller_images_cached_total` | counter | Total number of images successfully cached on nodes. |
-| `puller_pull_duration_seconds` | histogram | Duration of image pull operations in seconds. |
-| `puller_pull_errors_total` | counter | Total number of failed image pull attempts. |
-| `puller_discovery_images_found` | gauge | Number of images found by a discovery policy. |
-| `puller_active_pulls` | gauge | Current number of active image pull Pods. |
-| `puller_reconcile_total` | counter | Total number of reconciliation attempts. |
-| `puller_discovery_source_health` | gauge | Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy). |
-| `puller_discovery_source_latency_seconds` | histogram | Latency of discovery source queries in seconds. |
+| `drop_images_cached_total` | counter | Total number of images successfully cached on nodes. |
+| `drop_pull_duration_seconds` | histogram | Duration of image pull operations in seconds. |
+| `drop_pull_errors_total` | counter | Total number of failed image pull attempts. |
+| `drop_discovery_images_found` | gauge | Number of images found by a discovery policy. |
+| `drop_active_pulls` | gauge | Current number of active image pull Pods. |
+| `drop_reconcile_total` | counter | Total number of reconciliation attempts. |
+| `drop_discovery_source_health` | gauge | Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy). |
+| `drop_discovery_source_latency_seconds` | histogram | Latency of discovery source queries in seconds. |
 
 ## Sample CRs
 
@@ -247,7 +247,7 @@ graph LR
 # Dev samples: deployed by Tilt for interactive testing
 ---
 # === PullPolicy ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: dev-conservative
@@ -260,7 +260,7 @@ spec:
     max: 5m
 ---
 # === CachedImage: healthy ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: dev-nginx
@@ -270,7 +270,7 @@ spec:
   policyRef:
     name: dev-conservative
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: dev-redis
@@ -281,7 +281,7 @@ spec:
     name: dev-conservative
 ---
 # === CachedImage: broken (DNS failure → ImagePullBackOff) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: test-invalid-image
@@ -292,7 +292,7 @@ spec:
     name: dev-conservative
 ---
 # === CachedImageSet: healthy (static images) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: dev-set
@@ -306,7 +306,7 @@ spec:
       tag: "1.36"
 ---
 # === CachedImageSet: dynamic (backed by DiscoveryPolicy) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: dev-set-discovered
@@ -317,7 +317,7 @@ spec:
     name: dev-registry
 ---
 # === DiscoveryPolicy: healthy (Prometheus range query) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: dev-prometheus
@@ -333,7 +333,7 @@ spec:
   maxImages: 10
 ---
 # === DiscoveryPolicy: healthy (registry tag listing) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: dev-registry
@@ -349,7 +349,7 @@ spec:
   maxImages: 10
 ---
 # === DiscoveryPolicy: broken (DNS error → DNSError) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: test-broken-prom
@@ -363,7 +363,7 @@ spec:
   maxImages: 10
 ---
 # === DiscoveryPolicy: broken (DNS error → DNSError) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: test-broken-registry
@@ -378,7 +378,7 @@ spec:
   maxImages: 10
 ---
 # === DiscoveryPolicy: broken (repo doesn't exist → NotFound) ===
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: test-notfound-repo

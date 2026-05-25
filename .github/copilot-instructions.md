@@ -1,4 +1,4 @@
-# Copilot Instructions for Puller
+# Copilot Instructions for Drop
 
 ## Critical Rules
 
@@ -12,7 +12,7 @@
 ## Project
 
 Kubernetes operator (Go 1.23.0, Kubebuilder, controller-runtime) that pre-caches container images on cluster nodes.
-API group: `puller.corewire.io/v1alpha1`. All CRDs are cluster-scoped.
+API group: `drop.corewire.io/v1alpha1`. All CRDs are cluster-scoped.
 
 ## Build Commands
 
@@ -59,7 +59,7 @@ make docs-gen      # regenerate AI docs from source
 ## Package Dependency Graph
 
 ```
-api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the puller v1alpha1 API group.
+api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group.
 internal/controller — Reconciler implementations (one per CRD)
   imports: api/v1alpha1, internal/discovery, internal/metrics, internal/pacing, internal/podbuilder
 internal/discovery — Discovery source interface + implementations

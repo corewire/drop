@@ -36,10 +36,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
-	pullermetrics "github.com/Breee/puller/internal/metrics"
-	"github.com/Breee/puller/internal/pacing"
-	"github.com/Breee/puller/internal/podbuilder"
+	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	dropmetrics "github.com/Breee/drop/internal/metrics"
+	"github.com/Breee/drop/internal/pacing"
+	"github.com/Breee/drop/internal/podbuilder"
 )
 
 const (
@@ -59,10 +59,10 @@ type CachedImageReconciler struct {
 	PodNamespace string
 }
 
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=cachedimages,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=cachedimages/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=cachedimages/finalizers,verbs=update
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=pullpolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=cachedimages,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=cachedimages/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=cachedimages/finalizers,verbs=update
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=pullpolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
@@ -79,10 +79,10 @@ type nodeState struct {
 // Reconcile moves the cluster state closer to the desired state for a CachedImage.
 func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// 1. Fetch CachedImage
-	ci := &pullerv1alpha1.CachedImage{}
+	ci := &dropv1alpha1.CachedImage{}
 	if err := r.Get(ctx, req.NamespacedName, ci); err != nil {
 		if errors.IsNotFound(err) {
-			// CachedImage was deleted — clean up any orphaned puller pods
+			// CachedImage was deleted — clean up any orphaned drop pods
 			return ctrl.Result{}, r.cleanupOrphanPods(ctx, req.Name)
 		}
 		return ctrl.Result{}, err
@@ -155,7 +155,7 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // computeBackoff calculates exponential backoff delay from PullPolicy config and failure count.
 // Defaults: initial=30s, max=5m. Doubles on each consecutive failure.
-func computeBackoff(policy *pullerv1alpha1.PullPolicy, failures int32) time.Duration {
+func computeBackoff(policy *dropv1alpha1.PullPolicy, failures int32) time.Duration {
 	initial := 30 * time.Second
 	max := 5 * time.Minute
 
@@ -181,7 +181,7 @@ func computeBackoff(policy *pullerv1alpha1.PullPolicy, failures int32) time.Dura
 }
 
 // repullInterval returns the repull interval from the PullPolicy, or 0 if disabled.
-func (r *CachedImageReconciler) repullInterval(_ *pullerv1alpha1.CachedImage, policy *pullerv1alpha1.PullPolicy) time.Duration {
+func (r *CachedImageReconciler) repullInterval(_ *dropv1alpha1.CachedImage, policy *dropv1alpha1.PullPolicy) time.Duration {
 	if policy == nil || policy.Spec.RepullInterval == nil {
 		return 0
 	}
@@ -189,7 +189,7 @@ func (r *CachedImageReconciler) repullInterval(_ *pullerv1alpha1.CachedImage, po
 }
 
 // markNodesForRepull clears the ready state on cached nodes when a repull is due.
-func (r *CachedImageReconciler) markNodesForRepull(ci *pullerv1alpha1.CachedImage, policy *pullerv1alpha1.PullPolicy, stateMap map[string]*nodeState) {
+func (r *CachedImageReconciler) markNodesForRepull(ci *dropv1alpha1.CachedImage, policy *dropv1alpha1.PullPolicy, stateMap map[string]*nodeState) {
 	interval := r.repullInterval(ci, policy)
 	if interval <= 0 {
 		return
@@ -211,7 +211,7 @@ func (r *CachedImageReconciler) markNodesForRepull(ci *pullerv1alpha1.CachedImag
 }
 
 // resolveTargetNodes lists and filters nodes matching the CachedImage spec.
-func (r *CachedImageReconciler) resolveTargetNodes(ctx context.Context, ci *pullerv1alpha1.CachedImage) ([]corev1.Node, error) {
+func (r *CachedImageReconciler) resolveTargetNodes(ctx context.Context, ci *dropv1alpha1.CachedImage) ([]corev1.Node, error) {
 	nodeList := &corev1.NodeList{}
 	listOpts := &client.ListOptions{}
 	if len(ci.Spec.NodeSelector) > 0 {
@@ -224,12 +224,12 @@ func (r *CachedImageReconciler) resolveTargetNodes(ctx context.Context, ci *pull
 }
 
 // fetchPullPolicy retrieves the referenced PullPolicy, if any.
-func (r *CachedImageReconciler) fetchPullPolicy(ctx context.Context, ci *pullerv1alpha1.CachedImage) (*pullerv1alpha1.PullPolicy, error) {
+func (r *CachedImageReconciler) fetchPullPolicy(ctx context.Context, ci *dropv1alpha1.CachedImage) (*dropv1alpha1.PullPolicy, error) {
 	if ci.Spec.PolicyRef == nil {
 		return nil, nil
 	}
 	log := logf.FromContext(ctx)
-	policy := &pullerv1alpha1.PullPolicy{}
+	policy := &dropv1alpha1.PullPolicy{}
 	policyKey := client.ObjectKey{Name: ci.Spec.PolicyRef.Name}
 	if err := r.Get(ctx, policyKey, policy); err != nil {
 		if !errors.IsNotFound(err) {
@@ -242,7 +242,7 @@ func (r *CachedImageReconciler) fetchPullPolicy(ctx context.Context, ci *pullerv
 }
 
 // buildNodeStateMap creates the per-node state map from owned Pods.
-func (r *CachedImageReconciler) buildNodeStateMap(ctx context.Context, ci *pullerv1alpha1.CachedImage, targetNodes []corev1.Node) (map[string]*nodeState, error) {
+func (r *CachedImageReconciler) buildNodeStateMap(ctx context.Context, ci *dropv1alpha1.CachedImage, targetNodes []corev1.Node) (map[string]*nodeState, error) {
 	log := logf.FromContext(ctx)
 
 	podList := &corev1.PodList{}
@@ -290,7 +290,7 @@ func (r *CachedImageReconciler) buildNodeStateMap(ctx context.Context, ci *pulle
 }
 
 // processPodStates evaluates completed/failed/running pods and returns ready count.
-func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *pullerv1alpha1.CachedImage, stateMap map[string]*nodeState) (int32, bool) {
+func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *dropv1alpha1.CachedImage, stateMap map[string]*nodeState) (int32, bool) {
 	log := logf.FromContext(ctx)
 	var nodesReady int32
 	var requeueNeeded bool
@@ -314,8 +314,8 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *puller
 			if digest := extractResolvedDigest(state.pod); digest != "" {
 				ci.Status.ResolvedDigest = digest
 			}
-			pullermetrics.ActivePulls.Dec()
-			pullermetrics.ImagesCachedTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
+			dropmetrics.ActivePulls.Dec()
+			dropmetrics.ImagesCachedTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
 			r.Recorder.Eventf(ci, corev1.EventTypeNormal, "PullSucceeded", "Image %s cached on node %s", ci.Spec.Image, nodeName)
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting succeeded pod", "pod", state.pod.Name, "node", nodeName)
@@ -323,10 +323,10 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *puller
 		case corev1.PodFailed:
 			state.failed = true
 			state.failReason, state.failMessage = extractPodFailureReason(state.pod)
-			pullermetrics.ActivePulls.Dec()
-			pullermetrics.PullErrorsTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
+			dropmetrics.ActivePulls.Dec()
+			dropmetrics.PullErrorsTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
 			r.Recorder.Eventf(ci, corev1.EventTypeWarning, state.failReason, "Failed to pull image %s on node %s: %s", ci.Spec.Image, nodeName, state.failMessage)
-			log.Info("puller pod failed", "pod", state.pod.Name, "node", nodeName, "reason", state.failReason)
+			log.Info("drop pod failed", "pod", state.pod.Name, "node", nodeName, "reason", state.failReason)
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting failed pod", "pod", state.pod.Name, "node", nodeName)
 			}
@@ -336,8 +336,8 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *puller
 				state.failed = true
 				state.failReason = reason
 				state.failMessage = msg
-				pullermetrics.ActivePulls.Dec()
-				pullermetrics.PullErrorsTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
+				dropmetrics.ActivePulls.Dec()
+				dropmetrics.PullErrorsTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
 				r.Recorder.Eventf(ci, corev1.EventTypeWarning, reason, "Image %s on node %s: %s", ci.Spec.Image, nodeName, msg)
 				// Delete the stuck pod; backoff retry will create a new one
 				if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
@@ -476,8 +476,8 @@ func extractPodFailureReason(pod *corev1.Pod) (string, string) {
 	return "PodFailed", cleanPullMessage(pod.Status.Message)
 }
 
-// schedulePulls creates puller pods for nodes that need them, respecting pacing.
-func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *pullerv1alpha1.CachedImage, policy *pullerv1alpha1.PullPolicy, stateMap map[string]*nodeState) (time.Duration, bool, error) {
+// schedulePulls creates drop pods for nodes that need them, respecting pacing.
+func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *dropv1alpha1.CachedImage, policy *dropv1alpha1.PullPolicy, stateMap map[string]*nodeState) (time.Duration, bool, error) {
 	log := logf.FromContext(ctx)
 	var requeueAfter time.Duration
 	var requeueNeeded bool
@@ -526,22 +526,22 @@ func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *pullerv1a
 			continue
 		}
 
-		pod, err := podbuilder.BuildPullerPod(ci, nodeName, r.PodNamespace)
+		pod, err := podbuilder.BuildDropPod(ci, nodeName, r.PodNamespace)
 		if err != nil {
-			return 0, false, fmt.Errorf("building puller pod: %w", err)
+			return 0, false, fmt.Errorf("building drop pod: %w", err)
 		}
 
 		if err := r.Create(ctx, pod); err != nil {
 			if !errors.IsAlreadyExists(err) {
-				return 0, false, fmt.Errorf("creating puller pod: %w", err)
+				return 0, false, fmt.Errorf("creating drop pod: %w", err)
 			}
 		} else {
 			// Mark the attempt time so backoff is measured from now
 			now := metav1.Now()
 			ci.Status.LastAttemptedAt = &now
-			pullermetrics.ActivePulls.Inc()
+			dropmetrics.ActivePulls.Inc()
 			r.Recorder.Eventf(ci, corev1.EventTypeNormal, "PullStarted", "Started pulling image %s on node %s", ci.Spec.Image, nodeName)
-			log.Info("created puller pod", "pod", pod.Name, "node", nodeName, "image", ci.Spec.Image)
+			log.Info("created drop pod", "pod", pod.Name, "node", nodeName, "image", ci.Spec.Image)
 		}
 
 		requeueNeeded = true
@@ -552,7 +552,7 @@ func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *pullerv1a
 }
 
 // updateCachedImageStatus computes and sets the status fields on the CachedImage.
-func (r *CachedImageReconciler) updateCachedImageStatus(ci *pullerv1alpha1.CachedImage, stateMap map[string]*nodeState, nodesTargeted, nodesReady int32, now metav1.Time) {
+func (r *CachedImageReconciler) updateCachedImageStatus(ci *dropv1alpha1.CachedImage, stateMap map[string]*nodeState, nodesTargeted, nodesReady int32, now metav1.Time) {
 	phase := phasePending
 	if nodesReady == nodesTargeted && nodesTargeted > 0 {
 		phase = phaseReady
@@ -712,7 +712,7 @@ func taintTolerated(taint corev1.Taint, tolerations []corev1.Toleration) bool {
 	return false
 }
 
-// cleanupOrphanPods deletes all puller pods that reference a deleted CachedImage.
+// cleanupOrphanPods deletes all drop pods that reference a deleted CachedImage.
 func (r *CachedImageReconciler) cleanupOrphanPods(ctx context.Context, cachedImageName string) error {
 	log := logf.FromContext(ctx)
 	ns := r.PodNamespace
@@ -738,8 +738,8 @@ func (r *CachedImageReconciler) cleanupOrphanPods(ctx context.Context, cachedIma
 // SetupWithManager sets up the controller with the Manager.
 func (r *CachedImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&pullerv1alpha1.CachedImage{}).
-		// Watch puller pods and map them back to the owning CachedImage via label.
+		For(&dropv1alpha1.CachedImage{}).
+		// Watch drop pods and map them back to the owning CachedImage via label.
 		// We can't use Owns() because CachedImage is cluster-scoped and pods are namespaced.
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(
 			func(ctx context.Context, obj client.Object) []reconcile.Request {

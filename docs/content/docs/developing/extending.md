@@ -3,7 +3,7 @@ title: Extending
 weight: 5
 description: Step-by-step guide to adding a new CRD.
 llmsDescription: |
-  How to add a new CRD to puller. Steps: define types in api/v1alpha1/, run make codegen,
+  How to add a new CRD to drop. Steps: define types in api/v1alpha1/, run make codegen,
   write controller in internal/controller/, register in cmd/main.go, add tests (envtest + e2e),
   create sample, run make docs-gen. All CRDs must be cluster-scoped.
 ---
@@ -66,7 +66,7 @@ make codegen
 
 This produces:
 - `api/v1alpha1/zz_generated.deepcopy.go` (updated)
-- `config/crd/bases/puller.corewire.io_mycrds.yaml`
+- `config/crd/bases/drop.corewire.io_mycrds.yaml`
 - RBAC roles in `config/rbac/`
 
 ### 3. Write the controller
@@ -84,7 +84,7 @@ import (
     "sigs.k8s.io/controller-runtime/pkg/client"
     "sigs.k8s.io/controller-runtime/pkg/log"
 
-    pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
+    dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
 )
 
 type MyCRDReconciler struct {
@@ -92,13 +92,13 @@ type MyCRDReconciler struct {
     Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=mycrds,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=puller.corewire.io,resources=mycrds/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=mycrds,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=drop.corewire.io,resources=mycrds/status,verbs=get;update;patch
 
 func (r *MyCRDReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
     log := log.FromContext(ctx)
 
-    var obj pullerv1alpha1.MyCRD
+    var obj dropv1alpha1.MyCRD
     if err := r.Get(ctx, req.NamespacedName, &obj); err != nil {
         return ctrl.Result{}, client.IgnoreNotFound(err)
     }
@@ -112,7 +112,7 @@ func (r *MyCRDReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 func (r *MyCRDReconciler) SetupWithManager(mgr ctrl.Manager) error {
     return ctrl.NewControllerManagedBy(mgr).
-        For(&pullerv1alpha1.MyCRD{}).
+        For(&dropv1alpha1.MyCRD{}).
         Complete(r)
 }
 ```
@@ -138,7 +138,7 @@ if err = (&controller.MyCRDReconciler{
 **E2E test** — `test/e2e/<name>-basic/chainsaw-test.yaml`:
 - Apply resource, assert expected status/children
 
-**Sample** — `config/samples/puller_v1alpha1_<name>.yaml`:
+**Sample** — `config/samples/drop_v1alpha1_<name>.yaml`:
 - Minimal valid resource for testing
 
 ### 6. Regenerate docs

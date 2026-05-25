@@ -2,7 +2,11 @@
 # Usage: tilt up
 
 # Ensure kind cluster exists (1 control-plane + 2 workers)
-local('kind get clusters | grep -q puller-dev || kind create cluster --name puller-dev --config hack/kind-config.yaml --wait 5m')
+local('kind get clusters | grep -q drop-dev || kind create cluster --name drop-dev --config hack/kind-config.yaml --wait 5m')
+# Export kubeconfig for the drop-dev cluster and switch context
+local('kind export kubeconfig --name drop-dev --kubeconfig .kubeconfig')
+os.putenv('KUBECONFIG', os.path.join(config.main_dir, '.kubeconfig'))
+allow_k8s_contexts('kind-drop-dev')
 
 # Build the operator binary and image, then load into kind
 local_resource(
@@ -15,22 +19,22 @@ local_resource(
 # Build and load the image into kind
 custom_build(
     'controller',
-    'docker build -t $EXPECTED_REF . && kind load docker-image $EXPECTED_REF --name puller-dev',
+    'docker build -t $EXPECTED_REF . && kind load docker-image $EXPECTED_REF --name drop-dev',
     deps=['cmd', 'internal', 'api', 'go.mod', 'go.sum'],
     ignore=['bin/'],
 )
 
-# Ensure puller-system namespace exists
-local('kubectl create namespace puller-system --dry-run=client -o yaml | kubectl apply -f -')
+# Ensure drop-system namespace exists
+local('kubectl create namespace drop-system --dry-run=client -o yaml | kubectl apply -f -')
 
 # Install CRDs
 k8s_yaml(kustomize('config/crd'))
 
 # Deploy operator via Helm
 k8s_yaml(helm(
-    'charts/puller',
-    name='puller',
-    namespace='puller-system',
+    'charts/drop',
+    name='drop',
+    namespace='drop-system',
     set=[
         'image.repository=controller',
         'image.tag=latest',
@@ -42,15 +46,15 @@ k8s_yaml(helm(
 ))
 
 # Port-forward metrics
-k8s_resource('puller', port_forwards=['8443:8443', '8081:8081'],
+k8s_resource('drop', port_forwards=['8443:8443', '8081:8081'],
     objects=[
-        'puller:serviceaccount',
-        'puller:clusterrole',
-        'puller:clusterrolebinding',
-        'cachedimages.puller.corewire.io:customresourcedefinition',
-        'cachedimagesets.puller.corewire.io:customresourcedefinition',
-        'discoverypolicies.puller.corewire.io:customresourcedefinition',
-        'pullpolicies.puller.corewire.io:customresourcedefinition',
+        'drop:serviceaccount',
+        'drop:clusterrole',
+        'drop:clusterrolebinding',
+        'cachedimages.drop.corewire.io:customresourcedefinition',
+        'cachedimagesets.drop.corewire.io:customresourcedefinition',
+        'discoverypolicies.drop.corewire.io:customresourcedefinition',
+        'pullpolicies.drop.corewire.io:customresourcedefinition',
     ],
     labels=['operator'],
     resource_deps=['compile'],
@@ -71,9 +75,9 @@ k8s_resource('registry', port_forwards=['5000:5000'], labels=['infra'])
 k8s_yaml('hack/e2e-infra/seed-registry-job.yaml')
 k8s_resource('seed-registry', labels=['infra'], resource_deps=['registry'])
 
-# --- Grafana with Puller dashboard ---
+# --- Grafana with Drop dashboard ---
 # Create dashboard ConfigMap from the shipped JSON, then apply grafana manifests.
-dashboard_json = str(read_file('charts/puller/dashboards/puller-operator.json'))
+dashboard_json = str(read_file('charts/drop/dashboards/drop-operator.json'))
 # Indent each line for YAML embedding
 indented = '\n'.join(['    ' + line for line in dashboard_json.split('\n')])
 k8s_yaml(blob("""
@@ -83,7 +87,7 @@ metadata:
   name: grafana-dashboards
   namespace: e2e-infra
 data:
-  puller-operator.json: |
+  drop-operator.json: |
 """ + indented))
 
 k8s_yaml('hack/e2e-infra/grafana.yaml')
@@ -105,7 +109,7 @@ local_resource(
     'docs',
     serve_cmd='cd docs && hugo server --buildDrafts --port 1314 --bind 0.0.0.0',
     deps=['docs/content', 'docs/hugo.yaml'],
-    links=['http://localhost:1314/puller/'],
+    links=['http://localhost:1314/drop/'],
     labels=['docs'],
 )
 
@@ -128,7 +132,7 @@ k8s_resource(
         'test-notfound-repo:discoverypolicy',
     ],
     labels=['samples'],
-    resource_deps=['puller'],
+    resource_deps=['drop'],
 )
 
 # Button to wipe cached images from nodes (triggers resync)

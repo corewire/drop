@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **puller** operator caches container images onto Kubernetes nodes declaratively. It replaces manual DaemonSet/script-based pre-pulling with a controller-driven reconciliation loop that is safe, paced, and observable.
+The **drop** operator caches container images onto Kubernetes nodes declaratively. It replaces manual DaemonSet/script-based pre-pulling with a controller-driven reconciliation loop that is safe, paced, and observable.
 
 **Design principles:**
 - Simple over clever — no over-abstraction, no premature optimization.
@@ -18,7 +18,7 @@ The **puller** operator caches container images onto Kubernetes nodes declarativ
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │  Kubernetes API Server                                                        │
 │                                                                              │
-│  CRDs (puller.corewire.io/v1alpha1, all cluster-scoped):                     │
+│  CRDs (drop.corewire.io/v1alpha1, all cluster-scoped):                     │
 │  ┌──────────────┐  ┌────────────────┐  ┌────────────┐  ┌─────────────────┐  │
 │  │ CachedImage  │  │ CachedImageSet │  │ PullPolicy │  │ DiscoveryPolicy │  │
 │  └──────────────┘  └────────────────┘  └────────────┘  └─────────────────┘  │
@@ -27,13 +27,13 @@ The **puller** operator caches container images onto Kubernetes nodes declarativ
         │ owns               │ reads status                        │
         │ (ownerRef)         │                                     ▼
 ┌───────┴────────────────────┴─────────────────────────────────────────────────┐
-│  puller-controller-manager (single Deployment, leader-elected)                │
+│  drop-controller-manager (single Deployment, leader-elected)                │
 │                                                                              │
 │  ┌─────────────────────┐  ┌─────────────────────────┐  ┌──────────────────┐ │
 │  │ CachedImage         │  │ CachedImageSet          │  │ DiscoveryPolicy  │ │
 │  │ Reconciler          │  │ Reconciler              │  │ Reconciler       │ │
 │  │                     │  │                         │  │                  │ │
-│  │ • create puller Pod │  │ • diff spec vs children │  │ • query sources  │ │
+│  │ • create drop Pod │  │ • diff spec vs children │  │ • query sources  │ │
 │  │ • track completion  │  │ • create/delete children│  │ • write status   │ │
 │  │ • update status     │  │ • propagate defaults    │  │ • requeue        │ │
 │  └─────────────────────┘  └─────────────────────────┘  └──────────────────┘ │
@@ -44,13 +44,13 @@ The **puller** operator caches container images onto Kubernetes nodes declarativ
 │  • Metrics exporter (Prometheus /metrics endpoint)                            │
 └──────────────────────────────────────────────────────────────────────────────┘
         │
-        │ creates Pods (puller jobs)
+        │ creates Pods (drop jobs)
         ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │  Kubernetes Nodes                                                             │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────┐        │
-│  │ Puller Pod (short-lived, one per image×node)                      │        │
+│  │ Drop Pod (short-lived, one per image×node)                      │        │
 │  │   spec:                                                           │        │
 │  │     nodeName: <target-node>                                       │        │
 │  │     containers:                                                   │        │
@@ -93,13 +93,13 @@ The chosen approach:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: puller-<cachedimage-name>-<node-short>
+  name: drop-<cachedimage-name>-<node-short>
   labels:
-    app.kubernetes.io/managed-by: puller
-    puller.corewire.io/cachedimage: <cachedimage-name>
-    puller.corewire.io/node: <node-name>
+    app.kubernetes.io/managed-by: drop
+    drop.corewire.io/cachedimage: <cachedimage-name>
+    drop.corewire.io/node: <node-name>
   ownerReferences:
-    - apiVersion: puller.corewire.io/v1alpha1
+    - apiVersion: drop.corewire.io/v1alpha1
       kind: CachedImage
       name: <cachedimage-name>
       uid: <cachedimage-uid>
@@ -138,19 +138,19 @@ spec:
 
 ```
 1. Fetch CachedImage CR
-2. If being deleted → clean up any active puller Pods → remove finalizer → done
+2. If being deleted → clean up any active drop Pods → remove finalizer → done
 3. Resolve target nodes:
    a. List nodes matching CachedImage.spec.nodeSelector
    b. Filter by tolerations (node must have matching taints)
    c. Result: set of target node names
 4. Resolve PullPolicy (from spec.policyRef, or use built-in defaults)
 5. For each target node:
-   a. Check if puller Pod already exists (label selector)
+   a. Check if drop Pod already exists (label selector)
    b. If Pod exists and Succeeded → record node as ready in status
    c. If Pod exists and Failed → record failure, apply backoff
    d. If Pod does not exist and node not yet ready:
       - Check pacing constraints (maxConcurrentNodes, minDelayBetweenPulls)
-      - If within budget → create puller Pod
+      - If within budget → create drop Pod
       - If over budget → skip, requeue
 6. Update CachedImage.status:
    - nodesTargeted, nodesReady, phase, conditions, lastPulledAt
@@ -226,7 +226,7 @@ spec:
 
 ## Pacing Engine
 
-The pacing engine is NOT a separate controller. It is shared logic called by the `CachedImage` reconciler before creating a puller Pod.
+The pacing engine is NOT a separate controller. It is shared logic called by the `CachedImage` reconciler before creating a drop Pod.
 
 ```go
 // PacingDecision determines if a new pull can be started right now.
@@ -236,7 +236,7 @@ type PacingDecision struct {
 }
 
 func (p *PacingEngine) CanPull(ctx context.Context, policy *v1alpha1.PullPolicy) PacingDecision {
-    // 1. Count currently active puller Pods matching this policy's scope
+    // 1. Count currently active drop Pods matching this policy's scope
     // 2. If active >= policy.Spec.MaxConcurrentNodes → deny, requeue
     // 3. Check time since last pull start for this policy
     // 4. If elapsed < policy.Spec.MinDelayBetweenPulls → deny, requeue with remaining delay
@@ -269,7 +269,7 @@ PullPolicy ◄──── policyRef ─────── CachedImageSet ──
 - `PullPolicy` is referenced but never owns or is owned.
 - `DiscoveryPolicy` is referenced by `CachedImageSet`; never owns or is owned.
 - `CachedImageSet` owns child `CachedImage` resources.
-- `CachedImage` owns puller `Pod` resources.
+- `CachedImage` owns drop `Pod` resources.
 
 ---
 
@@ -278,7 +278,7 @@ PullPolicy ◄──── policyRef ─────── CachedImageSet ──
 Following standard Kubebuilder layout:
 
 ```
-puller/
+drop/
 ├── api/
 │   └── v1alpha1/
 │       ├── cachedimage_types.go
@@ -301,14 +301,14 @@ puller/
 │   │   ├── prometheus.go          # Prometheus source implementation
 │   │   └── registry.go           # Registry source implementation
 │   └── podbuilder/
-│       └── builder.go             # constructs puller Pod specs
+│       └── builder.go             # constructs drop Pod specs
 ├── config/
 │   ├── crd/                       # generated CRD manifests
 │   ├── rbac/                      # generated RBAC
 │   ├── manager/                   # manager Deployment
 │   └── samples/                   # example CRs
 ├── charts/
-│   └── puller/                    # Helm chart
+│   └── drop/                    # Helm chart
 ├── test/
 │   └── e2e/                       # Kyverno Chainsaw test scenarios
 ├── docs/                          # Hugo Hextra source
@@ -342,8 +342,8 @@ Each source type (`prometheus`, `registry`) implements this interface. Adding a 
 ### Pod Builder
 
 ```go
-// BuildPullerPod creates a Pod spec for pulling an image onto a specific node.
-func BuildPullerPod(ci *v1alpha1.CachedImage, nodeName string) *corev1.Pod
+// BuildDropPod creates a Pod spec for pulling an image onto a specific node.
+func BuildDropPod(ci *v1alpha1.CachedImage, nodeName string) *corev1.Pod
 ```
 
 Single function, tested in isolation. No abstraction layers.
@@ -356,7 +356,7 @@ Single function, tested in isolation. No abstraction layers.
 func main() {
     mgr, _ := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
         LeaderElection:   true,
-        LeaderElectionID: "puller.corewire.io",
+        LeaderElectionID: "drop.corewire.io",
         // ...
     })
 
@@ -390,14 +390,14 @@ func main() {
 
 ```yaml
 # Core operations
-- apiGroups: ["puller.corewire.io"]
+- apiGroups: ["drop.corewire.io"]
   resources: ["cachedimages", "cachedimagesets", "pullpolicies", "discoverypolicies"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-- apiGroups: ["puller.corewire.io"]
+- apiGroups: ["drop.corewire.io"]
   resources: ["cachedimages/status", "cachedimagesets/status", "discoverypolicies/status"]
   verbs: ["get", "update", "patch"]
 
-# Puller Pods
+# Drop Pods
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "list", "watch", "create", "delete"]
@@ -450,13 +450,13 @@ All status types use `metav1.Condition` for consistency:
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `puller_cachedimage_nodes_ready` | Gauge | Nodes with image cached per CachedImage |
-| `puller_cachedimage_nodes_targeted` | Gauge | Target nodes per CachedImage |
-| `puller_pull_duration_seconds` | Histogram | Time to pull an image onto a node |
-| `puller_pull_failures_total` | Counter | Failed pull attempts |
-| `puller_discovery_sync_duration_seconds` | Histogram | Discovery query duration |
-| `puller_discovery_images_found` | Gauge | Number of images discovered per DiscoveryPolicy |
-| `puller_active_pulls` | Gauge | Currently active puller Pods |
+| `drop_cachedimage_nodes_ready` | Gauge | Nodes with image cached per CachedImage |
+| `drop_cachedimage_nodes_targeted` | Gauge | Target nodes per CachedImage |
+| `drop_pull_duration_seconds` | Histogram | Time to pull an image onto a node |
+| `drop_pull_failures_total` | Counter | Failed pull attempts |
+| `drop_discovery_sync_duration_seconds` | Histogram | Discovery query duration |
+| `drop_discovery_images_found` | Gauge | Number of images discovered per DiscoveryPolicy |
+| `drop_active_pulls` | Gauge | Currently active drop Pods |
 
 **Kubernetes Events:**
 - `PullSucceeded` — image successfully cached on node.
@@ -470,9 +470,9 @@ All status types use `metav1.Condition` for consistency:
 
 | Scenario | Behavior |
 |----------|----------|
-| Puller Pod fails | Record failure in CachedImage status, apply exponential backoff from PullPolicy, retry |
+| Drop Pod fails | Record failure in CachedImage status, apply exponential backoff from PullPolicy, retry |
 | Node removed from cluster | CachedImage status updated on next reconcile (node drops from targeted set) |
-| Node added to cluster | Reconciler picks up new node on next cycle, creates puller Pod if within pacing budget |
+| Node added to cluster | Reconciler picks up new node on next cycle, creates drop Pod if within pacing budget |
 | Discovery source down | Keep last known good results, set SourceHealthy=False condition, retry on next syncInterval |
 | PullPolicy deleted while referenced | CachedImage reconciler falls back to built-in defaults, emits warning event |
 | CachedImageSet deleted | Kubernetes GC cascades deletion to child CachedImage resources (ownerRef) |

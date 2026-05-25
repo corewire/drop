@@ -37,10 +37,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
-	"github.com/Breee/puller/internal/controller"
-	_ "github.com/Breee/puller/internal/metrics" // Register custom metrics
-	"github.com/Breee/puller/internal/pacing"
+	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	"github.com/Breee/drop/internal/controller"
+	_ "github.com/Breee/drop/internal/metrics" // Register custom metrics
+	"github.com/Breee/drop/internal/pacing"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -52,7 +52,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(pullerv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(dropv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -75,8 +75,8 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true,
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
-	flag.StringVar(&podNamespace, "pod-namespace", "puller-system",
-		"The namespace where puller Pods are created.")
+	flag.StringVar(&podNamespace, "pod-namespace", "drop-system",
+		"The namespace where drop Pods are created.")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")

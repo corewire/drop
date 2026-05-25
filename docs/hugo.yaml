@@ -1,4 +1,4 @@
-baseURL: "https://breee.github.io/puller/"
+baseURL: "https://breee.github.io/drop/"
 title: Puller Operator
 defaultContentLanguage: en
 enableGitInfo: true
@@ -30,7 +30,7 @@ menu:
       params:
         type: search
     - name: GitHub
-      url: https://github.com/Breee/puller
+      url: https://github.com/Breee/drop
       weight: 4
       params:
         icon: github
@@ -64,4 +64,4 @@ params:
       defaultOpen: true
   editURL:
     enable: true
-    base: https://github.com/Breee/puller/edit/main/docs/content
+    base: https://github.com/Breee/drop/edit/main/docs/content

@@ -1,4 +1,4 @@
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: e2e-registry

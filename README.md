@@ -1,4 +1,4 @@
-# puller
+# drop
 
 A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery. 
 
@@ -12,7 +12,7 @@ When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thu
 - **Registry overload** — sudden pull surges hit registry rate limits or cause outages.
 - **Cold-start latency** — large images take minutes to pull, delaying workloads that need them immediately.
 
-**Puller's approach:** pre-cache images on nodes *before* workloads need them, pace pulls to stay within safe limits, and automatically discover which images matter most.
+**Drop's approach:** pre-cache images on nodes *before* workloads need them, pace pulls to stay within safe limits, and automatically discover which images matter most.
 
 ## What it does
 
@@ -25,11 +25,11 @@ When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thu
 
 ```bash
 # Install CRDs and operator via Helm
-helm install puller charts/puller -n puller-system --create-namespace
+helm install drop charts/drop -n drop-system --create-namespace
 
 # Cache a single image
 kubectl apply -f - <<YAML
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: nginx
@@ -44,7 +44,7 @@ kubectl get cachedimage nginx -o wide
 
 ## CRDs
 
-All resources are **cluster-scoped** under `puller.corewire.io/v1alpha1`.
+All resources are **cluster-scoped** under `drop.corewire.io/v1alpha1`.
 
 | Kind | Purpose |
 |------|---------|
@@ -54,8 +54,8 @@ All resources are **cluster-scoped** under `puller.corewire.io/v1alpha1`.
 | `DiscoveryPolicy` | Auto-discover images from Prometheus or registries |
 
 ```
-kubectl get puller          # shows all puller resources
-kubectl get puller -o wide  # includes error messages
+kubectl get drop          # shows all drop resources
+kubectl get drop -o wide  # includes error messages
 ```
 
 ## Status at a glance
@@ -88,4 +88,4 @@ tilt up
 
 ## Docs
 
-Full documentation at **[corewire.io/puller](https://corewire.io/puller)** (GitHub Pages).
+Full documentation at **[corewire.io/drop](https://corewire.io/drop)** (GitHub Pages).

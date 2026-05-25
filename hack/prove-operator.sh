@@ -26,9 +26,9 @@ fail()    { echo -e "${RED}[✗]${NC} $*"; exit 1; }
 section() { echo -e "\n${BOLD}${YELLOW}════════════════════════════════════════════════════════════════${NC}"; echo -e "${BOLD}${YELLOW} $*${NC}"; echo -e "${BOLD}${YELLOW}════════════════════════════════════════════════════════════════${NC}\n"; }
 subsect() { echo -e "\n${BOLD}── $* ──${NC}\n"; }
 
-CLUSTER_NAME="puller-proof"
+CLUSTER_NAME="drop-proof"
 IMG="controller:proof"
-NAMESPACE="puller-system"
+NAMESPACE="drop-system"
 TIMEOUT=120
 
 cleanup() {
@@ -71,11 +71,11 @@ make manifests 2>/dev/null || true
 kubectl apply -f config/crd/bases/
 success "CRDs installed"
 log "Registered CRDs:"
-kubectl get crds | grep puller
+kubectl get crds | grep drop
 echo ""
 
 subsect "1.4 Deploy operator via Helm"
-helm upgrade --install puller charts/puller \
+helm upgrade --install drop charts/drop \
     --namespace "$NAMESPACE" \
     --create-namespace \
     --set image.repository=controller \
@@ -91,7 +91,7 @@ log "Operator pod:"
 kubectl -n "$NAMESPACE" get pods -o wide
 echo ""
 log "Operator logs (startup):"
-kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/name=puller --tail=20
+kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/name=drop --tail=20
 echo ""
 
 # =============================================================================
@@ -100,7 +100,7 @@ section "PHASE 2: PullPolicy — Pacing Controls"
 
 subsect "2.1 Create a conservative PullPolicy"
 cat <<EOF | kubectl apply -f -
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: conservative
@@ -121,7 +121,7 @@ section "PHASE 3: CachedImage — Single Image Pull"
 
 subsect "3.1 Create CachedImage for nginx:1.25-alpine"
 cat <<EOF | kubectl apply -f -
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: nginx-proof
@@ -135,11 +135,11 @@ EOF
 success "CachedImage 'nginx-proof' created"
 echo ""
 
-subsect "3.2 Observe reconciliation (puller Pods created per node)"
-log "Watching puller Pods appear (max ${TIMEOUT}s)..."
+subsect "3.2 Observe reconciliation (drop Pods created per node)"
+log "Watching drop Pods appear (max ${TIMEOUT}s)..."
 DEADLINE=$((SECONDS + TIMEOUT))
 while [ $SECONDS -lt $DEADLINE ]; do
-    POD_COUNT=$(kubectl get pods -A -l app.kubernetes.io/managed-by=puller,puller.corewire.io/cachedimage=nginx-proof --no-headers 2>/dev/null | wc -l)
+    POD_COUNT=$(kubectl get pods -A -l app.kubernetes.io/managed-by=drop,drop.corewire.io/cachedimage=nginx-proof --no-headers 2>/dev/null | wc -l)
     if [ "$POD_COUNT" -gt 0 ]; then
         success "Puller pods created ($POD_COUNT found)"
         break
@@ -148,18 +148,18 @@ while [ $SECONDS -lt $DEADLINE ]; do
 done
 echo ""
 log "Puller Pods (one per targeted node):"
-kubectl get pods -A -l app.kubernetes.io/managed-by=puller,puller.corewire.io/cachedimage=nginx-proof -o wide 2>/dev/null || true
+kubectl get pods -A -l app.kubernetes.io/managed-by=drop,drop.corewire.io/cachedimage=nginx-proof -o wide 2>/dev/null || true
 echo ""
 
 subsect "3.3 Verify Pod spec (command: ['true'], nodeName set, non-privileged)"
-POD_NAME=$(kubectl get pods -A -l puller.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+POD_NAME=$(kubectl get pods -A -l drop.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 if [ -n "$POD_NAME" ]; then
     log "Pod: $POD_NAME"
-    echo "  Image:       $(kubectl get pod -A "$POD_NAME" -o jsonpath='{.spec.containers[0].image}' 2>/dev/null || kubectl get pods -A -l puller.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.containers[0].image}')"
-    echo "  Command:     $(kubectl get pods -A -l puller.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.containers[0].command}')"
-    echo "  NodeName:    $(kubectl get pods -A -l puller.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.nodeName}')"
-    echo "  PullPolicy:  $(kubectl get pods -A -l puller.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.containers[0].imagePullPolicy}')"
-    echo "  Privileged:  $(kubectl get pods -A -l puller.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.containers[0].securityContext.privileged}' 2>/dev/null || echo 'not set (non-privileged)')"
+    echo "  Image:       $(kubectl get pod -A "$POD_NAME" -o jsonpath='{.spec.containers[0].image}' 2>/dev/null || kubectl get pods -A -l drop.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.containers[0].image}')"
+    echo "  Command:     $(kubectl get pods -A -l drop.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.containers[0].command}')"
+    echo "  NodeName:    $(kubectl get pods -A -l drop.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.nodeName}')"
+    echo "  PullPolicy:  $(kubectl get pods -A -l drop.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.containers[0].imagePullPolicy}')"
+    echo "  Privileged:  $(kubectl get pods -A -l drop.corewire.io/cachedimage=nginx-proof -o jsonpath='{.items[0].spec.containers[0].securityContext.privileged}' 2>/dev/null || echo 'not set (non-privileged)')"
     success "Pod spec matches design: short-lived, non-privileged, command=['true'], placed on specific node"
 fi
 echo ""
@@ -195,12 +195,12 @@ log "Events for CachedImage 'nginx-proof':"
 kubectl get events --field-selector involvedObject.name=nginx-proof --sort-by='.lastTimestamp' 2>/dev/null || log "(no events — reconciler events may use different involvedObject)"
 echo ""
 
-subsect "3.7 Verify puller Pods are cleaned up after success"
+subsect "3.7 Verify drop Pods are cleaned up after success"
 sleep 5
-REMAINING=$(kubectl get pods -A -l puller.corewire.io/cachedimage=nginx-proof --field-selector=status.phase!=Succeeded --no-headers 2>/dev/null | wc -l)
-log "Non-Succeeded puller Pods remaining: $REMAINING"
+REMAINING=$(kubectl get pods -A -l drop.corewire.io/cachedimage=nginx-proof --field-selector=status.phase!=Succeeded --no-headers 2>/dev/null | wc -l)
+log "Non-Succeeded drop Pods remaining: $REMAINING"
 if [ "$REMAINING" -eq 0 ]; then
-    success "All puller Pods completed (phase=Succeeded) — no lingering resources"
+    success "All drop Pods completed (phase=Succeeded) — no lingering resources"
 else
     log "Some Pods still running (pacing may be active)"
 fi
@@ -211,14 +211,14 @@ section "PHASE 4: Pacing Enforcement"
 # =============================================================================
 
 subsect "4.1 Verify maxConcurrentNodes=1 was enforced"
-log "With maxConcurrentNodes=1, only 1 puller Pod should run at a time across nodes."
+log "With maxConcurrentNodes=1, only 1 drop Pod should run at a time across nodes."
 log "Checking operator logs for pacing behavior..."
-kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/name=puller --tail=50 | grep -i "pacing\|concurrent\|delay\|requeue" || log "(No explicit pacing log lines — pacing is reflected in sequential Pod creation)"
+kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/name=drop --tail=50 | grep -i "pacing\|concurrent\|delay\|requeue" || log "(No explicit pacing log lines — pacing is reflected in sequential Pod creation)"
 echo ""
 
 subsect "4.2 Create second CachedImage with same policy (observe sequencing)"
 cat <<EOF | kubectl apply -f -
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: busybox-proof
@@ -251,7 +251,7 @@ section "PHASE 5: CachedImageSet — Multi-Image Management"
 
 subsect "5.1 Create CachedImageSet with 3 images"
 cat <<EOF | kubectl apply -f -
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: proof-set
@@ -270,11 +270,11 @@ subsect "5.2 Verify child CachedImage resources are auto-created (ownerRef GC)"
 log "Waiting for child CachedImages..."
 sleep 10
 log "Child CachedImages owned by 'proof-set':"
-kubectl get cachedimages -l puller.corewire.io/imageset=proof-set -o wide 2>/dev/null || kubectl get cachedimages
+kubectl get cachedimages -l drop.corewire.io/imageset=proof-set -o wide 2>/dev/null || kubectl get cachedimages
 echo ""
 
 subsect "5.3 Check owner references (ensures GC on set deletion)"
-CHILD=$(kubectl get cachedimages -l puller.corewire.io/imageset=proof-set -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+CHILD=$(kubectl get cachedimages -l drop.corewire.io/imageset=proof-set -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 if [ -n "$CHILD" ]; then
     log "OwnerReferences on child '$CHILD':"
     kubectl get cachedimage "$CHILD" -o jsonpath='{.metadata.ownerReferences}' | jq . 2>/dev/null || kubectl get cachedimage "$CHILD" -o jsonpath='{.metadata.ownerReferences}'
@@ -285,8 +285,8 @@ echo ""
 subsect "5.4 Wait for set completion"
 DEADLINE=$((SECONDS + TIMEOUT))
 while [ $SECONDS -lt $DEADLINE ]; do
-    READY_COUNT=$(kubectl get cachedimages -l puller.corewire.io/imageset=proof-set -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' 2>/dev/null | grep -c "Ready" || echo "0")
-    TOTAL_COUNT=$(kubectl get cachedimages -l puller.corewire.io/imageset=proof-set --no-headers 2>/dev/null | wc -l)
+    READY_COUNT=$(kubectl get cachedimages -l drop.corewire.io/imageset=proof-set -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' 2>/dev/null | grep -c "Ready" || echo "0")
+    TOTAL_COUNT=$(kubectl get cachedimages -l drop.corewire.io/imageset=proof-set --no-headers 2>/dev/null | wc -l)
     log "ImageSet progress: $READY_COUNT/$TOTAL_COUNT children Ready"
     if [ "$READY_COUNT" -eq "$TOTAL_COUNT" ] && [ "$TOTAL_COUNT" -gt 0 ]; then
         success "All images in set are cached!"
@@ -308,7 +308,7 @@ echo ""
 
 subsect "6.2 Create CachedImage targeting only pool=gpu"
 cat <<EOF | kubectl apply -f -
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: gpu-only
@@ -339,26 +339,26 @@ section "PHASE 7: Observability — Metrics"
 # =============================================================================
 
 subsect "7.1 Port-forward to metrics endpoint"
-OPERATOR_POD=$(kubectl -n "$NAMESPACE" get pods -l app.kubernetes.io/name=puller -o jsonpath='{.items[0].metadata.name}')
+OPERATOR_POD=$(kubectl -n "$NAMESPACE" get pods -l app.kubernetes.io/name=drop -o jsonpath='{.items[0].metadata.name}')
 kubectl -n "$NAMESPACE" port-forward "$OPERATOR_POD" 9090:8080 &
 PF_PID=$!
 sleep 3
 
 subsect "7.2 Query Prometheus metrics"
-log "Custom puller metrics:"
+log "Custom drop metrics:"
 echo ""
 METRICS=$(curl -s http://localhost:9090/metrics 2>/dev/null || echo "")
 if [ -n "$METRICS" ]; then
-    echo "$METRICS" | grep "^puller_" | sort
+    echo "$METRICS" | grep "^drop_" | sort
     echo ""
-    success "Metrics endpoint responds with custom puller_* metrics"
+    success "Metrics endpoint responds with custom drop_* metrics"
 
     echo ""
     log "Key metric values:"
-    echo "  puller_images_cached_total:       $(echo "$METRICS" | grep '^puller_images_cached_total' | head -3)"
-    echo "  puller_active_pulls:              $(echo "$METRICS" | grep '^puller_active_pulls' || echo '0')"
-    echo "  puller_pull_errors_total:         $(echo "$METRICS" | grep '^puller_pull_errors_total' | head -3 || echo 'none')"
-    echo "  puller_reconcile_total:           $(echo "$METRICS" | grep '^puller_reconcile_total' | head -5)"
+    echo "  drop_images_cached_total:       $(echo "$METRICS" | grep '^drop_images_cached_total' | head -3)"
+    echo "  drop_active_pulls:              $(echo "$METRICS" | grep '^drop_active_pulls' || echo '0')"
+    echo "  drop_pull_errors_total:         $(echo "$METRICS" | grep '^drop_pull_errors_total' | head -3 || echo 'none')"
+    echo "  drop_reconcile_total:           $(echo "$METRICS" | grep '^drop_reconcile_total' | head -5)"
 else
     log "Could not reach metrics endpoint (may need different port)"
 fi
@@ -372,7 +372,7 @@ section "PHASE 8: Operator Logs — Full Reconciliation Trace"
 subsect "8.1 Complete operator logs"
 log "Full operator logs showing all reconciliation cycles:"
 echo ""
-kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/name=puller --tail=100
+kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/name=drop --tail=100
 echo ""
 
 # =============================================================================
@@ -383,7 +383,7 @@ subsect "9.1 Delete CachedImageSet and verify cascading GC"
 kubectl delete cachedimageset proof-set
 log "Waiting for child CachedImages to be garbage collected..."
 sleep 10
-REMAINING_CHILDREN=$(kubectl get cachedimages -l puller.corewire.io/imageset=proof-set --no-headers 2>/dev/null | wc -l)
+REMAINING_CHILDREN=$(kubectl get cachedimages -l drop.corewire.io/imageset=proof-set --no-headers 2>/dev/null | wc -l)
 log "Remaining children after set deletion: $REMAINING_CHILDREN"
 if [ "$REMAINING_CHILDREN" -eq 0 ]; then
     success "Cascading garbage collection works — all children deleted"
@@ -411,7 +411,7 @@ cat <<'SUMMARY'
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
 │  ✓ CRDs registered: CachedImage, CachedImageSet, PullPolicy,           │
-│    DiscoveryPolicy — all cluster-scoped under puller.corewire.io        │
+│    DiscoveryPolicy — all cluster-scoped under drop.corewire.io        │
 │                                                                         │
 │  ✓ CachedImage reconciler:                                              │
 │    - Creates short-lived Pods with command=["true"] (non-privileged)    │
@@ -435,11 +435,11 @@ cat <<'SUMMARY'
 │    - tolerations allow scheduling on tainted nodes                      │
 │                                                                         │
 │  ✓ Observability:                                                       │
-│    - puller_images_cached_total — counter per image+node                │
-│    - puller_pull_duration_seconds — histogram of pull times             │
-│    - puller_pull_errors_total — counter per image+node                  │
-│    - puller_active_pulls — gauge of in-flight pull Pods                 │
-│    - puller_reconcile_total — counter per controller+result             │
+│    - drop_images_cached_total — counter per image+node                │
+│    - drop_pull_duration_seconds — histogram of pull times             │
+│    - drop_pull_errors_total — counter per image+node                  │
+│    - drop_active_pulls — gauge of in-flight pull Pods                 │
+│    - drop_reconcile_total — counter per controller+result             │
 │    - Kubernetes events: PullStarted, PullSucceeded, PullFailed          │
 │                                                                         │
 │  ✓ Non-disruptive: Pulls never cordon/drain nodes or affect             │

@@ -3,7 +3,7 @@ title: Kamera Integration
 weight: 5
 description: Simulation-based controller verification with Kamera.
 llmsDescription: |
-  Kamera integration for simulation-based verification of puller controllers.
+  Kamera integration for simulation-based verification of drop controllers.
   Uses deterministic simulation to test controller behaviour without a real
   cluster. Catches race conditions and edge cases in reconciliation logic.
 ---

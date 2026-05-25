@@ -11,7 +11,7 @@ Decision: Proposal C. "Cached" describes the desired state (image is cached on n
 1. **Single concern per CRD** — separate "what to cache", "how fast to pull", and "how to discover".
 2. **Singular nouns** for Kind names.
 3. **Owner references** — `CachedImageSet` owns child `CachedImage` resources for lifecycle/GC.
-4. **API group carries context** — within `puller.corewire.io`, names don't need to repeat "pull" or "pre-pull".
+4. **API group carries context** — within `drop.corewire.io`, names don't need to repeat "pull" or "pre-pull".
 5. **Cluster-scoped** — nodes are cluster-scoped, so image caching resources are too.
 6. **Policy separation** — `PullPolicy` and `DiscoveryPolicy` are independent resources with single concerns.
 
@@ -21,10 +21,10 @@ Decision: Proposal C. "Cached" describes the desired state (image is cached on n
 
 | Kind | API Group/Version | Scope | Single concern |
 |------|-------------------|-------|----------------|
-| `CachedImage` | `puller.corewire.io/v1alpha1` | Cluster | "This image should be cached on these nodes" |
-| `CachedImageSet` | `puller.corewire.io/v1alpha1` | Cluster | "This group of images should be cached on these nodes" |
-| `PullPolicy` | `puller.corewire.io/v1alpha1` | Cluster | "Control pull pacing and safety" |
-| `DiscoveryPolicy` | `puller.corewire.io/v1alpha1` | Cluster | "How to discover images dynamically" |
+| `CachedImage` | `drop.corewire.io/v1alpha1` | Cluster | "This image should be cached on these nodes" |
+| `CachedImageSet` | `drop.corewire.io/v1alpha1` | Cluster | "This group of images should be cached on these nodes" |
+| `PullPolicy` | `drop.corewire.io/v1alpha1` | Cluster | "Control pull pacing and safety" |
+| `DiscoveryPolicy` | `drop.corewire.io/v1alpha1` | Cluster | "How to discover images dynamically" |
 
 ---
 
@@ -47,7 +47,7 @@ CachedImage         → "one image on target nodes" (leaf resource, reconciled i
 ### `CachedImage`
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: cuda-base    # cluster-scoped, no namespace
@@ -78,7 +78,7 @@ status:
 ### `CachedImageSet`
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: build-essentials
@@ -111,7 +111,7 @@ status:
 ### `PullPolicy`
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: build-safe
@@ -135,7 +135,7 @@ spec:
 Designed for **extensibility**: `sources` is a list so multiple backends can feed the same policy. Each source type uses a uniform connection pattern with optional `secretRef` for auth (tokens, headers, TLS certs — anything passable as a k8s Secret). New source types can be added in future versions without breaking the schema.
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: discover-ci-images
@@ -225,4 +225,4 @@ This allows any authentication scheme without operator code changes — just pop
 |----------|-------|--------------|
 | A | `Image` + `ImageSet` + `PullPolicy` | "Image" too generic, confusing in conversation |
 | B | `NodeImage` + `NodeImageSet` + `PullPolicy` | Less intuitive than "Cached" for desired state |
-| D | `PrePullImage` + `PrePullImageSet` + `PrePullPolicy` | Verbose, redundant within `puller.corewire.io` group |
+| D | `PrePullImage` + `PrePullImageSet` + `PrePullPolicy` | Verbose, redundant within `drop.corewire.io` group |

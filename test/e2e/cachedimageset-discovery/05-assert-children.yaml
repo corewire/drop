@@ -1,11 +1,11 @@
 # Assert child CachedImages are created with proper labels and ownerRef
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   labels:
-    puller.corewire.io/imageset: test-discovered-set
+    drop.corewire.io/imageset: test-discovered-set
   ownerReferences:
-    - apiVersion: puller.corewire.io/v1alpha1
+    - apiVersion: drop.corewire.io/v1alpha1
       kind: CachedImageSet
       name: test-discovered-set
 spec:

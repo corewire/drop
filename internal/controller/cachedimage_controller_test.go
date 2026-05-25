@@ -27,8 +27,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
-	"github.com/Breee/puller/internal/pacing"
+	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	"github.com/Breee/drop/internal/pacing"
 )
 
 var _ = Describe("CachedImage Controller", func() {
@@ -40,17 +40,17 @@ var _ = Describe("CachedImage Controller", func() {
 		typeNamespacedName := types.NamespacedName{
 			Name: resourceName,
 		}
-		cachedimage := &pullerv1alpha1.CachedImage{}
+		cachedimage := &dropv1alpha1.CachedImage{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind CachedImage")
 			err := k8sClient.Get(ctx, typeNamespacedName, cachedimage)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &pullerv1alpha1.CachedImage{
+				resource := &dropv1alpha1.CachedImage{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: resourceName,
 					},
-					Spec: pullerv1alpha1.CachedImageSpec{
+					Spec: dropv1alpha1.CachedImageSpec{
 						Image: "docker.io/library/nginx",
 						Tag:   "1.25",
 					},
@@ -60,7 +60,7 @@ var _ = Describe("CachedImage Controller", func() {
 		})
 
 		AfterEach(func() {
-			resource := &pullerv1alpha1.CachedImage{}
+			resource := &dropv1alpha1.CachedImage{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			if err == nil {
 				By("Cleanup the specific resource instance CachedImage")
@@ -73,8 +73,8 @@ var _ = Describe("CachedImage Controller", func() {
 			controllerReconciler := &CachedImageReconciler{
 				Client:       k8sClient,
 				Scheme:       k8sClient.Scheme(),
-				PodNamespace: "puller-system",
-				PacingEngine: pacing.NewEngine(k8sClient, "puller-system"),
+				PodNamespace: "drop-system",
+				PacingEngine: pacing.NewEngine(k8sClient, "drop-system"),
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

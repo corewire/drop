@@ -86,7 +86,7 @@ type CachedImageSetStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,categories=puller
+// +kubebuilder:resource:scope=Cluster,categories=drop
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.imagesReady`
 // +kubebuilder:printcolumn:name="Managed",type=integer,JSONPath=`.status.imagesManaged`

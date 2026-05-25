@@ -9,7 +9,7 @@ var (
 	// ImagesCachedTotal counts the total number of images successfully cached on nodes.
 	ImagesCachedTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "puller_images_cached_total",
+			Name: "drop_images_cached_total",
 			Help: "Total number of images successfully cached on nodes.",
 		},
 		[]string{"image", "node"},
@@ -18,7 +18,7 @@ var (
 	// PullDurationSeconds tracks the duration of image pull operations.
 	PullDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "puller_pull_duration_seconds",
+			Name:    "drop_pull_duration_seconds",
 			Help:    "Duration of image pull operations in seconds.",
 			Buckets: prometheus.ExponentialBuckets(1, 2, 12), // 1s to ~68min
 		},
@@ -28,7 +28,7 @@ var (
 	// PullErrorsTotal counts the total number of failed image pull attempts.
 	PullErrorsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "puller_pull_errors_total",
+			Name: "drop_pull_errors_total",
 			Help: "Total number of failed image pull attempts.",
 		},
 		[]string{"image", "node"},
@@ -37,7 +37,7 @@ var (
 	// DiscoveryImagesFound reports the number of images found by each discovery source.
 	DiscoveryImagesFound = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "puller_discovery_images_found",
+			Name: "drop_discovery_images_found",
 			Help: "Number of images found by a discovery policy.",
 		},
 		[]string{"policy", "source_type"},
@@ -46,7 +46,7 @@ var (
 	// ActivePulls reports the current number of active pull Pods.
 	ActivePulls = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "puller_active_pulls",
+			Name: "drop_active_pulls",
 			Help: "Current number of active image pull Pods.",
 		},
 	)
@@ -54,7 +54,7 @@ var (
 	// ReconcileTotal counts reconciliation attempts per controller and result.
 	ReconcileTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "puller_reconcile_total",
+			Name: "drop_reconcile_total",
 			Help: "Total number of reconciliation attempts.",
 		},
 		[]string{"controller", "result"},
@@ -63,7 +63,7 @@ var (
 	// DiscoverySourceHealth reports whether a discovery source is reachable (1=healthy, 0=unhealthy).
 	DiscoverySourceHealth = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "puller_discovery_source_health",
+			Name: "drop_discovery_source_health",
 			Help: "Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy).",
 		},
 		[]string{"policy", "source_type", "endpoint"},
@@ -72,7 +72,7 @@ var (
 	// DiscoverySourceLatencySeconds tracks the query duration per source.
 	DiscoverySourceLatencySeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "puller_discovery_source_latency_seconds",
+			Name:    "drop_discovery_source_latency_seconds",
 			Help:    "Latency of discovery source queries in seconds.",
 			Buckets: prometheus.DefBuckets,
 		},

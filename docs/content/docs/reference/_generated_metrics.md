@@ -3,39 +3,39 @@
 title: Metrics
 weight: 3
 aliases:
-  - /puller/docs/reference/metrics/
-description: Prometheus metrics exposed by the puller operator.
+  - /drop/docs/reference/metrics/
+description: Prometheus metrics exposed by the drop operator.
 llmsDescription: |
-  All Prometheus metrics registered by the puller operator. Includes metric
+  All Prometheus metrics registered by the drop operator. Includes metric
   name, type (counter/gauge/histogram), and description. Also provides
   example PromQL queries for monitoring image cache coverage and pull errors.
 ---
 
-The puller operator exposes the following metrics:
+The drop operator exposes the following metrics:
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `puller_images_cached_total` | counter | Total number of images successfully cached on nodes. |
-| `puller_pull_duration_seconds` | histogram | Duration of image pull operations in seconds. |
-| `puller_pull_errors_total` | counter | Total number of failed image pull attempts. |
-| `puller_discovery_images_found` | gauge | Number of images found by a discovery policy. |
-| `puller_active_pulls` | gauge | Current number of active image pull Pods. |
-| `puller_reconcile_total` | counter | Total number of reconciliation attempts. |
-| `puller_discovery_source_health` | gauge | Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy). |
-| `puller_discovery_source_latency_seconds` | histogram | Latency of discovery source queries in seconds. |
+| `drop_images_cached_total` | counter | Total number of images successfully cached on nodes. |
+| `drop_pull_duration_seconds` | histogram | Duration of image pull operations in seconds. |
+| `drop_pull_errors_total` | counter | Total number of failed image pull attempts. |
+| `drop_discovery_images_found` | gauge | Number of images found by a discovery policy. |
+| `drop_active_pulls` | gauge | Current number of active image pull Pods. |
+| `drop_reconcile_total` | counter | Total number of reconciliation attempts. |
+| `drop_discovery_source_health` | gauge | Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy). |
+| `drop_discovery_source_latency_seconds` | histogram | Latency of discovery source queries in seconds. |
 
 ## Useful Queries
 
 ```promql
 # Images cached per node
-sum by (node) (puller_images_cached_total)
+sum by (node) (drop_images_cached_total)
 
 # Pull error rate
-rate(puller_pull_errors_total[5m])
+rate(drop_pull_errors_total[5m])
 
 # Average pull duration
-histogram_quantile(0.95, rate(puller_pull_duration_seconds_bucket[10m]))
+histogram_quantile(0.95, rate(drop_pull_duration_seconds_bucket[10m]))
 
 # Discovery coverage
-puller_discovery_images_found
+drop_discovery_images_found
 ```

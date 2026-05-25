@@ -30,11 +30,11 @@ spec:
       try:
         - delete:
             ref:
-              apiVersion: puller.corewire.io/v1alpha1
+              apiVersion: drop.corewire.io/v1alpha1
               kind: CachedImage
               name: test-broken-image
         - delete:
             ref:
-              apiVersion: puller.corewire.io/v1alpha1
+              apiVersion: drop.corewire.io/v1alpha1
               kind: PullPolicy
               name: test-backoff-policy

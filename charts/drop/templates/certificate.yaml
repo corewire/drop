@@ -1,0 +1,17 @@
+{{- if .Values.certManager.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "drop.fullname" . }}-metrics-cert
+  labels:
+    {{- include "drop.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "drop.fullname" . }}-metrics-tls
+  issuerRef:
+    {{- toYaml .Values.certManager.issuerRef | nindent 4 }}
+  dnsNames:
+    - {{ include "drop.fullname" . }}-metrics.{{ .Release.Namespace }}.svc
+    - {{ include "drop.fullname" . }}-metrics.{{ .Release.Namespace }}.svc.cluster.local
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+{{- end }}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # hack/gen-asciinema.sh — Generate asciinema .cast files for docs landing page.
-# Requires: asciinema, kubectl, a running cluster with puller installed.
+# Requires: asciinema, kubectl, a running cluster with drop installed.
 # Output: docs/static/casts/{apply,pods,events}.cast — displayed as tabs on site.
 #
 # Each recording is fully independent: clean state → apply → watch one perspective.
@@ -9,9 +9,9 @@ set -euo pipefail
 CAST_DIR="$(git rev-parse --show-toplevel)/docs/static/casts"
 mkdir -p "$CAST_DIR"
 
-TMPFILE="/tmp/puller-demo-cachedimage.yaml"
+TMPFILE="/tmp/drop-demo-cachedimage.yaml"
 cat > "$TMPFILE" <<'EOF'
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: nginx-demo
@@ -24,7 +24,7 @@ EOF
 
 cleanup() {
   kubectl delete cachedimage nginx-demo --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete pods -l app.kubernetes.io/managed-by=puller --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete pods -l app.kubernetes.io/managed-by=drop --ignore-not-found >/dev/null 2>&1 || true
   sleep 5
 }
 
@@ -52,9 +52,9 @@ REC"
 cleanup
 echo "Recording 2/3: pods + nodes"
 asciinema rec "$CAST_DIR/pods.cast" --overwrite --cols 80 --rows 22 --env "" -c "bash --norc --noprofile <<'REC'
-echo '$ kubectl get pods -l app.kubernetes.io/managed-by=puller -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName -w'
+echo '$ kubectl get pods -l app.kubernetes.io/managed-by=drop -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName -w'
 sleep 1
-kubectl get pods -l app.kubernetes.io/managed-by=puller -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName -w &
+kubectl get pods -l app.kubernetes.io/managed-by=drop -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName -w &
 PID=\$!
 sleep 2
 kubectl apply -f $TMPFILE >/dev/null 2>&1

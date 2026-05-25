@@ -3,7 +3,7 @@
 ## Goal
 Make CRD settings explicit so users can predict pull behavior and avoid containerd overload.
 
-## `CachedImage` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
+## `CachedImage` (`drop.corewire.io/v1alpha1`) — Cluster-scoped
 
 ### Spec fields
 - `image` (string, required)
@@ -33,7 +33,7 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
 ### Status fields
 - `phase`, `conditions`, `lastPulledAt`, `nodesTargeted`, `nodesReady`, `observedGeneration`.
 
-## `CachedImageSet` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
+## `CachedImageSet` (`drop.corewire.io/v1alpha1`) — Cluster-scoped
 
 ### Spec fields
 - `policyRef` (object, optional) — reference to a `PullPolicy`.
@@ -47,7 +47,7 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
 ### Status fields
 - `phase`, `imagesManaged`, `imagesReady`, `observedGeneration`, `conditions`.
 
-## `PullPolicy` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
+## `PullPolicy` (`drop.corewire.io/v1alpha1`) — Cluster-scoped
 
 ### Spec fields
 - `maxConcurrentNodes` (int) — max nodes pulling simultaneously.
@@ -57,7 +57,7 @@ Make CRD settings explicit so users can predict pull behavior and avoid containe
 - `nodeSelector` (map, optional) — scope policy to a node pool.
 - `tolerations` (list, optional) — match tainted nodes in pool.
 
-## `DiscoveryPolicy` (`puller.corewire.io/v1alpha1`) — Cluster-scoped
+## `DiscoveryPolicy` (`drop.corewire.io/v1alpha1`) — Cluster-scoped
 
 Extensible design: `sources` is a list supporting multiple backend types. New source types can be added without schema changes.
 

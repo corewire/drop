@@ -1,18 +1,18 @@
 ---
-title: Puller
+title: Drop
 layout: hextra-home
 description: Kubernetes operator that pre-caches container images on cluster nodes.
 llmsDescription: |
-  Puller is a Kubernetes operator that pre-caches container images on cluster
-  nodes. CachedImage CR → Puller Operator → Pod per node → kubelet pulls image
+  Drop is a Kubernetes operator that pre-caches container images on cluster
+  nodes. CachedImage CR → Drop Operator → Pod per node → kubelet pulls image
   → Pod exits → image cached. CRDs: CachedImage, CachedImageSet, PullPolicy,
-  DiscoveryPolicy. API group puller.corewire.io/v1alpha1, all cluster-scoped.
+  DiscoveryPolicy. API group drop.corewire.io/v1alpha1, all cluster-scoped.
   No privileged containers — uses kubelet image pulls only.
 ---
 
 <div class="hx-mt-6 hx-mb-6">
 {{< hextra/hero-headline >}}
-  Puller
+  Drop
 {{< /hextra/hero-headline >}}
 </div>
 
@@ -46,12 +46,12 @@ llmsDescription: |
 
 {{< hextra/feature-grid >}}
   {{< hextra/feature-card
-    title="Use Puller"
+    title="Use Drop"
     subtitle="Install, create CachedImages, configure pacing and discovery."
     link="docs/install/"
   >}}
   {{< hextra/feature-card
-    title="Develop Puller"
+    title="Develop Drop"
     subtitle="Architecture, CRD reference, build and test commands."
     link="docs/developing/"
   >}}

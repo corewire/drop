@@ -2,11 +2,11 @@
 title: Installation
 weight: 1
 aliases:
-  - /puller/docs/getting-started/
-description: Install the puller operator.
+  - /drop/docs/getting-started/
+description: Install the drop operator.
 llmsDescription: |
-  Installation guide for the puller operator. Prerequisites: Kubernetes 1.28+,
-  Helm 3.12+. Install via Helm chart from ghcr.io/breee/charts/puller.
+  Installation guide for the drop operator. Prerequisites: Kubernetes 1.28+,
+  Helm 3.12+. Install via Helm chart from ghcr.io/breee/charts/drop.
   Optional: cert-manager for secure metrics, ServiceMonitor for Prometheus.
 ---
 
@@ -19,16 +19,16 @@ llmsDescription: |
 ## Helm Install
 
 ```bash
-helm install puller oci://ghcr.io/breee/charts/puller \
-  --namespace puller-system \
+helm install drop oci://ghcr.io/breee/charts/drop \
+  --namespace drop-system \
   --create-namespace
 ```
 
 ### With Prometheus ServiceMonitor
 
 ```bash
-helm install puller oci://ghcr.io/breee/charts/puller \
-  --namespace puller-system \
+helm install drop oci://ghcr.io/breee/charts/drop \
+  --namespace drop-system \
   --create-namespace \
   --set serviceMonitor.enabled=true \
   --set certManager.enabled=true
@@ -37,7 +37,7 @@ helm install puller oci://ghcr.io/breee/charts/puller \
 ## Verify
 
 ```bash
-kubectl -n puller-system get pods
+kubectl -n drop-system get pods
 ```
 
 The operator Pod should be running and ready.

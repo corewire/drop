@@ -1,5 +1,5 @@
 apiVersion: v2
-name: puller
+name: drop
 description: A Kubernetes operator that pre-pulls container images onto nodes
 type: application
 version: 0.1.0
@@ -10,9 +10,9 @@ keywords:
   - operator
   - image-caching
   - pre-pull
-home: https://github.com/Breee/puller
+home: https://github.com/Breee/drop
 sources:
-  - https://github.com/Breee/puller
+  - https://github.com/Breee/drop
 maintainers:
   - name: Breee
     url: https://github.com/Breee

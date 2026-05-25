@@ -3,15 +3,15 @@ title: Debugging
 weight: 4
 description: Logs, common issues, pacing diagnostics, and Delve.
 llmsDescription: |
-  Debugging guide for puller. Check operator logs, inspect CachedImage status,
-  list puller Pods. Common issues: Pending pods (nodeSelector), ErrImagePull (auth),
+  Debugging guide for drop. Check operator logs, inspect CachedImage status,
+  list drop Pods. Common issues: Pending pods (nodeSelector), ErrImagePull (auth),
   stuck Pulling (pacing), Degraded (consecutive failures). Use Delve for local debugging.
 ---
 
 ## Operator Logs
 
 ```bash
-kubectl logs -n puller-system deploy/puller-controller-manager -f
+kubectl logs -n drop-system deploy/drop-controller-manager -f
 ```
 
 The operator logs structured JSON. Look for `"controller"` and `"reconcileID"` fields to trace a specific reconciliation.
@@ -29,16 +29,16 @@ Key status fields:
 - `nodesTargeted` / `nodesReady`: Progress tracking
 - `consecutiveFailures`: Backoff trigger
 
-## Inspect Puller Pods
+## Inspect Drop Pods
 
 ```bash
-kubectl get pods -l app.kubernetes.io/managed-by=puller -o wide
+kubectl get pods -l app.kubernetes.io/managed-by=drop -o wide
 ```
 
 Pods should be `Succeeded` (image pulled) or `Failed` (pull error). Check events for details:
 
 ```bash
-kubectl describe pod <puller-pod-name>
+kubectl describe pod <drop-pod-name>
 ```
 
 ## Common Issues
@@ -62,11 +62,11 @@ Pods stuck in `ErrImagePull`/`ImagePullBackOff` are **excluded** from the active
 
 To check pacing state:
 ```bash
-# Count active puller pods
-kubectl get pods -l app.kubernetes.io/managed-by=puller --field-selector=status.phase!=Succeeded,status.phase!=Failed
+# Count active drop pods
+kubectl get pods -l app.kubernetes.io/managed-by=drop --field-selector=status.phase!=Succeeded,status.phase!=Failed
 
 # Check the metric
-curl -s localhost:8443/metrics | grep puller_active_pulls
+curl -s localhost:8443/metrics | grep drop_active_pulls
 ```
 
 ## Delve Debugging
@@ -87,19 +87,19 @@ When running locally, the operator uses your `~/.kube/config` context.
 |----------|-----|
 | `cachedimage_controller.go:Reconcile` | Entry point for the core loop |
 | `pacing.go:CanStartPull` | Pacing decision point |
-| `builder.go:BuildPullerPod` | Pod spec construction |
+| `builder.go:BuildDropPod` | Pod spec construction |
 | `discoverypolicy_controller.go:buildSource` | Source creation |
 
 ## Metrics for Debugging
 
 ```bash
-curl -s localhost:8443/metrics | grep puller_
+curl -s localhost:8443/metrics | grep drop_
 ```
 
 | Metric | What it tells you |
 |--------|-------------------|
-| `puller_active_pulls` | How many Pods are in-flight right now |
-| `puller_pull_errors_total` | Which images/nodes are failing |
-| `puller_pull_duration_seconds` | How long pulls take |
-| `puller_reconcile_total{result="error"}` | Controller errors |
-| `puller_discovery_source_health` | Whether sources are reachable |
+| `drop_active_pulls` | How many Pods are in-flight right now |
+| `drop_pull_errors_total` | Which images/nodes are failing |
+| `drop_pull_duration_seconds` | How long pulls take |
+| `drop_reconcile_total{result="error"}` | Controller errors |
+| `drop_discovery_source_health` | Whether sources are reachable |

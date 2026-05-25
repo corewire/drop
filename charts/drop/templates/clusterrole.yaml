@@ -1,38 +1,38 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "puller.fullname" . }}
+  name: {{ include "drop.fullname" . }}
   labels:
-    {{- include "puller.labels" . | nindent 4 }}
+    {{- include "drop.labels" . | nindent 4 }}
 rules:
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["cachedimages"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["cachedimages/status"]
     verbs: ["get", "update", "patch"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["cachedimages/finalizers"]
     verbs: ["update"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["cachedimagesets"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["cachedimagesets/status"]
     verbs: ["get", "update", "patch"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["cachedimagesets/finalizers"]
     verbs: ["update"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["pullpolicies"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["discoverypolicies"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["discoverypolicies/status"]
     verbs: ["get", "update", "patch"]
-  - apiGroups: ["puller.corewire.io"]
+  - apiGroups: ["drop.corewire.io"]
     resources: ["discoverypolicies/finalizers"]
     verbs: ["update"]
   - apiGroups: [""]

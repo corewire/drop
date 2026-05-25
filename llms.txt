@@ -1,6 +1,6 @@
-# puller — Kubernetes operator that pre-caches container images on cluster nodes
+# drop — Kubernetes operator that pre-caches container images on cluster nodes
 
-> API group: puller.corewire.io/v1alpha1 | Go 1.23.0 | All CRDs cluster-scoped
+> API group: drop.corewire.io/v1alpha1 | Go 1.23.0 | All CRDs cluster-scoped
 
 ## CRDs
 
@@ -24,13 +24,13 @@ Reconcilers:
 
 | Path | Role |
 |------|------|
-| api/v1alpha1 | Package v1alpha1 contains API Schema definitions for the puller v1alpha1 API group. |
+| api/v1alpha1 | Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group. |
 | internal/controller | Reconciler implementations (one per CRD) |
 | internal/discovery | Discovery source interface + implementations |
 | internal/metrics | Prometheus metrics registration |
 | internal/pacing | Shared pacing engine for rate-limited pulls |
 | internal/podbuilder | Pure Pod construction function (no k8s client) |
-| charts/puller/ | Helm chart |
+| charts/drop/ | Helm chart |
 | test/e2e/ | Chainsaw E2E tests |
 | hack/gen-ai-docs/ | Documentation generator |
 
@@ -106,7 +106,7 @@ DiscoveryPolicy is the Schema for the discoverypolicies API.
 | InProgress | CachedImage | Image pulls are actively running on some nodes |
 | InvalidImageName | CachedImage | The image reference is malformed |
 | PartiallyFailed | DiscoveryPolicy | Some discovery sources failed to sync |
-| PodFailed | CachedImage | Puller Pod failed for a non-image-pull reason |
+| PodFailed | CachedImage | Drop Pod failed for a non-image-pull reason |
 | Progressing | CachedImageSet | Children are still being pulled |
 | PullFailed | CachedImage | One or more nodes failed to pull the image |
 | Ready | CachedImageSet | All child CachedImages are ready |
@@ -116,14 +116,14 @@ DiscoveryPolicy is the Schema for the discoverypolicies API.
 | Synced | DiscoveryPolicy | All sources synced successfully |
 
 ## Metrics
-- `puller_images_cached_total` (counter) — Total number of images successfully cached on nodes.
-- `puller_pull_duration_seconds` (histogram) — Duration of image pull operations in seconds.
-- `puller_pull_errors_total` (counter) — Total number of failed image pull attempts.
-- `puller_discovery_images_found` (gauge) — Number of images found by a discovery policy.
-- `puller_active_pulls` (gauge) — Current number of active image pull Pods.
-- `puller_reconcile_total` (counter) — Total number of reconciliation attempts.
-- `puller_discovery_source_health` (gauge) — Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy).
-- `puller_discovery_source_latency_seconds` (histogram) — Latency of discovery source queries in seconds.
+- `drop_images_cached_total` (counter) — Total number of images successfully cached on nodes.
+- `drop_pull_duration_seconds` (histogram) — Duration of image pull operations in seconds.
+- `drop_pull_errors_total` (counter) — Total number of failed image pull attempts.
+- `drop_discovery_images_found` (gauge) — Number of images found by a discovery policy.
+- `drop_active_pulls` (gauge) — Current number of active image pull Pods.
+- `drop_reconcile_total` (counter) — Total number of reconciliation attempts.
+- `drop_discovery_source_health` (gauge) — Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy).
+- `drop_discovery_source_latency_seconds` (histogram) — Latency of discovery source queries in seconds.
 
 ## Full Reference
 
@@ -137,7 +137,7 @@ See [llms-full.txt](llms-full.txt) for complete field documentation with types a
 | [Usage](docs/usage/) | CachedImage, CachedImageSet, PullPolicy examples with YAML. |
 | [Discovery](docs/discovery/) | DiscoveryPolicy for automatic image discovery from Prometheus/OCI registries. |
 | [Monitoring](docs/monitoring/) | Prometheus metrics, Kubernetes events, and status conditions. |
-| [CRD Reference](docs/reference/crds/) | Complete field reference for all puller CRDs with types, defaults, and validation. |
+| [CRD Reference](docs/reference/crds/) | Complete field reference for all drop CRDs with types, defaults, and validation. |
 | [Status & Errors](docs/reference/errors/) | Every condition reason emitted by controllers. Diagnose why resources are not Ready. |
 | [Metrics](docs/reference/metrics/) | Prometheus metrics: names, types, descriptions, and example PromQL queries. |
 | [Architecture](docs/reference/architecture/) | Package dependency graph and CRD ownership relationships. |

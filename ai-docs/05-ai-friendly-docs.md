@@ -1,6 +1,6 @@
 # AI-Friendly Documentation — Learnings & Patterns
 
-Distilled from building the puller documentation system. Applicable to any project.
+Distilled from building the drop documentation system. Applicable to any project.
 
 ---
 
@@ -75,8 +75,8 @@ Every page gets a machine-readable summary in frontmatter:
 
 ```yaml
 llmsDescription: |
-  Installation guide for puller. Prerequisites: K8s 1.28+, Helm 3.12+.
-  Install via: helm install puller oci://ghcr.io/breee/charts/puller
+  Installation guide for drop. Prerequisites: K8s 1.28+, Helm 3.12+.
+  Install via: helm install drop oci://ghcr.io/breee/charts/drop
 ```
 
 This feeds Hextra's llms.txt generation and gives agents per-page context without reading the full body.

@@ -1,13 +1,13 @@
 ---
 title: Developer Guide
 weight: 6
-description: Everything you need to build, debug, test, and extend Puller.
+description: Everything you need to build, debug, test, and extend Drop.
 llmsDescription: |
   Developer guide index. Links to architecture, local dev setup, build commands,
   testing, debugging, extending (new CRDs), code conventions, and release process.
 ---
 
-This guide covers everything needed to work on Puller — from first checkout to shipping a release.
+This guide covers everything needed to work on Drop — from first checkout to shipping a release.
 
 {{< cards >}}
   {{< card link="developing/architecture" title="Architecture" subtitle="Package graph, reconciler flows, design decisions" >}}

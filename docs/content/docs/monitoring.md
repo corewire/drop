@@ -2,11 +2,11 @@
 title: Monitoring
 weight: 4
 aliases:
-  - /puller/docs/observability/
+  - /drop/docs/observability/
 description: Prometheus metrics, events, and health checks.
 llmsDescription: |
-  Monitoring for puller: Prometheus metrics (puller_images_cached_total,
-  puller_pull_errors_total, puller_pull_duration_seconds, etc.), Kubernetes
+  Monitoring for drop: Prometheus metrics (drop_images_cached_total,
+  drop_pull_errors_total, drop_pull_duration_seconds, etc.), Kubernetes
   events on CachedImage/CachedImageSet, and metav1.Condition status with
   type Ready. ServiceMonitor included for Prometheus Operator integration.
 ---
@@ -15,17 +15,17 @@ llmsDescription: |
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `puller_images_cached_total` | Counter | `image`, `node` | Total images successfully cached |
-| `puller_pull_duration_seconds` | Histogram | `image` | Duration of pull operations |
-| `puller_pull_errors_total` | Counter | `image`, `node` | Total failed pull attempts |
-| `puller_discovery_images_found` | Gauge | `policy`, `source_type` | Images found per discovery source |
-| `puller_active_pulls` | Gauge | — | Currently active pull Pods |
-| `puller_reconcile_total` | Counter | `controller`, `result` | Reconciliation attempts |
+| `drop_images_cached_total` | Counter | `image`, `node` | Total images successfully cached |
+| `drop_pull_duration_seconds` | Histogram | `image` | Duration of pull operations |
+| `drop_pull_errors_total` | Counter | `image`, `node` | Total failed pull attempts |
+| `drop_discovery_images_found` | Gauge | `policy`, `source_type` | Images found per discovery source |
+| `drop_active_pulls` | Gauge | — | Currently active pull Pods |
+| `drop_reconcile_total` | Counter | `controller`, `result` | Reconciliation attempts |
 
 ### Enable ServiceMonitor
 
 ```bash
-helm install puller oci://ghcr.io/breee/charts/puller \
+helm install drop oci://ghcr.io/breee/charts/drop \
   --set serviceMonitor.enabled=true
 ```
 
@@ -33,16 +33,16 @@ helm install puller oci://ghcr.io/breee/charts/puller \
 
 ```promql
 # Pull success rate
-rate(puller_images_cached_total[1h])
+rate(drop_images_cached_total[1h])
 
 # p95 pull duration
-histogram_quantile(0.95, rate(puller_pull_duration_seconds_bucket[1h]))
+histogram_quantile(0.95, rate(drop_pull_duration_seconds_bucket[1h]))
 
 # Error rate by image
-rate(puller_pull_errors_total[1h])
+rate(drop_pull_errors_total[1h])
 
 # Active pulls right now
-puller_active_pulls
+drop_active_pulls
 ```
 
 ## Kubernetes Events

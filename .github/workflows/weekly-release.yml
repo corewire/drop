@@ -80,8 +80,8 @@ jobs:
       - name: Package and push Helm chart
         run: |
           VERSION=${{ steps.version.outputs.next }}
-          helm package charts/puller --version ${VERSION#v} --app-version ${VERSION#v}
-          helm push puller-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+          helm package charts/drop --version ${VERSION#v} --app-version ${VERSION#v}
+          helm push drop-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

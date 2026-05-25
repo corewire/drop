@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
+	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
 )
 
 var _ = Describe("DiscoveryPolicy Controller", func() {
@@ -38,21 +38,21 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 		typeNamespacedName := types.NamespacedName{
 			Name: resourceName,
 		}
-		discoverypolicy := &pullerv1alpha1.DiscoveryPolicy{}
+		discoverypolicy := &dropv1alpha1.DiscoveryPolicy{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind DiscoveryPolicy")
 			err := k8sClient.Get(ctx, typeNamespacedName, discoverypolicy)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &pullerv1alpha1.DiscoveryPolicy{
+				resource := &dropv1alpha1.DiscoveryPolicy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: resourceName,
 					},
-					Spec: pullerv1alpha1.DiscoveryPolicySpec{
-						Sources: []pullerv1alpha1.DiscoverySource{
+					Spec: dropv1alpha1.DiscoveryPolicySpec{
+						Sources: []dropv1alpha1.DiscoverySource{
 							{
 								Type: "prometheus",
-								Prometheus: &pullerv1alpha1.PrometheusSource{
+								Prometheus: &dropv1alpha1.PrometheusSource{
 									Endpoint: "http://localhost:9090",
 									Query:    "test_query",
 								},
@@ -65,7 +65,7 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 		})
 
 		AfterEach(func() {
-			resource := &pullerv1alpha1.DiscoveryPolicy{}
+			resource := &dropv1alpha1.DiscoveryPolicy{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			if err == nil {
 				By("Cleanup the specific resource instance DiscoveryPolicy")

@@ -3,10 +3,10 @@
 title: Architecture
 weight: 4
 aliases:
-  - /puller/docs/reference/architecture/
+  - /drop/docs/reference/architecture/
 description: Internal architecture and package dependency graph.
 llmsDescription: |
-  Package dependency graph and CRD ownership relationships for the puller
+  Package dependency graph and CRD ownership relationships for the drop
   operator. Shows how controllers, pacing engine, pod builder, and discovery
   packages relate. Useful for understanding code navigation and import paths.
 ---

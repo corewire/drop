@@ -3,15 +3,15 @@
 title: Status & Errors
 weight: 2
 aliases:
-  - /puller/docs/reference/errors/
-description: Status conditions, reasons, and troubleshooting for puller CRDs.
+  - /drop/docs/reference/errors/
+description: Status conditions, reasons, and troubleshooting for drop CRDs.
 llmsDescription: |
-  Every metav1.Condition reason emitted by puller controllers. Lookup table
+  Every metav1.Condition reason emitted by drop controllers. Lookup table
   maps reason codes to controller, meaning, and fix. Use this to diagnose
   why a CachedImage, CachedImageSet, or DiscoveryPolicy is not Ready.
 ---
 
-All puller CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` field indicates the specific state.
+All drop CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` field indicates the specific state.
 
 ## Quick Lookup
 
@@ -24,7 +24,7 @@ All puller CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` fiel
 | **InProgress** | CachedImage | Image pulls are actively running on some nodes | — |
 | **InvalidImageName** | CachedImage | The image reference is malformed | Check spec.image format: registry/repository |
 | **PartiallyFailed** | DiscoveryPolicy | Some discovery sources failed to sync | Check source endpoints and credentials |
-| **PodFailed** | CachedImage | Puller Pod failed for a non-image-pull reason | Check node health, resource limits, Pod security policies |
+| **PodFailed** | CachedImage | Drop Pod failed for a non-image-pull reason | Check node health, resource limits, Pod security policies |
 | **Progressing** | CachedImageSet | Children are still being pulled | — |
 | **PullFailed** | CachedImage | One or more nodes failed to pull the image | Check image name, tag, registry connectivity, imagePullSecrets |
 | **Ready** | CachedImageSet | All child CachedImages are ready | — |
@@ -44,7 +44,7 @@ All puller CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` fiel
 | **ImagePullBackOff** | Repeated pull failures, kubelet is backing off |
 | **InProgress** | Image pulls are actively running on some nodes |
 | **InvalidImageName** | The image reference is malformed |
-| **PodFailed** | Puller Pod failed for a non-image-pull reason |
+| **PodFailed** | Drop Pod failed for a non-image-pull reason |
 | **PullFailed** | One or more nodes failed to pull the image |
 | **RegistryUnavailable** | Cannot connect to the container registry |
 

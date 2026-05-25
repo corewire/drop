@@ -2,9 +2,9 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "puller.fullname" . }}
+  name: {{ include "drop.fullname" . }}
   labels:
-    {{- include "puller.labels" . | nindent 4 }}
+    {{- include "drop.labels" . | nindent 4 }}
     {{- with .Values.serviceMonitor.additionalLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -21,5 +21,5 @@ spec:
       bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
   selector:
     matchLabels:
-      {{- include "puller.selectorLabels" . | nindent 6 }}
+      {{- include "drop.selectorLabels" . | nindent 6 }}
 {{- end }}

@@ -98,14 +98,14 @@ type CachedImageStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,categories=puller
+// +kubebuilder:resource:scope=Cluster,categories=drop
 // +kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
 // +kubebuilder:printcolumn:name="Tag",type=string,JSONPath=`.spec.tag`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:printcolumn:name="Digest",type=string,JSONPath=`.status.resolvedDigest`,priority=1
-// +kubebuilder:printcolumn:name="Set",type=string,JSONPath=`.metadata.labels.puller\.corewire\.io/imageset`,description="Parent CachedImageSet",priority=1
+// +kubebuilder:printcolumn:name="Set",type=string,JSONPath=`.metadata.labels.drop\.corewire\.io/imageset`,description="Parent CachedImageSet",priority=1
 // +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
 // +kubebuilder:printcolumn:name="Policy",type=string,JSONPath=`.spec.policyRef.name`,priority=1
 

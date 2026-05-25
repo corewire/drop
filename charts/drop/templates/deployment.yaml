@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "puller.fullname" . }}
+  name: {{ include "drop.fullname" . }}
   labels:
-    {{- include "puller.labels" . | nindent 4 }}
+    {{- include "drop.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "puller.selectorLabels" . | nindent 6 }}
+      {{- include "drop.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "puller.selectorLabels" . | nindent 8 }}
+        {{- include "drop.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "puller.serviceAccountName" . }}
+      serviceAccountName: {{ include "drop.serviceAccountName" . }}
       securityContext:
         runAsNonRoot: true
       containers:
@@ -73,7 +73,7 @@ spec:
       volumes:
         - name: metrics-certs
           secret:
-            secretName: {{ include "puller.fullname" . }}-metrics-tls
+            secretName: {{ include "drop.fullname" . }}-metrics-tls
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

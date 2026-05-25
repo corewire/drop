@@ -3,11 +3,11 @@
 # Regenerate: make docs-gen
 
 project:
-  name: puller
+  name: drop
   description: Kubernetes operator that pre-caches container images on cluster nodes
-  apiGroup: puller.corewire.io/v1alpha1
+  apiGroup: drop.corewire.io/v1alpha1
   goVersion: 1.23.0
-  module: github.com/Breee/puller
+  module: github.com/Breee/drop
   license: Apache-2.0
 crds:
   - kind: CachedImage
@@ -466,7 +466,7 @@ relationships:
     mechanism: status.discoveredImages
 packages:
   - path: api/v1alpha1
-    role: Package v1alpha1 contains API Schema definitions for the puller v1alpha1 API group.
+    role: Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group.
   - path: internal/controller
     role: Reconciler implementations (one per CRD)
     imports:
@@ -579,28 +579,28 @@ errors:
     controller: DiscoveryPolicy
     meaning: All sources synced successfully
 metrics:
-  - name: puller_images_cached_total
+  - name: drop_images_cached_total
     help: Total number of images successfully cached on nodes.
     type: counter
-  - name: puller_pull_duration_seconds
+  - name: drop_pull_duration_seconds
     help: Duration of image pull operations in seconds.
     type: histogram
-  - name: puller_pull_errors_total
+  - name: drop_pull_errors_total
     help: Total number of failed image pull attempts.
     type: counter
-  - name: puller_discovery_images_found
+  - name: drop_discovery_images_found
     help: Number of images found by a discovery policy.
     type: gauge
-  - name: puller_active_pulls
+  - name: drop_active_pulls
     help: Current number of active image pull Pods.
     type: gauge
-  - name: puller_reconcile_total
+  - name: drop_reconcile_total
     help: Total number of reconciliation attempts.
     type: counter
-  - name: puller_discovery_source_health
+  - name: drop_discovery_source_health
     help: Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy).
     type: gauge
-  - name: puller_discovery_source_latency_seconds
+  - name: drop_discovery_source_latency_seconds
     help: Latency of discovery source queries in seconds.
     type: histogram
 makeTargets:
@@ -660,7 +660,7 @@ samples: |
   # Dev samples: deployed by Tilt for interactive testing
   ---
   # === PullPolicy ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: PullPolicy
   metadata:
     name: dev-conservative
@@ -673,7 +673,7 @@ samples: |
       max: 5m
   ---
   # === CachedImage: healthy ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: CachedImage
   metadata:
     name: dev-nginx
@@ -683,7 +683,7 @@ samples: |
     policyRef:
       name: dev-conservative
   ---
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: CachedImage
   metadata:
     name: dev-redis
@@ -694,7 +694,7 @@ samples: |
       name: dev-conservative
   ---
   # === CachedImage: broken (DNS failure → ImagePullBackOff) ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: CachedImage
   metadata:
     name: test-invalid-image
@@ -705,7 +705,7 @@ samples: |
       name: dev-conservative
   ---
   # === CachedImageSet: healthy (static images) ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: CachedImageSet
   metadata:
     name: dev-set
@@ -719,7 +719,7 @@ samples: |
         tag: "1.36"
   ---
   # === CachedImageSet: dynamic (backed by DiscoveryPolicy) ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: CachedImageSet
   metadata:
     name: dev-set-discovered
@@ -730,7 +730,7 @@ samples: |
       name: dev-registry
   ---
   # === DiscoveryPolicy: healthy (Prometheus range query) ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: DiscoveryPolicy
   metadata:
     name: dev-prometheus
@@ -746,7 +746,7 @@ samples: |
     maxImages: 10
   ---
   # === DiscoveryPolicy: healthy (registry tag listing) ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: DiscoveryPolicy
   metadata:
     name: dev-registry
@@ -762,7 +762,7 @@ samples: |
     maxImages: 10
   ---
   # === DiscoveryPolicy: broken (DNS error → DNSError) ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: DiscoveryPolicy
   metadata:
     name: test-broken-prom
@@ -776,7 +776,7 @@ samples: |
     maxImages: 10
   ---
   # === DiscoveryPolicy: broken (DNS error → DNSError) ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: DiscoveryPolicy
   metadata:
     name: test-broken-registry
@@ -791,7 +791,7 @@ samples: |
     maxImages: 10
   ---
   # === DiscoveryPolicy: broken (repo doesn't exist → NotFound) ===
-  apiVersion: puller.corewire.io/v1alpha1
+  apiVersion: drop.corewire.io/v1alpha1
   kind: DiscoveryPolicy
   metadata:
     name: test-notfound-repo

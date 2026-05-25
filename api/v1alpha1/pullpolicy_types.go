@@ -55,7 +55,7 @@ type BackoffConfig struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster,categories=puller
+// +kubebuilder:resource:scope=Cluster,categories=drop
 // +kubebuilder:printcolumn:name="MaxNodes",type=integer,JSONPath=`.spec.maxConcurrentNodes`
 // +kubebuilder:printcolumn:name="MinDelay",type=string,JSONPath=`.spec.minDelayBetweenPulls`
 // +kubebuilder:printcolumn:name="RepullInterval",type=string,JSONPath=`.spec.repullInterval`

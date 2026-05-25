@@ -26,7 +26,7 @@
 
 ---
 
-## Audit of `http://localhost:1314/puller/` (2026-05-24)
+## Audit of `http://localhost:1314/drop/` (2026-05-24)
 
 | # | Dimension | Score | Notes |
 |---|-----------|-------|-------|

@@ -21,7 +21,7 @@ spec:
       try:
         - delete:
             ref:
-              apiVersion: puller.corewire.io/v1alpha1
+              apiVersion: drop.corewire.io/v1alpha1
               kind: CachedImageSet
               name: test-set
         - error:

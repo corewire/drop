@@ -1,6 +1,6 @@
 # AI Docs
 
-Living design documents for the puller operator. Historical planning docs have been archived to `docs/decisions/`.
+Living design documents for the drop operator. Historical planning docs have been archived to `docs/decisions/`.
 
 ## Current Files
 

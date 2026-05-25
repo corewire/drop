@@ -3,20 +3,20 @@
 title: CRD Reference
 weight: 1
 aliases:
-  - /puller/docs/reference/crds/
-description: Custom Resource Definition reference for the puller operator.
+  - /drop/docs/reference/crds/
+description: Custom Resource Definition reference for the drop operator.
 llmsDescription: |
-  Complete CRD field reference for puller.corewire.io/v1alpha1. All resources
+  Complete CRD field reference for drop.corewire.io/v1alpha1. All resources
   are cluster-scoped. Covers CachedImage, CachedImageSet, PullPolicy, and
   DiscoveryPolicy with every spec/status field, types, defaults, and validation.
 ---
 
-All resources are cluster-scoped under `puller.corewire.io/v1alpha1`.
+All resources are cluster-scoped under `drop.corewire.io/v1alpha1`.
 
 ## Quick Example
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: nginx

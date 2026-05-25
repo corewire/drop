@@ -44,7 +44,7 @@ No migration path is needed at this stage because implementation has not started
 
 ## Example
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: safe-default
@@ -56,7 +56,7 @@ spec:
     max: 10m
   repullPolicyDefault: OnSchedule
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: gitlab-runner-helper

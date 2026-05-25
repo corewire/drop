@@ -21,6 +21,6 @@ spec:
       try:
         - delete:
             ref:
-              apiVersion: puller.corewire.io/v1alpha1
+              apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
               name: e2e-registry

@@ -30,7 +30,7 @@ Reconcilers:
 {{- range .Packages}}
 | {{.Path}} | {{.Role}} |
 {{- end}}
-| charts/puller/ | Helm chart |
+| charts/drop/ | Helm chart |
 | test/e2e/ | Chainsaw E2E tests |
 | hack/gen-ai-docs/ | Documentation generator |
 
@@ -80,7 +80,7 @@ See [llms-full.txt](llms-full.txt) for complete field documentation with types a
 | [Usage](docs/usage/) | CachedImage, CachedImageSet, PullPolicy examples with YAML. |
 | [Discovery](docs/discovery/) | DiscoveryPolicy for automatic image discovery from Prometheus/OCI registries. |
 | [Monitoring](docs/monitoring/) | Prometheus metrics, Kubernetes events, and status conditions. |
-| [CRD Reference](docs/reference/crds/) | Complete field reference for all puller CRDs with types, defaults, and validation. |
+| [CRD Reference](docs/reference/crds/) | Complete field reference for all drop CRDs with types, defaults, and validation. |
 | [Status & Errors](docs/reference/errors/) | Every condition reason emitted by controllers. Diagnose why resources are not Ready. |
 | [Metrics](docs/reference/metrics/) | Prometheus metrics: names, types, descriptions, and example PromQL queries. |
 | [Architecture](docs/reference/architecture/) | Package dependency graph and CRD ownership relationships. |
@@ -278,7 +278,7 @@ API group: {{.Project.APIGroup}}. All CRDs cluster-scoped.
 {{- range .Packages}}
 - {{.Path}} — {{.Role}}
 {{- end}}
-- charts/puller/ — Helm chart
+- charts/drop/ — Helm chart
 - test/e2e/ — Chainsaw E2E tests
 - hack/gen-ai-docs/ — generates all docs from source
 
@@ -346,7 +346,7 @@ make docs-gen      # regenerate AI docs
 {{- range .Packages}}
 | {{.Path}} | {{.Role}} |
 {{- end}}
-| charts/puller/ | Helm chart |
+| charts/drop/ | Helm chart |
 | test/e2e/ | Chainsaw E2E tests |
 | hack/gen-ai-docs/ | This doc generator |
 
@@ -371,10 +371,10 @@ var hugoCRDsTmpl = `---
 title: CRD Reference
 weight: 1
 aliases:
-  - /puller/docs/reference/crds/
-description: Custom Resource Definition reference for the puller operator.
+  - /drop/docs/reference/crds/
+description: Custom Resource Definition reference for the drop operator.
 llmsDescription: |
-  Complete CRD field reference for puller.corewire.io/v1alpha1. All resources
+  Complete CRD field reference for drop.corewire.io/v1alpha1. All resources
   are cluster-scoped. Covers CachedImage, CachedImageSet, PullPolicy, and
   DiscoveryPolicy with every spec/status field, types, defaults, and validation.
 ---
@@ -384,7 +384,7 @@ All resources are cluster-scoped under ` + "`{{.Project.APIGroup}}`" + `.
 ## Quick Example
 
 ` + "```yaml" + `
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: nginx
@@ -441,15 +441,15 @@ var hugoErrorsTmpl = `---
 title: Status & Errors
 weight: 2
 aliases:
-  - /puller/docs/reference/errors/
-description: Status conditions, reasons, and troubleshooting for puller CRDs.
+  - /drop/docs/reference/errors/
+description: Status conditions, reasons, and troubleshooting for drop CRDs.
 llmsDescription: |
-  Every metav1.Condition reason emitted by puller controllers. Lookup table
+  Every metav1.Condition reason emitted by drop controllers. Lookup table
   maps reason codes to controller, meaning, and fix. Use this to diagnose
   why a CachedImage, CachedImageSet, or DiscoveryPolicy is not Ready.
 ---
 
-All puller CRDs use ` + "`metav1.Condition`" + ` with type **"Ready"**. The ` + "`.reason`" + ` field indicates the specific state.
+All drop CRDs use ` + "`metav1.Condition`" + ` with type **"Ready"**. The ` + "`.reason`" + ` field indicates the specific state.
 
 ## Quick Lookup
 
@@ -493,15 +493,15 @@ var hugoMetricsTmpl = `---
 title: Metrics
 weight: 3
 aliases:
-  - /puller/docs/reference/metrics/
-description: Prometheus metrics exposed by the puller operator.
+  - /drop/docs/reference/metrics/
+description: Prometheus metrics exposed by the drop operator.
 llmsDescription: |
-  All Prometheus metrics registered by the puller operator. Includes metric
+  All Prometheus metrics registered by the drop operator. Includes metric
   name, type (counter/gauge/histogram), and description. Also provides
   example PromQL queries for monitoring image cache coverage and pull errors.
 ---
 
-The puller operator exposes the following metrics:
+The drop operator exposes the following metrics:
 
 | Metric | Type | Description |
 |--------|------|-------------|
@@ -513,16 +513,16 @@ The puller operator exposes the following metrics:
 
 ` + "```promql" + `
 # Images cached per node
-sum by (node) (puller_images_cached_total)
+sum by (node) (drop_images_cached_total)
 
 # Pull error rate
-rate(puller_pull_errors_total[5m])
+rate(drop_pull_errors_total[5m])
 
 # Average pull duration
-histogram_quantile(0.95, rate(puller_pull_duration_seconds_bucket[10m]))
+histogram_quantile(0.95, rate(drop_pull_duration_seconds_bucket[10m]))
 
 # Discovery coverage
-puller_discovery_images_found
+drop_discovery_images_found
 ` + "```" + `
 `
 
@@ -533,10 +533,10 @@ var hugoArchTmpl = `---
 title: Architecture
 weight: 4
 aliases:
-  - /puller/docs/reference/architecture/
+  - /drop/docs/reference/architecture/
 description: Internal architecture and package dependency graph.
 llmsDescription: |
-  Package dependency graph and CRD ownership relationships for the puller
+  Package dependency graph and CRD ownership relationships for the drop
   operator. Shows how controllers, pacing engine, pod builder, and discovery
   packages relate. Useful for understanding code navigation and import paths.
 ---

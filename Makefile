@@ -74,11 +74,11 @@ test-e2e: chainsaw ## Run Chainsaw E2E tests (requires kind cluster).
 
 .PHONY: kind-create
 kind-create: ## Create kind cluster for development.
-	$(KIND) create cluster --name puller-dev --config hack/kind-config.yaml --wait 5m
+	$(KIND) create cluster --name drop-dev --config hack/kind-config.yaml --wait 5m
 
 .PHONY: kind-delete
 kind-delete: ## Delete the kind cluster.
-	$(KIND) delete cluster --name puller-dev
+	$(KIND) delete cluster --name drop-dev
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into cluster.
@@ -104,17 +104,17 @@ docker-push: ## Push docker image.
 
 .PHONY: kind-load
 kind-load: docker-build ## Build and load image into kind.
-	$(KIND) load docker-image ${IMG} --name puller-dev
+	$(KIND) load docker-image ${IMG} --name drop-dev
 
 ##@ Helm & Docs
 
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart.
-	helm lint charts/puller
+	helm lint charts/drop
 
 .PHONY: helm-template
 helm-template: ## Render Helm templates locally.
-	helm template puller charts/puller
+	helm template drop charts/drop
 
 .PHONY: docs-serve
 docs-serve: ## Serve Hugo docs locally.

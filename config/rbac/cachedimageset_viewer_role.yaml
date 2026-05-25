@@ -1,7 +1,7 @@
-# This rule is not used by the project puller itself.
+# This rule is not used by the project drop itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to puller.corewire.io resources.
+# Grants read-only access to drop.corewire.io resources.
 # This role is intended for users who need visibility into these resources
 # without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
 
@@ -9,12 +9,12 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/name: puller
+    app.kubernetes.io/name: drop
     app.kubernetes.io/managed-by: kustomize
   name: cachedimageset-viewer-role
 rules:
 - apiGroups:
-  - puller.corewire.io
+  - drop.corewire.io
   resources:
   - cachedimagesets
   verbs:
@@ -22,7 +22,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - puller.corewire.io
+  - drop.corewire.io
   resources:
   - cachedimagesets/status
   verbs:

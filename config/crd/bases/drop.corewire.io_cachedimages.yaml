@@ -4,12 +4,12 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
-  name: cachedimages.puller.corewire.io
+  name: cachedimages.drop.corewire.io
 spec:
-  group: puller.corewire.io
+  group: drop.corewire.io
   names:
     categories:
-    - puller
+    - drop
     kind: CachedImage
     listKind: CachedImageList
     plural: cachedimages
@@ -37,7 +37,7 @@ spec:
       priority: 1
       type: string
     - description: Parent CachedImageSet
-      jsonPath: .metadata.labels.puller\.corewire\.io/imageset
+      jsonPath: .metadata.labels.drop\.corewire\.io/imageset
       name: Set
       priority: 1
       type: string

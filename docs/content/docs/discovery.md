@@ -2,7 +2,7 @@
 title: Discovery
 weight: 3
 aliases:
-  - /puller/docs/discovery/
+  - /drop/docs/discovery/
 description: Automatic image discovery with DiscoveryPolicy.
 llmsDescription: |
   DiscoveryPolicy CRD enables automatic image discovery from Prometheus metrics
@@ -47,7 +47,7 @@ count(container_memory_working_set_bytes{
 ### Full Example
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: popular-build-images
@@ -71,7 +71,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: prometheus-creds
-  namespace: puller-system
+  namespace: drop-system
 type: Opaque
 stringData:
   username: admin
@@ -85,7 +85,7 @@ stringData:
 The registry source uses OCI Distribution API tag listing. Combined with `imageTemplate`, it handles complex tag patterns like GitLab Runner helpers:
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: gitlab-helpers

@@ -3,7 +3,7 @@ title: Usage
 weight: 2
 description: Create and manage cached images.
 llmsDescription: |
-  Usage guide for puller CRDs. Create CachedImage to cache a single image,
+  Usage guide for drop CRDs. Create CachedImage to cache a single image,
   CachedImageSet for multiple images, PullPolicy for rate limiting. Examples
   with YAML manifests for each resource type.
 ---
@@ -11,7 +11,7 @@ llmsDescription: |
 ## Cache a Single Image
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: nginx
@@ -28,7 +28,7 @@ kubectl get cachedimages
 ## Target Specific Nodes
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: nginx-amd64
@@ -44,7 +44,7 @@ spec:
 Create a PullPolicy to control pull rate:
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: conservative
@@ -57,7 +57,7 @@ spec:
 Reference it:
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: nginx
@@ -71,7 +71,7 @@ spec:
 ## Cache Multiple Images
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: platform-images

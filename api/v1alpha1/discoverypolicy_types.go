@@ -125,7 +125,7 @@ type DiscoveredImage struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,categories=puller
+// +kubebuilder:resource:scope=Cluster,categories=drop
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
 // +kubebuilder:printcolumn:name="Sources",type=integer,JSONPath=`.status.sourceCount`
 // +kubebuilder:printcolumn:name="Images",type=integer,JSONPath=`.status.imageCount`

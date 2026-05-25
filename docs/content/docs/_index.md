@@ -1,15 +1,15 @@
 ---
 title: Documentation
 weight: 1
-description: Puller operator documentation.
+description: Drop operator documentation.
 llmsDescription: |
-  Documentation index for the puller Kubernetes operator. Sections: install,
+  Documentation index for the drop Kubernetes operator. Sections: install,
   usage (CachedImage/CachedImageSet/PullPolicy examples), discovery
   (DiscoveryPolicy), monitoring (metrics/events), reference (CRD fields,
   errors, metrics, architecture), developing (build/test/contribute).
 ---
 
-Puller pre-caches container images on Kubernetes nodes using short-lived Pods.
+Drop pre-caches container images on Kubernetes nodes using short-lived Pods.
 
 ## Why
 
@@ -21,7 +21,7 @@ When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thu
 | **Registry overload** | Sudden pull surges hit rate limits or cause outages |
 | **Cold-start latency** | Large images delay workloads that need them immediately |
 
-Puller pre-caches images *before* workloads need them, paces pulls to stay within safe limits, and automatically discovers which images matter most.
+Drop pre-caches images *before* workloads need them, paces pulls to stay within safe limits, and automatically discovers which images matter most.
 
 ## Sections
 

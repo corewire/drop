@@ -15,9 +15,9 @@ log() { echo -e "${BLUE}[demo]${NC} $*"; }
 success() { echo -e "${GREEN}[✓]${NC} $*"; }
 section() { echo -e "\n${BOLD}${YELLOW}=== $* ===${NC}\n"; }
 
-CLUSTER_NAME="puller-demo"
+CLUSTER_NAME="drop-demo"
 IMG="controller:demo"
-NAMESPACE="puller-system"
+NAMESPACE="drop-system"
 
 cleanup() {
     log "Cleaning up..."
@@ -45,7 +45,7 @@ kubectl apply -f config/crd/bases/
 success "CRDs installed"
 
 section "4. Deploy Operator via Helm"
-helm upgrade --install puller charts/puller \
+helm upgrade --install drop charts/drop \
     --namespace "$NAMESPACE" \
     --create-namespace \
     --set image.repository=controller \
@@ -62,7 +62,7 @@ echo ""
 
 section "5. Create a PullPolicy (conservative pacing)"
 cat <<EOF | kubectl apply -f -
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: demo-policy
@@ -75,7 +75,7 @@ success "PullPolicy created"
 
 section "6. Create a CachedImage"
 cat <<EOF | kubectl apply -f -
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: demo-nginx
@@ -107,7 +107,7 @@ kubectl get cachedimage demo-nginx -o yaml | grep -A20 "^status:"
 
 section "10. Create a CachedImageSet"
 cat <<EOF | kubectl apply -f -
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: demo-set
@@ -122,10 +122,10 @@ success "CachedImageSet created"
 
 log "Waiting for child CachedImages..."
 sleep 5
-kubectl get cachedimages -l puller.corewire.io/imageset=demo-set
+kubectl get cachedimages -l drop.corewire.io/imageset=demo-set
 
 section "11. Verify Metrics"
-OPERATOR_POD=$(kubectl -n "$NAMESPACE" get pods -l app.kubernetes.io/name=puller -o jsonpath='{.items[0].metadata.name}')
+OPERATOR_POD=$(kubectl -n "$NAMESPACE" get pods -l app.kubernetes.io/name=drop -o jsonpath='{.items[0].metadata.name}')
 log "Operator pod: $OPERATOR_POD"
 log "Port-forwarding metrics..."
 kubectl -n "$NAMESPACE" port-forward "$OPERATOR_POD" 8080:8443 &
@@ -133,7 +133,7 @@ PF_PID=$!
 sleep 2
 echo ""
 log "Custom metrics:"
-curl -sk https://localhost:8080/metrics 2>/dev/null | grep "^puller_" || curl -s http://localhost:8080/metrics 2>/dev/null | grep "^puller_" || log "Could not reach metrics endpoint"
+curl -sk https://localhost:8080/metrics 2>/dev/null | grep "^drop_" || curl -s http://localhost:8080/metrics 2>/dev/null | grep "^drop_" || log "Could not reach metrics endpoint"
 kill $PF_PID 2>/dev/null || true
 
 section "Demo Complete!"

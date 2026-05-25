@@ -6,14 +6,14 @@
   "id": null,
   "links": [],
   "schemaVersion": 39,
-  "tags": ["puller", "operator", "kubernetes"],
+  "tags": ["drop", "operator", "kubernetes"],
   "templating": {
     "list": [
       {
         "name": "image",
         "type": "query",
         "datasource": "Prometheus",
-        "query": "label_values(puller_images_cached_total, image)",
+        "query": "label_values(drop_images_cached_total, image)",
         "refresh": 2,
         "includeAll": true,
         "allValue": ".*",
@@ -23,7 +23,7 @@
         "name": "policy",
         "type": "query",
         "datasource": "Prometheus",
-        "query": "label_values(puller_discovery_images_found, policy)",
+        "query": "label_values(drop_discovery_images_found, policy)",
         "refresh": 2,
         "includeAll": true,
         "allValue": ".*",
@@ -34,8 +34,8 @@
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Puller Operator",
-  "uid": "puller-operator",
+  "title": "Drop Operator",
+  "uid": "drop-operator",
   "version": 2,
   "refresh": "10s",
   "panels": [
@@ -45,7 +45,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "puller_active_pulls", "legendFormat": "active" }],
+      "targets": [{ "expr": "drop_active_pulls", "legendFormat": "active" }],
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -64,7 +64,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(puller_images_cached_total[5m])) * 60", "legendFormat": "pulls/min" }],
+      "targets": [{ "expr": "sum(rate(drop_images_cached_total[5m])) * 60", "legendFormat": "pulls/min" }],
       "fieldConfig": {
         "defaults": {
           "thresholds": { "steps": [{ "color": "green", "value": null }] }
@@ -77,7 +77,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(puller_pull_errors_total[5m])) * 60", "legendFormat": "errors/min" }],
+      "targets": [{ "expr": "sum(rate(drop_pull_errors_total[5m])) * 60", "legendFormat": "errors/min" }],
       "fieldConfig": {
         "defaults": {
           "thresholds": {
@@ -96,7 +96,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(puller_discovery_images_found)", "legendFormat": "total" }],
+      "targets": [{ "expr": "sum(drop_discovery_images_found)", "legendFormat": "total" }],
       "fieldConfig": {
         "defaults": {
           "thresholds": { "steps": [{ "color": "blue", "value": null }] }
@@ -109,7 +109,7 @@
       "type": "stat",
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "puller_discovery_source_health", "legendFormat": "{{policy}} ({{source_type}})" }],
+      "targets": [{ "expr": "drop_discovery_source_health", "legendFormat": "{{policy}} ({{source_type}})" }],
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -130,7 +130,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (image) (rate(puller_images_cached_total{image=~\"$image\"}[5m]))", "legendFormat": "{{image}}" }],
+      "targets": [{ "expr": "sum by (image) (rate(drop_images_cached_total{image=~\"$image\"}[5m]))", "legendFormat": "{{image}}" }],
       "fieldConfig": {
         "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }
       }
@@ -141,7 +141,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (image) (rate(puller_pull_errors_total{image=~\"$image\"}[5m]))", "legendFormat": "{{image}}" }],
+      "targets": [{ "expr": "sum by (image) (rate(drop_pull_errors_total{image=~\"$image\"}[5m]))", "legendFormat": "{{image}}" }],
       "fieldConfig": {
         "defaults": {
           "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
@@ -156,9 +156,9 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "datasource": "Prometheus",
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by (le) (rate(puller_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p50" },
-        { "expr": "histogram_quantile(0.95, sum by (le) (rate(puller_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p95" },
-        { "expr": "histogram_quantile(0.99, sum by (le) (rate(puller_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p99" }
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p99" }
       ],
       "fieldConfig": {
         "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }
@@ -170,7 +170,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "puller_active_pulls", "legendFormat": "active pods" }],
+      "targets": [{ "expr": "drop_active_pulls", "legendFormat": "active pods" }],
       "fieldConfig": {
         "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
       }
@@ -181,7 +181,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "puller_discovery_images_found{policy=~\"$policy\"}", "legendFormat": "{{policy}} ({{source_type}})" }],
+      "targets": [{ "expr": "drop_discovery_images_found{policy=~\"$policy\"}", "legendFormat": "{{policy}} ({{source_type}})" }],
       "fieldConfig": {
         "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }
       }
@@ -192,7 +192,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, policy) (rate(puller_discovery_source_latency_seconds_bucket{policy=~\"$policy\"}[5m])))", "legendFormat": "{{policy}}" }],
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, policy) (rate(drop_discovery_source_latency_seconds_bucket{policy=~\"$policy\"}[5m])))", "legendFormat": "{{policy}}" }],
       "fieldConfig": {
         "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }
       }
@@ -231,7 +231,7 @@
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (node) (puller_images_cached_total{image=~\"$image\"})", "legendFormat": "{{node}}" }],
+      "targets": [{ "expr": "sum by (node) (drop_images_cached_total{image=~\"$image\"})", "legendFormat": "{{node}}" }],
       "fieldConfig": {
         "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
       }
@@ -242,7 +242,7 @@
       "type": "table",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
       "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (image, node) (puller_images_cached_total{image=~\"$image\"})", "format": "table", "instant": true }],
+      "targets": [{ "expr": "sum by (image, node) (drop_images_cached_total{image=~\"$image\"})", "format": "table", "instant": true }],
       "transformations": [{ "id": "organize", "options": { "excludeByName": { "Time": true } } }]
     }
   ]

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	v1alpha1 "github.com/Breee/puller/api/v1alpha1"
-	"github.com/Breee/puller/internal/podbuilder"
+	v1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	"github.com/Breee/drop/internal/podbuilder"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -16,7 +16,7 @@ type Decision struct {
 	RequeueIn time.Duration
 }
 
-// Engine evaluates pacing constraints before creating new puller Pods.
+// Engine evaluates pacing constraints before creating new drop Pods.
 type Engine struct {
 	Client       client.Client
 	PodNamespace string
@@ -41,7 +41,7 @@ func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, 
 		}
 	}
 
-	// List active puller Pods (Running or Pending)
+	// List active drop Pods (Running or Pending)
 	podList := &corev1.PodList{}
 	ns := e.PodNamespace
 	if ns == "" {
@@ -100,7 +100,7 @@ func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, 
 
 // nodeMatchesSelector is a simplified check.
 // In a real implementation, we'd look up the node's labels.
-// For now, this always returns true since puller Pods are already placed
+// For now, this always returns true since drop Pods are already placed
 // on specific nodes via nodeName — the pacing scope is informational.
 func nodeMatchesSelector(_ string, _ map[string]string) bool {
 	return true

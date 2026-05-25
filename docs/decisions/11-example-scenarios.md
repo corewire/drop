@@ -10,7 +10,7 @@ Define concrete Custom Resource examples that demonstrate real operator behavior
 Pull `image-a` and `image-b` onto all nodes with taint `node-role.kubernetes.io/build`, pacing to maximum one image pulling at a time across the pool.
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: build-pool-safe
@@ -27,7 +27,7 @@ spec:
       operator: "Exists"
       effect: "NoSchedule"
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: build-essentials
@@ -64,7 +64,7 @@ spec:
 GPU nodes have fast storage and network; allow 3 nodes to pull at once.
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: gpu-pool-fast
@@ -81,7 +81,7 @@ spec:
       operator: "Exists"
       effect: "NoSchedule"
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   name: cuda-base
@@ -112,7 +112,7 @@ spec:
 Automatically discover the top 5 most-used images matching `image-c*` via a Prometheus query, then cache them onto build nodes using the safe policy.
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
   name: build-pool-safe
@@ -129,7 +129,7 @@ spec:
       operator: "Exists"
       effect: "NoSchedule"
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: discover-image-c
@@ -152,7 +152,7 @@ spec:
   syncInterval: 30m
   maxImages: 5
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: popular-ci-images

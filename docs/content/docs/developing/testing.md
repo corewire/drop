@@ -3,7 +3,7 @@ title: Testing
 weight: 3
 description: Unit tests with envtest, E2E with Chainsaw, and test patterns.
 llmsDescription: |
-  Testing guide for puller. Unit tests use controller-runtime envtest (real API server,
+  Testing guide for drop. Unit tests use controller-runtime envtest (real API server,
   no kubelet). E2E uses Kyverno Chainsaw on kind. Table-driven tests preferred.
   Discovery tests mock HTTP servers. Controller tests use real k8s client.
 ---

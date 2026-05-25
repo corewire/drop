@@ -11,6 +11,6 @@
 
 ## Initial scaffold plan
 1. Initialize project with Kubebuilder and Go modules.
-2. Create API group/version: `puller.corewire.io/v1alpha1`.
+2. Create API group/version: `drop.corewire.io/v1alpha1`.
 3. Scaffold `CachedImage`, `CachedImageSet`, `PullPolicy`, and `DiscoveryPolicy` APIs/controllers.
 4. Enable leader election and health probes by default.

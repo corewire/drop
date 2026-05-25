@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Detailed, step-by-step implementation plan for the puller operator. Each task includes exact commands, files to create/modify, acceptance criteria, and estimated effort. Tasks are ordered by dependency — later tasks depend on earlier ones completing.
+Detailed, step-by-step implementation plan for the drop operator. Each task includes exact commands, files to create/modify, acceptance criteria, and estimated effort. Tasks are ordered by dependency — later tasks depend on earlier ones completing.
 
 ---
 
@@ -13,11 +13,11 @@ Detailed, step-by-step implementation plan for the puller operator. Each task in
 **Commands:**
 ```bash
 # Prerequisites: Go 1.22+, Kubebuilder 4.x
-kubebuilder init --domain corewire.io --repo github.com/Breee/puller
+kubebuilder init --domain corewire.io --repo github.com/Breee/drop
 ```
 
 **Files created (by scaffolding):**
-- `go.mod` (module `github.com/Breee/puller`)
+- `go.mod` (module `github.com/Breee/drop`)
 - `go.sum`
 - `Makefile` (Kubebuilder-generated, with controller-gen, envtest, kustomize targets)
 - `cmd/main.go` (manager entrypoint with leader election, health probes)
@@ -46,10 +46,10 @@ kubebuilder init --domain corewire.io --repo github.com/Breee/puller
 
 **Commands:**
 ```bash
-kubebuilder create api --group puller --version v1alpha1 --kind CachedImage --resource --controller
-kubebuilder create api --group puller --version v1alpha1 --kind CachedImageSet --resource --controller
-kubebuilder create api --group puller --version v1alpha1 --kind PullPolicy --resource --controller=false
-kubebuilder create api --group puller --version v1alpha1 --kind DiscoveryPolicy --resource --controller
+kubebuilder create api --group drop --version v1alpha1 --kind CachedImage --resource --controller
+kubebuilder create api --group drop --version v1alpha1 --kind CachedImageSet --resource --controller
+kubebuilder create api --group drop --version v1alpha1 --kind PullPolicy --resource --controller=false
+kubebuilder create api --group drop --version v1alpha1 --kind DiscoveryPolicy --resource --controller
 ```
 
 **Files to implement (after scaffold, fill in types):**
@@ -271,15 +271,15 @@ make manifests  # CRD YAML generation
 
 ### Task 1.3: Implement Pod Builder
 
-**Goal:** Build puller Pod specs in isolation from controller logic.
+**Goal:** Build drop Pod specs in isolation from controller logic.
 
 **File:** `internal/podbuilder/builder.go`
 
 ```go
 package podbuilder
 
-// BuildPullerPod creates a Pod spec for pulling an image onto a specific node.
-func BuildPullerPod(ci *v1alpha1.CachedImage, nodeName string, scheme *runtime.Scheme) (*corev1.Pod, error)
+// BuildDropPod creates a Pod spec for pulling an image onto a specific node.
+func BuildDropPod(ci *v1alpha1.CachedImage, nodeName string, scheme *runtime.Scheme) (*corev1.Pod, error)
 ```
 
 **Implementation details:**
@@ -289,7 +289,7 @@ func BuildPullerPod(ci *v1alpha1.CachedImage, nodeName string, scheme *runtime.S
 - Set `imagePullPolicy` from `ci.Spec.PullPolicy`.
 - Copy `tolerations` from `ci.Spec.Tolerations`.
 - Set `ownerReference` to the CachedImage (via `controllerutil.SetControllerReference`).
-- Set labels: `app.kubernetes.io/managed-by=puller`, `puller.corewire.io/cachedimage=<name>`, `puller.corewire.io/node=<node>`.
+- Set labels: `app.kubernetes.io/managed-by=drop`, `drop.corewire.io/cachedimage=<name>`, `drop.corewire.io/node=<node>`.
 - Set `automountServiceAccountToken: false`, `enableServiceLinks: false`, `terminationGracePeriodSeconds: 0`.
 - Set resource requests to zero (pull-only Pod).
 
@@ -334,7 +334,7 @@ func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, 
 ```
 
 **Implementation details:**
-- List Pods with label `app.kubernetes.io/managed-by=puller` that are in Running/Pending phase.
+- List Pods with label `app.kubernetes.io/managed-by=drop` that are in Running/Pending phase.
 - If policy has `nodeSelector`, filter active Pods to those on matching nodes.
 - Count active pulls. If `>= policy.Spec.MaxConcurrentNodes` → deny.
 - Find most recent Pod creation timestamp among active pulls for this policy scope.
@@ -359,7 +359,7 @@ func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, 
 
 ### Task 1.5: Implement CachedImage Reconciler
 
-**Goal:** Core reconciler that creates puller Pods and tracks node-level completion.
+**Goal:** Core reconciler that creates drop Pods and tracks node-level completion.
 
 **File:** `internal/controller/cachedimage_controller.go`
 
@@ -368,12 +368,12 @@ func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, 
 2. List nodes matching `spec.nodeSelector` (via `client.List` with label selector).
 3. Filter nodes whose taints are tolerated by `spec.tolerations`.
 4. Fetch referenced PullPolicy (or use defaults if none referenced / not found).
-5. List owned Pods (label selector `puller.corewire.io/cachedimage=<name>`).
+5. List owned Pods (label selector `drop.corewire.io/cachedimage=<name>`).
 6. Build per-node state map: `{node → podStatus}`.
 7. For nodes with Succeeded Pod → mark ready, delete Pod (cleanup).
 8. For nodes with Failed Pod → record failure, calculate backoff, delete Pod.
 9. For nodes with no Pod and not yet ready → check pacing via `pacing.Engine.CanStartPull()`.
-10. If allowed → call `podbuilder.BuildPullerPod()` → `client.Create()`.
+10. If allowed → call `podbuilder.BuildDropPod()` → `client.Create()`.
 11. Update `CachedImage.Status` (nodesTargeted, nodesReady, phase, conditions).
 12. Return `ctrl.Result{RequeueAfter: ...}` based on pacing needs.
 
@@ -391,9 +391,9 @@ func (r *CachedImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 **File:** `internal/controller/cachedimage_controller_test.go`
 
 **Tests (envtest-based integration):**
-- Creating a CachedImage with one matching node → puller Pod created.
-- Puller Pod completes → CachedImage status shows nodesReady=1, phase=Ready.
-- Puller Pod fails → CachedImage status shows Degraded condition.
+- Creating a CachedImage with one matching node → drop Pod created.
+- Drop Pod completes → CachedImage status shows nodesReady=1, phase=Ready.
+- Drop Pod fails → CachedImage status shows Degraded condition.
 - Two nodes match, PullPolicy maxConcurrentNodes=1 → only one Pod at a time.
 - NodeSelector filters nodes correctly.
 - Deleting CachedImage cleans up Pods.
@@ -413,7 +413,7 @@ func (r *CachedImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 **Goal:** End-to-end verification that PullPolicy controls multi-node rollout speed.
 
 **Tests to add:**
-- 5-node cluster, PullPolicy `maxConcurrentNodes: 2` → never more than 2 active puller Pods.
+- 5-node cluster, PullPolicy `maxConcurrentNodes: 2` → never more than 2 active drop Pods.
 - PullPolicy `minDelayBetweenPulls: 5s` → Pods created at least 5s apart.
 - Failure backoff: Pod fails → next retry respects exponential delay.
 - PullPolicy update (e.g. increase maxConcurrentNodes) → immediate effect on next reconcile.
@@ -431,7 +431,7 @@ func (r *CachedImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 **Implementation in CachedImage reconciler:**
 - After a node is marked Ready, check `repullPolicy`:
   - `Never` → do nothing until spec changes.
-  - `OnSchedule` → on next reconcile after syncInterval, create new puller Pod with `imagePullPolicy: Always`.
+  - `OnSchedule` → on next reconcile after syncInterval, create new drop Pod with `imagePullPolicy: Always`.
   - `Always` → every reconcile cycle, re-pull (only for specific use cases).
 - Track `lastPulledAt` per node in status to determine if refresh is due.
 
@@ -617,11 +617,11 @@ func mapDiscoveryToSets(ctx context.Context, obj client.Object) []reconcile.Requ
 
 ### Task 6.1: Helm Chart
 
-**Directory:** `charts/puller/`
+**Directory:** `charts/drop/`
 
 **Structure:**
 ```
-charts/puller/
+charts/drop/
 ├── Chart.yaml
 ├── values.yaml
 ├── templates/
@@ -644,8 +644,8 @@ charts/puller/
 - `serviceMonitor.enabled: false` (opt-in)
 
 **Acceptance criteria:**
-- [ ] `helm lint charts/puller` passes.
-- [ ] `helm template puller charts/puller` produces valid YAML.
+- [ ] `helm lint charts/drop` passes.
+- [ ] `helm template drop charts/drop` produces valid YAML.
 - [ ] `helm install` on kind cluster deploys working operator.
 
 ---
@@ -667,7 +667,7 @@ charts/puller/
 
 **Jobs:**
 1. Run CI pipeline (lint, test, build, e2e).
-2. Build + push multi-arch image to `ghcr.io/breee/puller:<tag>`.
+2. Build + push multi-arch image to `ghcr.io/breee/drop:<tag>`.
 3. Package Helm chart → push to GHCR OCI registry.
 4. Create GitHub Release with changelog (generated from conventional commits via `git-cliff` or similar).
 
@@ -684,7 +684,7 @@ charts/puller/
 
 **Scenario files (Chainsaw YAML):**
 
-1. `test/e2e/static-pull/chainsaw-test.yaml` — Create CachedImage → verify puller Pod created → verify status Ready.
+1. `test/e2e/static-pull/chainsaw-test.yaml` — Create CachedImage → verify drop Pod created → verify status Ready.
 2. `test/e2e/pull-policy/chainsaw-test.yaml` — Create PullPolicy + 2 CachedImages → verify sequential pulls.
 3. `test/e2e/image-set/chainsaw-test.yaml` — Create CachedImageSet with static images → verify children created.
 4. `test/e2e/discovery/chainsaw-test.yaml` — Create DiscoveryPolicy (mock Prometheus) → verify discovered images in status.

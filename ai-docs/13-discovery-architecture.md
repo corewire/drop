@@ -174,7 +174,7 @@ If `imageTemplate` is not set, the default is `<url>/<repository>:<tag>`.
 **Operator equivalent:**
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: gitlab-runner-helpers
@@ -193,7 +193,7 @@ spec:
   syncInterval: 1h
   maxImages: 5
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: gitlab-runner-helpers
@@ -223,7 +223,7 @@ spec:
 **Operator equivalent:**
 
 ```yaml
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: popular-build-images
@@ -251,7 +251,7 @@ spec:
   syncInterval: 6h
   maxImages: 30
 ---
-apiVersion: puller.corewire.io/v1alpha1
+apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: popular-build-images

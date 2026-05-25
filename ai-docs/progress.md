@@ -6,8 +6,8 @@
 - [x] Design overall system architecture (reconcilers, pull mechanism, pacing, project layout)
 - [x] Create detailed implementation plan with tasks, acceptance criteria, and dependencies
 - [x] **Phase 1:** Bootstrap Go operator project using Kubebuilder (controller-runtime)
-- [x] **Phase 1:** Define CRDs (`CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`) in `puller.corewire.io/v1alpha1`
-- [x] **Phase 1:** Implement Pod builder (puller Pod construction)
+- [x] **Phase 1:** Define CRDs (`CachedImage`, `CachedImageSet`, `PullPolicy`, `DiscoveryPolicy`) in `drop.corewire.io/v1alpha1`
+- [x] **Phase 1:** Implement Pod builder (drop Pod construction)
 - [x] **Phase 1:** Implement pacing engine (shared rate-limiting logic)
 - [x] **Phase 1:** Implement `CachedImage` reconciler (core pull loop)
 - [x] **Phase 2:** Multi-node pacing integration tests
@@ -24,7 +24,7 @@
 - [x] Hugo Hextra docs site (docs/ directory with getting-started, CRDs, discovery, observability)
 - [x] Helm chart ServiceMonitor + metrics Service
 - [x] Helm chart cert-manager Certificate integration
-- [x] Custom Prometheus metrics (puller_images_cached_total, puller_pull_duration_seconds, etc.)
+- [x] Custom Prometheus metrics (drop_images_cached_total, drop_pull_duration_seconds, etc.)
 - [x] Kubernetes events on CachedImage (PullStarted, PullSucceeded, PullFailed)
 - [x] Developer tooling (Tiltfile, pre-commit, enhanced Makefile, demo script)
 - [x] E2E test scaffolding with Kyverno Chainsaw (5 scenarios)

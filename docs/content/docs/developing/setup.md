@@ -3,7 +3,7 @@ title: Local Dev Setup
 weight: 2
 description: Prerequisites, kind cluster, and Tilt workflow.
 llmsDescription: |
-  Local development setup for puller. Requires Go 1.23+, Docker, kind, Tilt, kubectl,
+  Local development setup for drop. Requires Go 1.23+, Docker, kind, Tilt, kubectl,
   Helm 3, golangci-lint, chainsaw. Run tilt up for full dev loop (compile, build,
   deploy, port-forward, Hugo docs, e2e infra, dev samples).
 ---
@@ -29,7 +29,7 @@ tilt up
 
 That's it. Tilt handles everything:
 
-- Creates kind cluster `puller-dev` (1 control-plane + 2 workers) if it doesn't exist
+- Creates kind cluster `drop-dev` (1 control-plane + 2 workers) if it doesn't exist
 - Compiles the Go binary
 - Builds + loads the Docker image into kind
 - Installs CRDs
