@@ -269,10 +269,10 @@ func parseSampleGroups(raw string) []SampleGroup {
 		switch {
 		case strings.Contains(lc, "pullpolicy"):
 			kind = "PullPolicy"
-		case strings.Contains(lc, "cachedimage:") || strings.Contains(lc, "cachedimage "):
-			kind = "CachedImage"
 		case strings.Contains(lc, "cachedimageset"):
 			kind = "CachedImageSet"
+		case strings.Contains(lc, "cachedimage"):
+			kind = "CachedImage"
 		case strings.Contains(lc, "discoverypolicy"):
 			kind = "DiscoveryPolicy"
 		}
@@ -282,17 +282,12 @@ func parseSampleGroups(raw string) []SampleGroup {
 			kindOrder = append(kindOrder, kind)
 		}
 		g := kindGroups[kind]
-		// Add separator between multiple resources in same group
-		yaml := strings.TrimRight(strings.Join(b.yaml, "\n"), "\n")
-		// Strip leading/trailing YAML document separators
-		yaml = strings.TrimRight(yaml, "\n")
-		for strings.HasPrefix(yaml, "---\n") {
-			yaml = strings.TrimPrefix(yaml, "---\n")
-		}
-		for strings.HasSuffix(yaml, "\n---") {
-			yaml = strings.TrimSuffix(yaml, "\n---")
-		}
+		// Clean up YAML: join lines and strip document separators
+		yaml := strings.Join(b.yaml, "\n")
+		yaml = strings.TrimSpace(yaml)
+		// Remove leading/trailing YAML document separators
 		yaml = strings.TrimPrefix(yaml, "---")
+		yaml = strings.TrimSuffix(yaml, "---")
 		yaml = strings.TrimSpace(yaml)
 		if yaml == "" {
 			continue
