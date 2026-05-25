@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "minimumReleaseAge": "3 days",
   "packageRules": [
     {
       "description": "Automerge minor, patch, and digest updates",
