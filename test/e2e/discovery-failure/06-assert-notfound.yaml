@@ -4,6 +4,5 @@ kind: DiscoveryPolicy
 metadata:
   name: test-notfound-repo
 status:
-  conditions:
-    - type: Ready
-      status: "False"
+  (conditions[?type == 'Ready']):
+    - status: "False"

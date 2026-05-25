@@ -4,8 +4,7 @@ metadata:
   name: test-nginx
 status:
   phase: Ready
-  nodesReady: 1
-  conditions:
-    - type: Ready
-      status: "True"
+  nodesReady: 2
+  (conditions[?type == 'Ready']):
+    - status: "True"
       reason: Cached

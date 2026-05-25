@@ -4,6 +4,5 @@ kind: CachedImageSet
 metadata:
   name: test-discovered-set
 status:
-  conditions:
-    - type: Ready
-      status: "True"
+  (conditions[?type == 'Ready']):
+    - status: "True"

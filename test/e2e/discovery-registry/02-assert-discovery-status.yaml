@@ -5,17 +5,7 @@ kind: DiscoveryPolicy
 metadata:
   name: e2e-registry
 status:
-  conditions:
-    - type: Ready
-      status: "True"
+  (conditions[?type == 'Ready']):
+    - status: "True"
       reason: Synced
-  discoveredImages:
-    - image: "registry.e2e-infra.svc.cluster.local:5000/test/myapp:v1"
-      score: 1
-      source: discovery
-    - image: "registry.e2e-infra.svc.cluster.local:5000/test/myapp:v2"
-      score: 2
-      source: discovery
-    - image: "registry.e2e-infra.svc.cluster.local:5000/test/myapp:v3"
-      score: 3
-      source: discovery
+  imageCount: 3

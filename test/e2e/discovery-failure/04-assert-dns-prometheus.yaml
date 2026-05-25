@@ -4,7 +4,6 @@ kind: DiscoveryPolicy
 metadata:
   name: test-broken-prom
 status:
-  conditions:
-    - type: Ready
-      status: "False"
+  (conditions[?type == 'Ready']):
+    - status: "False"
       reason: DNSError

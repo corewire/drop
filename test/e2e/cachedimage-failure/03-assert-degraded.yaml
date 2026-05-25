@@ -5,6 +5,5 @@ metadata:
   name: test-broken-image
 status:
   phase: Degraded
-  conditions:
-    - type: Ready
-      status: "False"
+  (conditions[?type == 'Ready']):
+    - status: "False"
