@@ -1,0 +1,11 @@
+# Assert that DiscoveryPolicy status contains images from registry and Ready condition.
+# The registry source lists tags for test/myapp and builds refs as host/repo:tag.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-registry
+status:
+  (conditions[?type == 'Ready']):
+    - status: "True"
+      reason: Synced
+  imageCount: 3

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: drop-system
+  labels:
+    app.kubernetes.io/managed-by: drop
+    drop.corewire.io/cachedimage: test-nginx
+spec:
+  containers:
+    - name: pull
+      image: docker.io/library/nginx:1.25-alpine
+      command: ["true"]

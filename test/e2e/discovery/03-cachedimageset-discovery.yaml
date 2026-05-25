@@ -1,0 +1,7 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: discovered-set
+spec:
+  discoveryPolicyRef:
+    name: e2e-prometheus

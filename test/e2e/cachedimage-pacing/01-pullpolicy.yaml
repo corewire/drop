@@ -1,0 +1,10 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: PullPolicy
+metadata:
+  name: test-conservative
+spec:
+  maxConcurrentNodes: 1
+  minDelayBetweenPulls: 5s
+  failureBackoff:
+    initial: 30s
+    max: 5m

@@ -1,0 +1,61 @@
+version: "2"
+
+run:
+  allow-parallel-runners: true
+
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - dupl
+    - errcheck
+    - ginkgolinter
+    - goconst
+    - gocyclo
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    revive:
+      rules:
+        - name: comment-spacings
+    goconst:
+      min-occurrences: 5
+  exclusions:
+    presets: []
+    rules:
+      - path: "api/*"
+        linters:
+          - lll
+      - path: "internal/*"
+        linters:
+          - dupl
+          - lll
+      - path: "hack/*"
+        linters:
+          - lll
+          - goconst
+          - staticcheck
+      - path: "_test\\.go"
+        linters:
+          - goconst
+      - path: "test/*"
+        linters:
+          - goconst
+          - staticcheck
+      - path: "internal/metrics/*"
+        linters:
+          - goconst
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

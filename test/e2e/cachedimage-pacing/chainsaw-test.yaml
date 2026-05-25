@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cachedimage-pacing
+spec:
+  description: |
+    Verify that PullPolicy pacing is respected: with maxConcurrentNodes=1,
+    only one drop Pod should exist at any time.
+  steps:
+    - name: Create PullPolicy
+      try:
+        - apply:
+            file: 01-pullpolicy.yaml
+    - name: Create CachedImage referencing policy
+      try:
+        - apply:
+            file: 02-cachedimage.yaml
+    - name: Verify at most one active Pod at a time
+      try:
+        - script:
+            timeout: 30s
+            content: |
+              count=$(kubectl get pods -n drop-system -l app.kubernetes.io/managed-by=drop,drop.corewire.io/cachedimage=test-paced --no-headers 2>/dev/null | wc -l)
+              if [ "$count" -gt 1 ]; then
+                echo "FAIL: expected at most 1 drop pod, got $count"
+                exit 1
+              fi
+              echo "OK: $count drop pod(s) active"
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: CachedImage
+              name: test-paced
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: PullPolicy
+              name: test-conservative

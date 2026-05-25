@@ -1,0 +1,9 @@
+# Assert DiscoveryPolicy is synced and has discovered images
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-registry-discovery
+status:
+  (conditions[?type == 'Ready']):
+    - status: "True"
+      reason: Synced

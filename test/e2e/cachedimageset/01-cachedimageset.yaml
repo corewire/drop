@@ -1,0 +1,10 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: test-set
+spec:
+  images:
+    - image: docker.io/library/alpine
+      tag: "3.19"
+    - image: docker.io/library/busybox
+      tag: "1.36"

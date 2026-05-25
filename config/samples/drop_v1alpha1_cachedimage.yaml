@@ -1,0 +1,9 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  labels:
+    app.kubernetes.io/name: drop
+    app.kubernetes.io/managed-by: kustomize
+  name: cachedimage-sample
+spec:
+  # TODO(user): Add fields here

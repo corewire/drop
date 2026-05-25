@@ -1,0 +1,13 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-notfound-repo
+spec:
+  sources:
+    - type: registry
+      registry:
+        url: "http://registry.e2e-infra.svc.cluster.local:5000"
+        repositories:
+          - "this/does-not-exist"
+  syncInterval: 30m
+  maxImages: 10

@@ -1,0 +1,6 @@
+# This asserts that child CachedImages no longer exist after parent deletion (GC)
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  labels:
+    drop.corewire.io/imageset: test-set

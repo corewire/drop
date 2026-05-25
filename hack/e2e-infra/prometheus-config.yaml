@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: e2e-infra
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: drop-operator
+        metrics_path: /metrics
+        scheme: http
+        static_configs:
+          - targets: ['drop-metrics.drop-system.svc.cluster.local:8443']
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+  # Recording rules that produce metrics with image labels (simulates real cluster data)
+  seed-rules.yml: |
+    groups:
+      - name: seed_image_metrics
+        interval: 10s
+        rules:
+          - record: container_memory_working_set_bytes
+            labels:
+              image: "docker.io/library/nginx:1.25-alpine"
+              container: "nginx"
+              namespace: "default"
+              pod: "runner-abc123"
+            expr: "104857600"
+          - record: container_memory_working_set_bytes
+            labels:
+              image: "docker.io/library/redis:7-alpine"
+              container: "redis"
+              namespace: "default"
+              pod: "runner-def456"
+            expr: "52428800"
+          - record: container_memory_working_set_bytes
+            labels:
+              image: "docker.io/library/alpine:3.19"
+              container: "worker"
+              namespace: "build-stuff"
+              pod: "runner-ghi789"
+            expr: "26214400"
+          - record: container_memory_working_set_bytes
+            labels:
+              image: "docker.io/library/busybox:1.36"
+              container: "init"
+              namespace: "build-stuff"
+              pod: "runner-jkl012"
+            expr: "10485760"
+          - record: container_memory_working_set_bytes
+            labels:
+              image: "registry.e2e-infra.svc.cluster.local:5000/test/myapp:v1"
+              container: "app"
+              namespace: "production"
+              pod: "myapp-xyz"
+            expr: "209715200"

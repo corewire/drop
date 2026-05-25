@@ -1,0 +1,67 @@
+baseURL: "https://breee.github.io/drop/"
+title: Puller Operator
+defaultContentLanguage: en
+enableGitInfo: true
+
+module:
+  imports:
+    - path: github.com/imfing/hextra
+
+# Hextra v0.12 handles markdown + llms output formats natively
+outputs:
+  home: [html, llms]
+  page: [html, markdown]
+  section: [html, rss, markdown]
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+  highlight:
+    noClasses: false
+
+menu:
+  main:
+    - name: Documentation
+      pageRef: /docs
+      weight: 1
+    - name: Search
+      weight: 3
+      params:
+        type: search
+    - name: GitHub
+      url: https://github.com/Breee/drop
+      weight: 4
+      params:
+        icon: github
+
+params:
+  description: Kubernetes operator that caches container images on cluster nodes.
+  displayUpdatedDate: true
+  navbar:
+    displayTitle: true
+    displayLogo: false
+  page:
+    width: wide
+    contextMenu:
+      enable: true
+      links:
+        - name: Open in ChatGPT
+          icon: chatgpt
+          url: "https://chatgpt.com/?q=Read+{markdown_url}+and+help+me+with+{title}"
+        - name: Open in Claude
+          icon: claude
+          url: "https://claude.ai/new?q=Read+{markdown_url}+and+help+me+with+{title}"
+  footer:
+    displayPoweredBy: false
+  search:
+    enable: true
+    type: flexsearch
+    flexsearch:
+      index: content
+  docs:
+    sidebar:
+      defaultOpen: true
+  editURL:
+    enable: true
+    base: https://github.com/Breee/drop/edit/main/docs/content

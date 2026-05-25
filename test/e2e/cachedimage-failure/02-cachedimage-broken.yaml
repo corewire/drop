@@ -1,0 +1,9 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: test-broken-image
+spec:
+  image: registry.invalid.local:9999/does-not-exist
+  tag: "nope"
+  policyRef:
+    name: test-backoff-policy

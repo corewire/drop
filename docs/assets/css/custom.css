@@ -1,0 +1,10 @@
+/* Mermaid diagrams: fill available width */
+pre.mermaid svg {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Asciinema player: ensure full width in containers */
+.ap-player {
+  width: 100% !important;
+}

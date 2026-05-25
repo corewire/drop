@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-registry
+  namespace: e2e-infra
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: ghcr.io/regclient/regctl:v0.7.1-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              REGISTRY="registry.e2e-infra.svc.cluster.local:5000"
+
+              # Configure regctl for insecure local registry
+              regctl registry set "$REGISTRY" --tls disabled
+
+              # Wait for registry to be ready
+              echo "Waiting for registry..."
+              for i in $(seq 1 30); do
+                if regctl tag ls "${REGISTRY}/v2" 2>/dev/null || wget -qO- "http://${REGISTRY}/v2/" >/dev/null 2>&1; then
+                  echo "Registry is ready"
+                  break
+                fi
+                sleep 2
+              done
+
+              # Copy a single small image from Docker Hub, then retag locally
+              echo "Pulling base image..."
+              regctl image copy docker.io/library/alpine:3.19 "${REGISTRY}/test/myapp:v1"
+
+              # Now retag within the local registry (no Docker Hub pulls needed)
+              echo "Retagging within local registry..."
+              TAGS="
+              test/myapp:v1|test/myapp:v2
+              test/myapp:v1|test/myapp:v3
+              test/myapp:v1|test/worker:v1
+              test/myapp:v1|test/worker:v2
+              test/myapp:v1|test/worker:v3
+              test/myapp:v1|test/tools:v1
+              test/myapp:v1|test/tools:v2
+              test/myapp:v1|test/tools:v3
+              "
+
+              for ENTRY in $TAGS; do
+                SRC=$(echo "$ENTRY" | cut -d'|' -f1)
+                DST=$(echo "$ENTRY" | cut -d'|' -f2)
+                echo "  ${REGISTRY}/${SRC} -> ${REGISTRY}/${DST}"
+                regctl image copy "${REGISTRY}/${SRC}" "${REGISTRY}/${DST}" || echo "  FAILED"
+              done
+
+              echo ""
+              echo "Verifying tags..."
+              for REPO in "test/myapp" "test/worker" "test/tools"; do
+                TAGS=$(regctl tag ls "${REGISTRY}/${REPO}" 2>/dev/null || echo "FAILED")
+                echo "  ${REPO}: ${TAGS}"
+              done
+
+              echo "Registry seeding complete."

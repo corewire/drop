@@ -1,0 +1,9 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: test-discovered-set
+spec:
+  policyRef:
+    name: test-set-policy
+  discoveryPolicyRef:
+    name: test-registry-discovery

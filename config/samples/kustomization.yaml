@@ -1,0 +1,7 @@
+## Append samples of your project ##
+resources:
+- drop_v1alpha1_cachedimage.yaml
+- drop_v1alpha1_cachedimageset.yaml
+- drop_v1alpha1_pullpolicy.yaml
+- drop_v1alpha1_discoverypolicy.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

@@ -1,0 +1,9 @@
+# Assert broken registry shows DNSError reason
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-broken-registry
+status:
+  (conditions[?type == 'Ready']):
+    - status: "False"
+      reason: DNSError

@@ -1,0 +1,14 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-registry-discovery
+spec:
+  sources:
+    - type: registry
+      registry:
+        url: "http://registry.e2e-infra.svc.cluster.local:5000"
+        repositories:
+          - "test/myapp"
+        topX: 1
+  syncInterval: 30s
+  maxImages: 10
