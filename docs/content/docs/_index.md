@@ -11,6 +11,20 @@ llmsDescription: |
 
 Puller pre-caches container images on Kubernetes nodes using short-lived Pods.
 
+## Why
+
+When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thundering herd of image pulls. Concurrent pods on the same node all pulling the same large image saturate bandwidth, stall containerd, and cascade into failures.
+
+| Problem | Impact |
+|---------|--------|
+| **Thundering herd** | Parallel pulls of the same image destabilize nodes |
+| **Registry overload** | Sudden pull surges hit rate limits or cause outages |
+| **Cold-start latency** | Large images delay workloads that need them immediately |
+
+Puller pre-caches images *before* workloads need them, paces pulls to stay within safe limits, and automatically discovers which images matter most.
+
+## Sections
+
 | Section | What you'll find |
 |---------|-----------------|
 | [Installation](install/) | Helm install, prerequisites |

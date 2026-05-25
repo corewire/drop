@@ -36,6 +36,8 @@ import (
 	pullerv1alpha1 "github.com/Breee/puller/api/v1alpha1"
 )
 
+const labelImageSet = "puller.corewire.io/imageset"
+
 // CachedImageSetReconciler reconciles a CachedImageSet object
 type CachedImageSetReconciler struct {
 	client.Client
@@ -66,7 +68,7 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// 3. List existing child CachedImage resources
 	existingChildren := &pullerv1alpha1.CachedImageList{}
 	if err := r.List(ctx, existingChildren, client.MatchingLabels{
-		"puller.corewire.io/imageset": imageSet.Name,
+		labelImageSet: imageSet.Name,
 	}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("listing children: %w", err)
 	}
@@ -129,9 +131,10 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	var hasDegraded bool
 	for i := range existingChildren.Items {
 		child := &existingChildren.Items[i]
-		if child.Status.Phase == phaseReady {
+		switch child.Status.Phase {
+		case phaseReady:
 			imagesReady++
-		} else if child.Status.Phase == phaseDegraded {
+		case phaseDegraded:
 			hasDegraded = true
 			// Extract the child's failure reason for propagation
 			for _, c := range child.Status.Conditions {

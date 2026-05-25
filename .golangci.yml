@@ -1,36 +1,17 @@
+version: "2"
+
 run:
-  timeout: 5m
   allow-parallel-runners: true
 
-issues:
-  # don't skip warning about doc comments
-  # don't exclude the default set of lint
-  exclude-use-default: false
-  # restore some of the defaults
-  # (fill in the rest as needed)
-  exclude-rules:
-    - path: "api/*"
-      linters:
-        - lll
-    - path: "internal/*"
-      linters:
-        - dupl
-        - lll
-    - path: "hack/*"
-      linters:
-        - lll
 linters:
-  disable-all: true
+  default: none
   enable:
+    - copyloopvar
     - dupl
     - errcheck
-    - copyloopvar
     - ginkgolinter
     - goconst
     - gocyclo
-    - gofmt
-    - goimports
-    - gosimple
     - govet
     - ineffassign
     - lll
@@ -39,12 +20,42 @@ linters:
     - prealloc
     - revive
     - staticcheck
-    - typecheck
     - unconvert
     - unparam
     - unused
-
-linters-settings:
-  revive:
+  settings:
+    revive:
+      rules:
+        - name: comment-spacings
+    goconst:
+      min-occurrences: 5
+  exclusions:
+    presets: []
     rules:
-      - name: comment-spacings
+      - path: "api/*"
+        linters:
+          - lll
+      - path: "internal/*"
+        linters:
+          - dupl
+          - lll
+      - path: "hack/*"
+        linters:
+          - lll
+          - goconst
+          - staticcheck
+      - path: "_test\\.go"
+        linters:
+          - goconst
+      - path: "test/*"
+        linters:
+          - goconst
+          - staticcheck
+      - path: "internal/metrics/*"
+        linters:
+          - goconst
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

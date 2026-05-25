@@ -30,7 +30,7 @@ func NewEngine(c client.Client, podNamespace string) *Engine {
 // CanStartPull checks pacing constraints and returns whether a new pull can start.
 func (e *Engine) CanStartPull(ctx context.Context, policy *v1alpha1.PullPolicy, cachedImageName string) (Decision, error) {
 	maxConcurrent := int32(1)
-	var minDelay time.Duration = 10 * time.Second
+	minDelay := 10 * time.Second
 
 	if policy != nil {
 		if policy.Spec.MaxConcurrentNodes > 0 {

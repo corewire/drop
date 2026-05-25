@@ -1,11 +1,23 @@
 # puller
 
-A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery.
+A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery. 
+
+## Why
+
+When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thundering herd of image pulls. We hit this running large-scale GitLab CI — concurrent pods on the same node all pulling the same large image would saturate bandwidth, stall containerd, and cascade into failures.
+
+**The problems:**
+
+- **Thundering herd** — a spike of pods on one node triggers parallel pulls of the same image, saturating node bandwidth and destabilizing containerd.
+- **Registry overload** — sudden pull surges hit registry rate limits or cause outages.
+- **Cold-start latency** — large images take minutes to pull, delaying workloads that need them immediately.
+
+**Puller's approach:** pre-cache images on nodes *before* workloads need them, pace pulls to stay within safe limits, and automatically discover which images matter most.
 
 ## What it does
 
 - **Pre-caches images** on selected nodes before workloads need them
-- **Discovers images** automatically from Prometheus metrics or OCI registries
+- **Discovers images** automatically from Prometheus metrics or OCI registries based on your criteria (e.g. top-pulled images)
 - **Paces pulls** to avoid saturating node bandwidth or registry rate limits
 - **Reports errors** using standard Kubernetes status patterns (`ErrImagePull`, `ConnectionRefused`, etc.)
 
