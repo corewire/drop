@@ -654,6 +654,8 @@ makeTargets:
     desc: Regenerate AI agent docs (llms.txt, instructions, etc.) from source.
   - name: docs-gen-check
     desc: Verify generated AI docs are up to date.
+  - name: tools
+    desc: Install local tooling and check optional docs/chart binaries.
 samples: |
   # Dev samples: deployed by Tilt for interactive testing
   ---

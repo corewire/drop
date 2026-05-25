@@ -422,4 +422,5 @@ spec:
   make docs-serve	# Serve Hugo docs locally.
   make docs-gen	# Regenerate AI agent docs (llms.txt, instructions, etc.) from source.
   make docs-gen-check	# Verify generated AI docs are up to date.
+  make tools	# Install local tooling and check optional docs/chart binaries.
 ```

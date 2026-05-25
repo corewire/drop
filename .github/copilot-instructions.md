@@ -1,5 +1,14 @@
 # Copilot Instructions for Puller
 
+## Critical Rules
+
+1. **ALWAYS read project files before acting.** Read the Tiltfile, Makefile, and relevant source before writing docs, suggesting workflows, or describing how things work. Never guess based on general knowledge.
+2. **Documentation must be short and concise.** Focus on high-level overview and usage. Avoid volatile implementation details. Avoid information that will change frequently.
+3. **Simplicity over complexity.** If a simple solution exists, use it. DRY is NOT always best. No premature optimization.
+4. **Kubernetes: always verify.** Use `kubectl explain` or read the CRD types before suggesting field values or resource specs.
+5. **Security-conscious.** Never expose secrets in code or docs. Follow secure coding practices.
+6. **Tilt handles the dev loop.** `tilt up` does everything: cluster creation, build, deploy, port-forwards, Hugo docs, e2e infra, dev samples. Don't suggest manual commands for things Tilt automates.
+
 ## Project
 
 Kubernetes operator (Go 1.23.0, Kubebuilder, controller-runtime) that pre-caches container images on cluster nodes.
