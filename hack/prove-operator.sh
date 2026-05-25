@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # =============================================================================
-# Puller Operator — Proof of Correct Operation
+# drop — Proof of Correct Operation
 # =============================================================================
 # This script creates a kind cluster, deploys the operator, and exercises every
 # major feature with detailed logging to prove correctness. Each section shows
@@ -141,13 +141,13 @@ DEADLINE=$((SECONDS + TIMEOUT))
 while [ $SECONDS -lt $DEADLINE ]; do
     POD_COUNT=$(kubectl get pods -A -l app.kubernetes.io/managed-by=drop,drop.corewire.io/cachedimage=nginx-proof --no-headers 2>/dev/null | wc -l)
     if [ "$POD_COUNT" -gt 0 ]; then
-        success "Puller pods created ($POD_COUNT found)"
+        success "Pull pods created ($POD_COUNT found)"
         break
     fi
     sleep 2
 done
 echo ""
-log "Puller Pods (one per targeted node):"
+log "Pull Pods (one per targeted node):"
 kubectl get pods -A -l app.kubernetes.io/managed-by=drop,drop.corewire.io/cachedimage=nginx-proof -o wide 2>/dev/null || true
 echo ""
 

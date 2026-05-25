@@ -1,4 +1,4 @@
-# Copilot Instructions for Drop
+# Copilot Instructions for drop
 
 ## Critical Rules
 
@@ -11,7 +11,7 @@
 
 ## Project
 
-Kubernetes operator (Go 1.23.0, Kubebuilder, controller-runtime) that pre-caches container images on cluster nodes.
+Kubernetes operator (Go 1.26.0, Kubebuilder, controller-runtime) that pre-caches container images on cluster nodes.
 API group: `drop.corewire.io/v1alpha1`. All CRDs are cluster-scoped.
 
 ## Build Commands

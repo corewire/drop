@@ -1,4 +1,4 @@
-# Cursor Rules for Puller
+# Cursor Rules for drop
 
 ## Critical Rules
 
@@ -10,9 +10,9 @@
 6. Tilt handles the dev loop. tilt up does everything. Don't suggest manual commands for automated steps.
 
 ## Project Context
-Kubernetes operator (Go 1.23.0, Kubebuilder, controller-runtime).
-Module: github.com/Breee/puller
-API group: puller.corewire.io/v1alpha1. All CRDs cluster-scoped.
+Kubernetes operator (Go 1.26.0, Kubebuilder, controller-runtime).
+Module: github.com/Breee/drop
+API group: drop.corewire.io/v1alpha1. All CRDs cluster-scoped.
 
 ## Key Commands
 - Build: go build ./...
@@ -24,13 +24,13 @@ API group: puller.corewire.io/v1alpha1. All CRDs cluster-scoped.
 - AI docs gen: make docs-gen
 
 ## Structure
-- api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the puller v1alpha1 API group.
+- api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group.
 - internal/controller — Reconciler implementations (one per CRD)
 - internal/discovery — Discovery source interface + implementations
 - internal/metrics — Prometheus metrics registration
 - internal/pacing — Shared pacing engine for rate-limited pulls
 - internal/podbuilder — Pure Pod construction function (no k8s client)
-- charts/puller/ — Helm chart
+- charts/drop/ — Helm chart
 - test/e2e/ — Chainsaw E2E tests
 - hack/gen-ai-docs/ — generates all docs from source
 

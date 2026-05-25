@@ -524,7 +524,7 @@ func buildErrorCatalog() []ErrorReason {
 		{Reason: "InProgress", Controller: "CachedImage", Meaning: "Image pulls are actively running on some nodes"},
 		{Reason: "InvalidImageName", Controller: "CachedImage", Meaning: "The image reference is malformed", Troubleshooting: "Check spec.image format: registry/repository"},
 		{Reason: "PartiallyFailed", Controller: "DiscoveryPolicy", Meaning: "Some discovery sources failed to sync", Troubleshooting: "Check source endpoints and credentials"},
-		{Reason: "PodFailed", Controller: "CachedImage", Meaning: "Puller Pod failed for a non-image-pull reason", Troubleshooting: "Check node health, resource limits, Pod security policies"},
+		{Reason: "PodFailed", Controller: "CachedImage", Meaning: "Pull Pod failed for a non-image-pull reason", Troubleshooting: "Check node health, resource limits, Pod security policies"},
 		{Reason: "Progressing", Controller: "CachedImageSet", Meaning: "Children are still being pulled"},
 		{Reason: "PullFailed", Controller: "CachedImage", Meaning: "One or more nodes failed to pull the image", Troubleshooting: "Check image name, tag, registry connectivity, imagePullSecrets"},
 		{Reason: "Ready", Controller: "CachedImageSet", Meaning: "All child CachedImages are ready"},

@@ -9,9 +9,9 @@
 5. Security: never expose secrets in code or docs.
 6. Tilt handles the dev loop. `tilt up` does everything. Don't suggest manual commands for automated steps.
 
-## Project: Drop
+## Project: drop
 
-Kubernetes operator (Go 1.23.0) that pre-caches container images on cluster nodes.
+Kubernetes operator (Go 1.26.0) that pre-caches container images on cluster nodes.
 
 ## Quick Start
 

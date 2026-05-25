@@ -1,6 +1,6 @@
 # drop — Kubernetes operator that pre-caches container images on cluster nodes
 
-> API group: drop.corewire.io/v1alpha1 | Go 1.23.0 | All CRDs cluster-scoped
+> API group: drop.corewire.io/v1alpha1 | Go 1.26.0 | All CRDs cluster-scoped
 
 ## CRDs
 
@@ -106,7 +106,7 @@ DiscoveryPolicy is the Schema for the discoverypolicies API.
 | InProgress | CachedImage | Image pulls are actively running on some nodes |
 | InvalidImageName | CachedImage | The image reference is malformed |
 | PartiallyFailed | DiscoveryPolicy | Some discovery sources failed to sync |
-| PodFailed | CachedImage | Drop Pod failed for a non-image-pull reason |
+| PodFailed | CachedImage | Pull Pod failed for a non-image-pull reason |
 | Progressing | CachedImageSet | Children are still being pulled |
 | PullFailed | CachedImage | One or more nodes failed to pull the image |
 | Ready | CachedImageSet | All child CachedImages are ready |

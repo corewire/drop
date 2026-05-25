@@ -3,7 +3,7 @@
 ## Project
 
 - **Name**: drop
-- **Language**: Go 1.23.0
+- **Language**: Go 1.26.0
 - **Module**: github.com/Breee/drop
 - **API Group**: drop.corewire.io/v1alpha1
 - **Scope**: All CRDs cluster-scoped
@@ -219,7 +219,7 @@ graph LR
 | InProgress | CachedImage | Image pulls are actively running on some nodes |  |
 | InvalidImageName | CachedImage | The image reference is malformed | Check spec.image format: registry/repository |
 | PartiallyFailed | DiscoveryPolicy | Some discovery sources failed to sync | Check source endpoints and credentials |
-| PodFailed | CachedImage | Drop Pod failed for a non-image-pull reason | Check node health, resource limits, Pod security policies |
+| PodFailed | CachedImage | Pull Pod failed for a non-image-pull reason | Check node health, resource limits, Pod security policies |
 | Progressing | CachedImageSet | Children are still being pulled |  |
 | PullFailed | CachedImage | One or more nodes failed to pull the image | Check image name, tag, registry connectivity, imagePullSecrets |
 | Ready | CachedImageSet | All child CachedImages are ready |  |

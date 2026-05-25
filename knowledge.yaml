@@ -6,7 +6,7 @@ project:
   name: drop
   description: Kubernetes operator that pre-caches container images on cluster nodes
   apiGroup: drop.corewire.io/v1alpha1
-  goVersion: 1.23.0
+  goVersion: 1.26.0
   module: github.com/Breee/drop
   license: Apache-2.0
 crds:
@@ -551,7 +551,7 @@ errors:
     troubleshooting: Check source endpoints and credentials
   - reason: PodFailed
     controller: CachedImage
-    meaning: Puller Pod failed for a non-image-pull reason
+    meaning: Pull Pod failed for a non-image-pull reason
     troubleshooting: Check node health, resource limits, Pod security policies
   - reason: Progressing
     controller: CachedImageSet

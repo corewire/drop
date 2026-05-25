@@ -180,7 +180,7 @@ graph LR
 
 // ─── .github/copilot-instructions.md (CODE agents) ──────────────────────────
 
-var copilotInstructionsTmpl = `# Copilot Instructions for Puller
+var copilotInstructionsTmpl = `# Copilot Instructions for {{.Project.Name}}
 
 ## Critical Rules
 
@@ -249,7 +249,7 @@ make docs-gen      # regenerate AI docs from source
 
 // ─── .cursorrules (CODE agents) ──────────────────────────────────────────────
 
-var cursorRulesTmpl = `# Cursor Rules for Puller
+var cursorRulesTmpl = `# Cursor Rules for {{.Project.Name}}
 
 ## Critical Rules
 
@@ -312,7 +312,7 @@ var agentsMdTmpl = `# Agent Instructions
 5. Security: never expose secrets in code or docs.
 6. Tilt handles the dev loop. ` + "`tilt up`" + ` does everything. Don't suggest manual commands for automated steps.
 
-## Project: Puller
+## Project: {{.Project.Name}}
 
 Kubernetes operator (Go {{.Project.GoVersion}}) that pre-caches container images on cluster nodes.
 

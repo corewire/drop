@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Puller Operator Demo Script
+# drop — Demo Script
 # This script demonstrates the operator's end-to-end functionality using a kind cluster.
 # Prerequisites: kind, kubectl, helm, docker
 
