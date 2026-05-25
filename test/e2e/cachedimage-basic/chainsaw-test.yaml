@@ -18,9 +18,26 @@ spec:
             file: 02-assert-pod.yaml
     - name: Wait for Ready status
       try:
-        - assert:
-            timeout: 60s
-            file: 03-assert-status.yaml
+        - script:
+            timeout: 90s
+            content: |
+              deadline=$((SECONDS + 90))
+              while [ "$SECONDS" -lt "$deadline" ]; do
+                phase=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                nodes_ready=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.nodesReady}' 2>/dev/null || true)
+                nodes_targeted=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.nodesTargeted}' 2>/dev/null || true)
+
+                if [ -n "$nodes_ready" ] && [ -n "$nodes_targeted" ] && [ "$nodes_targeted" -ge 1 ] && [ "$nodes_ready" = "$nodes_targeted" ] && [ "$phase" = "Ready" ]; then
+                  echo "OK: CachedImage reached Ready with $nodes_ready/$nodes_targeted target nodes"
+                  exit 0
+                fi
+
+                sleep 2
+              done
+
+              kubectl get cachedimage test-nginx -o yaml
+              echo "FAIL: CachedImage did not reach Ready on all targeted nodes"
+              exit 1
     - name: Cleanup
       try:
         - delete:

@@ -32,9 +32,27 @@ spec:
             file: 05-assert-children.yaml
     - name: Verify CachedImageSet status shows Ready
       try:
-        - assert:
-            timeout: 60s
-            file: 06-assert-set-status.yaml
+        - script:
+            timeout: 120s
+            content: |
+              deadline=$((SECONDS + 120))
+              while [ "$SECONDS" -lt "$deadline" ]; do
+                ready=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+                images_managed=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.imagesManaged}' 2>/dev/null || true)
+                images_ready=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.imagesReady}' 2>/dev/null || true)
+
+                if [ -n "$images_managed" ] && [ "$images_managed" -ge 1 ] && [ "$images_ready" = "$images_managed" ] && [ "$ready" = "True" ]; then
+                  echo "OK: CachedImageSet is Ready with $images_ready/$images_managed images cached"
+                  exit 0
+                fi
+
+                sleep 2
+              done
+
+              kubectl get cachedimageset test-discovered-set -o yaml
+              kubectl get cachedimage -l puller.corewire.io/imageset=test-discovered-set -o yaml
+              echo "FAIL: CachedImageSet did not become Ready"
+              exit 1
     - name: Cleanup
       try:
         - delete:

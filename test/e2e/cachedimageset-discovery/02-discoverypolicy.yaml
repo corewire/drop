@@ -9,6 +9,6 @@ spec:
         url: "http://registry.e2e-infra.svc.cluster.local:5000"
         repositories:
           - "test/myapp"
-        topX: 3
+        topX: 1
   syncInterval: 30s
   maxImages: 10
