@@ -1,14 +1,2 @@
-{"version": 2, "width": 80, "height": 22, "timestamp": 1779633770, "env": {}}
-[0.005664, "o", "$ kubectl get pods -l app.kubernetes.io/managed-by=puller -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName -w\r\n"]
-[3.089574, "o", "NAME                    STATUS    NODE\r\npull-nginx-demo-c4r7b   Pending   puller-dev-worker\r\n"]
-[3.109275, "o", "pull-nginx-demo-c4r7b   Pending   puller-dev-worker\r\n"]
-[5.011177, "o", "pull-nginx-demo-c4r7b   Pending   puller-dev-worker\r\n"]
-[6.150844, "o", "pull-nginx-demo-c4r7b   Succeeded   puller-dev-worker\r\n"]
-[6.164105, "o", "pull-nginx-demo-c4r7b   Succeeded   puller-dev-worker\r\n"]
-[6.167782, "o", "pull-nginx-demo-c4r7b   Succeeded   puller-dev-worker\r\n"]
-[6.179314, "o", "pull-nginx-demo-6w4ct   Pending     puller-dev-worker2\r\n"]
-[6.21038, "o", "pull-nginx-demo-6w4ct   Pending     puller-dev-worker2\r\n"]
-[8.012095, "o", "pull-nginx-demo-6w4ct   Pending     puller-dev-worker2\r\n"]
-[9.152234, "o", "pull-nginx-demo-6w4ct   Succeeded   puller-dev-worker2\r\n"]
-[9.167537, "o", "pull-nginx-demo-6w4ct   Succeeded   puller-dev-worker2\r\n"]
-[9.173683, "o", "pull-nginx-demo-6w4ct   Succeeded   puller-dev-worker2\r\n"]
+{"version": 2, "width": 80, "height": 22, "timestamp": 1779738378, "env": {}}
+[0.005469, "o", "$ kubectl get pods -l app.kubernetes.io/managed-by=drop -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName -w\r\n"]
