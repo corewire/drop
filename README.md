@@ -1,4 +1,7 @@
-# drop
+<p align="center">
+  <img src="docs/static/images/drop-logo.png" alt="Drop logo" width="500">
+</p>
+
 
 A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery. 
 
