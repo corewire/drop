@@ -96,4 +96,4 @@ tilt up
 
 ## Docs
 
-Full documentation at **[corewire.io/drop](https://corewire.io/drop)** (GitHub Pages).
+Full documentation at **[breee.github.io/drop/](https://breee.github.io/drop/)** (GitHub Pages).
