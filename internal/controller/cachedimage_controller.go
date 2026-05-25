@@ -181,7 +181,7 @@ func computeBackoff(policy *pullerv1alpha1.PullPolicy, failures int32) time.Dura
 }
 
 // repullInterval returns the repull interval from the PullPolicy, or 0 if disabled.
-func (r *CachedImageReconciler) repullInterval(ci *pullerv1alpha1.CachedImage, policy *pullerv1alpha1.PullPolicy) time.Duration {
+func (r *CachedImageReconciler) repullInterval(_ *pullerv1alpha1.CachedImage, policy *pullerv1alpha1.PullPolicy) time.Duration {
 	if policy == nil || policy.Spec.RepullInterval == nil {
 		return 0
 	}

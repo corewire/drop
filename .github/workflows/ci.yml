@@ -100,6 +100,7 @@ jobs:
           kind load docker-image controller:ci
       - name: Install CRDs
         run: |
+          make controller-gen
           make manifests
           kubectl apply -f config/crd/bases/
       - name: Deploy E2E infrastructure (Prometheus + Registry)

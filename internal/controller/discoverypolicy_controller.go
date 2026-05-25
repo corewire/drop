@@ -51,6 +51,11 @@ type DiscoveryPolicyReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+const (
+	reasonDNSError          = "DNSError"
+	reasonConnectionRefused = "ConnectionRefused"
+)
+
 // +kubebuilder:rbac:groups=puller.corewire.io,resources=discoverypolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=puller.corewire.io,resources=discoverypolicies/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=puller.corewire.io,resources=discoverypolicies/finalizers,verbs=update
@@ -403,7 +408,7 @@ func classifyError(err error) (reason, message string) {
 
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
-		return "DNSError", fmt.Sprintf("cannot resolve host %q", dnsErr.Name)
+		return reasonDNSError, fmt.Sprintf("cannot resolve host %q", dnsErr.Name)
 	}
 
 	var opErr *net.OpError
@@ -412,10 +417,10 @@ func classifyError(err error) (reason, message string) {
 			// Check if the underlying error is DNS
 			if strings.Contains(opErr.Err.Error(), "lookup") || strings.Contains(opErr.Err.Error(), "no such host") || strings.Contains(opErr.Err.Error(), "server misbehaving") {
 				host := extractHost(errStr)
-				return "DNSError", fmt.Sprintf("cannot resolve host %q", host)
+				return reasonDNSError, fmt.Sprintf("cannot resolve host %q", host)
 			}
 			host := extractHost(errStr)
-			return "ConnectionRefused", fmt.Sprintf("cannot connect to %s", host)
+			return reasonConnectionRefused, fmt.Sprintf("cannot connect to %s", host)
 		}
 	}
 
@@ -424,11 +429,11 @@ func classifyError(err error) (reason, message string) {
 		inner := urlErr.Err.Error()
 		if strings.Contains(inner, "no such host") || strings.Contains(inner, "server misbehaving") || strings.Contains(inner, "lookup") {
 			host := extractHost(errStr)
-			return "DNSError", fmt.Sprintf("cannot resolve host %q", host)
+			return reasonDNSError, fmt.Sprintf("cannot resolve host %q", host)
 		}
 		if strings.Contains(inner, "connection refused") {
 			host := extractHost(errStr)
-			return "ConnectionRefused", fmt.Sprintf("cannot connect to %s", host)
+			return reasonConnectionRefused, fmt.Sprintf("cannot connect to %s", host)
 		}
 	}
 
@@ -449,11 +454,11 @@ func classifyError(err error) (reason, message string) {
 	// String-based fallbacks
 	if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "server misbehaving") {
 		host := extractHost(errStr)
-		return "DNSError", fmt.Sprintf("cannot resolve host %q", host)
+		return reasonDNSError, fmt.Sprintf("cannot resolve host %q", host)
 	}
 	if strings.Contains(errStr, "connection refused") {
 		host := extractHost(errStr)
-		return "ConnectionRefused", fmt.Sprintf("cannot connect to %s", host)
+		return reasonConnectionRefused, fmt.Sprintf("cannot connect to %s", host)
 	}
 	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "deadline exceeded") {
 		return "Timeout", cleanMessage(errStr)

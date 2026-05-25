@@ -16,6 +16,9 @@ issues:
       linters:
         - dupl
         - lll
+    - path: "hack/*"
+      linters:
+        - lll
 linters:
   disable-all: true
   enable:

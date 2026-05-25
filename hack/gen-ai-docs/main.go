@@ -261,7 +261,7 @@ func parseAllTypes(dir string) ([]CRD, []TypeDef) {
 		"DiscoveryPolicy": "internal/controller/discoverypolicy_controller.go",
 	}
 
-	var crds []CRD
+	crds := make([]CRD, 0, len(rootCRDs))
 	for _, kind := range rootCRDs {
 		root, ok := allTypes[kind]
 		if !ok {
@@ -302,7 +302,7 @@ func parseAllTypes(dir string) ([]CRD, []TypeDef) {
 }
 
 func parseFields(st *ast.StructType) []Field {
-	var fields []Field
+	fields := make([]Field, 0, len(st.Fields.List))
 	for _, f := range st.Fields.List {
 		if len(f.Names) == 0 {
 			continue
@@ -553,7 +553,7 @@ func extractMetrics(path string) []Metric {
 	helps := helpRe.FindAllStringSubmatch(content, -1)
 	types := typeRe.FindAllStringSubmatch(content, -1)
 
-	var metrics []Metric
+	metrics := make([]Metric, 0, len(names))
 	for i, n := range names {
 		m := Metric{Name: n[1]}
 		if i < len(helps) {
@@ -626,7 +626,10 @@ func writeKnowledgeYAML(root string, k Knowledge) {
 		fmt.Fprintf(os.Stderr, "error encoding knowledge.yaml: %v\n", err)
 		os.Exit(1)
 	}
-	enc.Close()
+	if err := enc.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "error closing encoder: %v\n", err)
+		os.Exit(1)
+	}
 
 	outPath := filepath.Join(root, "knowledge.yaml")
 	if err := os.WriteFile(outPath, buf.Bytes(), 0o644); err != nil {

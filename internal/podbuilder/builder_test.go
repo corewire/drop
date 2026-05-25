@@ -21,9 +21,9 @@ func TestBuildPullerPod(t *testing.T) {
 			ci: &v1alpha1.CachedImage{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-image", UID: "uid-1"},
 				Spec: v1alpha1.CachedImageSpec{
-					Image:      "docker.io/library/nginx",
-					Tag:        "1.25",
-					PullPolicy: "IfNotPresent",
+					Image:           "docker.io/library/nginx",
+					Tag:             "1.25",
+					ImagePullPolicy: corev1.PullIfNotPresent,
 				},
 			},
 			nodeName: "node-1",
@@ -35,9 +35,9 @@ func TestBuildPullerPod(t *testing.T) {
 			ci: &v1alpha1.CachedImage{
 				ObjectMeta: metav1.ObjectMeta{Name: "digest-image", UID: "uid-2"},
 				Spec: v1alpha1.CachedImageSpec{
-					Image:      "docker.io/library/nginx",
-					Digest:     "sha256:abc123",
-					PullPolicy: "IfNotPresent",
+					Image:           "docker.io/library/nginx",
+					Digest:          "sha256:abc123",
+					ImagePullPolicy: corev1.PullIfNotPresent,
 				},
 			},
 			nodeName: "node-2",
@@ -49,9 +49,9 @@ func TestBuildPullerPod(t *testing.T) {
 			ci: &v1alpha1.CachedImage{
 				ObjectMeta: metav1.ObjectMeta{Name: "always-pull", UID: "uid-3"},
 				Spec: v1alpha1.CachedImageSpec{
-					Image:      "gcr.io/my-project/app",
-					Tag:        "latest",
-					PullPolicy: "Always",
+					Image:           "gcr.io/my-project/app",
+					Tag:             "latest",
+					ImagePullPolicy: corev1.PullAlways,
 				},
 			},
 			nodeName: "node-3",
@@ -68,7 +68,7 @@ func TestBuildPullerPod(t *testing.T) {
 			},
 			nodeName: "node-1",
 			wantImg:  "docker.io/library/alpine:latest",
-			wantPull: corev1.PullIfNotPresent,
+			wantPull: corev1.PullAlways,
 		},
 		{
 			name: "image with tolerations",
@@ -84,7 +84,7 @@ func TestBuildPullerPod(t *testing.T) {
 			},
 			nodeName: "build-node-1",
 			wantImg:  "docker.io/library/alpine:3.18",
-			wantPull: corev1.PullIfNotPresent,
+			wantPull: corev1.PullAlways,
 		},
 	}
 

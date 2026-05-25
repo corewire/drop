@@ -72,6 +72,35 @@ spec:
                 required:
                 - name
                 type: object
+              imagePullPolicy:
+                default: Always
+                description: ImagePullPolicy controls when kubelet pulls the image
+                  (propagated to children).
+                enum:
+                - Always
+                - IfNotPresent
+                - Never
+                type: string
+              imagePullSecrets:
+                description: ImagePullSecrets are references to secrets for pulling
+                  from private registries (propagated to children).
+                items:
+                  description: |-
+                    LocalObjectReference contains enough information to let you locate the
+                    referenced object inside the same namespace.
+                  properties:
+                    name:
+                      default: ""
+                      description: |-
+                        Name of the referent.
+                        This field is effectively required, but due to backwards compatibility is
+                        allowed to be empty. Instances of this type with an empty value here are
+                        almost certainly wrong.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
               images:
                 description: Images is a static list of images to cache.
                 items:
