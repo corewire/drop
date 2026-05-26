@@ -71,9 +71,18 @@ k8s_yaml('hack/e2e-infra/registry.yaml')
 k8s_resource('prometheus', objects=['prometheus-config:configmap'], port_forwards=['9090:9090'], labels=['infra'])
 k8s_resource('registry', port_forwards=['5000:5000'], labels=['infra'])
 
+# Configure kind nodes to reach the in-cluster registry.
+# Kubelet/containerd can't resolve cluster DNS, so we point them at the registry's ClusterIP.
+local_resource(
+    'registry-mirror',
+    'hack/e2e-infra/setup-registry-mirror.sh',
+    labels=['infra'],
+    resource_deps=['registry'],
+)
+
 # Seed registry with test images
 k8s_yaml('hack/e2e-infra/seed-registry-job.yaml')
-k8s_resource('seed-registry', labels=['infra'], resource_deps=['registry'])
+k8s_resource('seed-registry', labels=['infra'], resource_deps=['registry-mirror'])
 
 # --- Grafana with Drop dashboard ---
 # Create dashboard ConfigMap from the shipped JSON, then apply grafana manifests.

@@ -1,6 +1,11 @@
-{"version": 2, "width": 120, "height": 22, "timestamp": 1779738406, "env": {}}
-[0.00697, "o", "$ kubectl get events --field-selector reason!=LeaderElection --watch-only\r\n"]
-[3.095882, "o", "LAST SEEN   TYPE     REASON        OBJECT                   MESSAGE\r\n0s          Normal   PullStarted   cachedimage/nginx-demo   Started pulling image docker.io/library/nginx on node drop-dev-worker\r\n"]
-[5.796733, "o", "0s          Normal   PullSucceeded   cachedimage/nginx-demo   Image docker.io/library/nginx cached on node drop-dev-worker\r\n"]
-[5.823282, "o", "0s          Normal   PullStarted     cachedimage/nginx-demo   Started pulling image docker.io/library/nginx on node drop-dev-worker2\r\n"]
-[8.796695, "o", "0s          Normal   PullSucceeded   cachedimage/nginx-demo   Image docker.io/library/nginx cached on node drop-dev-worker2\r\n"]
+{"version": 2, "width": 120, "height": 22, "timestamp": 1779824227, "env": {}}
+[0.004692, "o", "$ kubectl get events --field-selector reason!=LeaderElection --watch-only\r\n"]
+[3.26123, "o", "LAST SEEN   TYPE     REASON    OBJECT                      MESSAGE\r\n0s          Normal   Pulling   pod/pull-nginx-demo-lcgch   "]
+[3.261309, "o", "Pulling image \"docker.io/library/nginx:1.27\"\r\n"]
+[3.967247, "o", "0s          Normal   Pulled    pod/pull-nginx-demo-lcgch   Successfully pulled image \"docker.io/library/nginx:1.27\" in 708ms (708ms including waiting). Image size: 72406859 bytes.\r\n"]
+[4.01447, "o", "0s          Normal   Created   pod/pull-nginx-demo-lcgch   Container created\r\n"]
+[4.117602, "o", "0s          Normal   Started   pod/pull-nginx-demo-lcgch   Container started\r\n"]
+[5.561582, "o", "0s          Normal   Pulling   pod/pull-nginx-demo-4gc7x   Pulling image \"docker.io/library/nginx:1.27\"\r\n"]
+[6.266187, "o", "0s          Normal   Pulled    pod/pull-nginx-demo-4gc7x   Successfully pulled image \"docker.io/library/nginx:1.27\" in 705ms (705ms including waiting). Image size: 72406859 bytes.\r\n"]
+[6.309059, "o", "0s          Normal   Created   pod/pull-nginx-demo-4gc7x   Container created\r\n"]
+[6.425581, "o", "0s          Normal   Started   pod/pull-nginx-demo-4gc7x   Container started\r\n"]

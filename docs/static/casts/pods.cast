@@ -1,2 +1,14 @@
-{"version": 2, "width": 80, "height": 22, "timestamp": 1779738378, "env": {}}
-[0.005469, "o", "$ kubectl get pods -l app.kubernetes.io/managed-by=drop -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName -w\r\n"]
+{"version": 2, "width": 80, "height": 22, "timestamp": 1779824198, "env": {}}
+[0.00557, "o", "$ kubectl get pods -l app.kubernetes.io/managed-by=drop -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName -w\r\n"]
+[3.088993, "o", "NAME                    STATUS    NODE\r\npull-nginx-demo-lhtp7   Pending   drop-dev-worker\r\n"]
+[3.114889, "o", "pull-nginx-demo-lhtp7   Pending   drop-dev-worker\r\n"]
+[4.820102, "o", "pull-nginx-demo-lhtp7   Pending   drop-dev-worker\r\n"]
+[5.922292, "o", "pull-nginx-demo-lhtp7   Succeeded   drop-dev-worker\r\n"]
+[5.9282, "o", "pull-nginx-demo-lhtp7   Succeeded   drop-dev-worker\r\n"]
+[5.939256, "o", "pull-nginx-demo-lhtp7   Succeeded   drop-dev-worker\r\n"]
+[5.944387, "o", "pull-nginx-demo-9xgms   Pending     drop-dev-worker2\r\n"]
+[5.973802, "o", "pull-nginx-demo-9xgms   Pending     drop-dev-worker2\r\n"]
+[7.980273, "o", "pull-nginx-demo-9xgms   Pending     drop-dev-worker2\r\n"]
+[9.093714, "o", "pull-nginx-demo-9xgms   Succeeded   drop-dev-worker2\r\n"]
+[9.10522, "o", "pull-nginx-demo-9xgms   Succeeded   drop-dev-worker2\r\n"]
+[9.111445, "o", "pull-nginx-demo-9xgms   Succeeded   drop-dev-worker2\r\n"]
