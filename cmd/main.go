@@ -21,16 +21,20 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -140,7 +144,7 @@ func main() {
 
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
-	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/metrics/server
+	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.24.1/pkg/metrics/server
 	// - https://book.kubebuilder.io/reference/metrics.html
 	metricsServerOptions := metricsserver.Options{
 		BindAddress:   metricsAddr,
@@ -152,7 +156,7 @@ func main() {
 		// FilterProvider is used to protect the metrics endpoint with authn/authz.
 		// These configurations ensure that only authorized users and service accounts
 		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
-		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/metrics/filters#WithAuthenticationAndAuthorization
+		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.24.1/pkg/metrics/filters#WithAuthenticationAndAuthorization
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
@@ -190,17 +194,34 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "b889acf8.corewire.io",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
+		// LeaderElectionReleaseOnCancel enables voluntary leader step-down when the
+		// Manager ends. This significantly speeds up leader transitions since the new
+		// leader doesn't have to wait the full LeaseDuration. Safe here because the
+		// binary exits immediately after mgr.Start returns.
+		LeaderElectionReleaseOnCancel: true,
+		// Fine-granular cache sync periods (controller-runtime v0.24+): use longer
+		// resync intervals for stable resources (Nodes change infrequently) and shorter
+		// intervals for our own CRDs where timely reconciliation matters.
+		Cache: cache.Options{
+			SyncPeriod: ptr(10 * time.Minute), // default for all types
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.Node{}: {
+					SyncPeriod: ptr(30 * time.Minute), // nodes rarely change
+				},
+				&dropv1alpha1.CachedImage{}: {
+					SyncPeriod: ptr(5 * time.Minute), // CRDs: tighter resync
+				},
+				&dropv1alpha1.CachedImageSet{}: {
+					SyncPeriod: ptr(5 * time.Minute),
+				},
+			},
+		},
+		// Set a default field owner for SSA (Server-Side Apply) operations
+		// (controller-runtime v0.24+). This ensures consistent field management
+		// across all controllers without per-call configuration.
+		Client: client.Options{
+			FieldOwner: "drop-controller",
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -263,4 +284,9 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// ptr returns a pointer to the given value.
+func ptr[T any](v T) *T {
+	return &v
 }

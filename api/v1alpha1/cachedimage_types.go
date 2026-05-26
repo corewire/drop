@@ -79,6 +79,9 @@ type CachedImageStatus struct {
 	NodesTargeted int32 `json:"nodesTargeted,omitempty"`
 	// NodesReady is the number of nodes that have successfully pulled the image.
 	NodesReady int32 `json:"nodesReady,omitempty"`
+	// NodesPulling is the number of nodes currently pulling the image.
+	// +optional
+	NodesPulling int32 `json:"nodesPulling,omitempty"`
 	// CachedNodes is the list of node names that have successfully cached the image.
 	// +optional
 	CachedNodes []string `json:"cachedNodes,omitempty"`
@@ -92,6 +95,7 @@ type CachedImageStatus struct {
 	// +optional
 	LastAttemptedAt *metav1.Time `json:"lastAttemptedAt,omitempty"`
 	// Conditions represent the latest available observations.
+	// Condition types: Ready, PullProgress.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

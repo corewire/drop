@@ -78,6 +78,33 @@ var (
 		},
 		[]string{"policy", "source_type"},
 	)
+
+	// NodesTargeted reports the number of target nodes per CachedImage.
+	NodesTargeted = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "drop_nodes_targeted",
+			Help: "Number of nodes targeted by each CachedImage resource.",
+		},
+		[]string{"cachedimage"},
+	)
+
+	// NodesCached reports the number of nodes where the image is cached per CachedImage.
+	NodesCached = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "drop_nodes_cached",
+			Help: "Number of nodes where the image is successfully cached.",
+		},
+		[]string{"cachedimage"},
+	)
+
+	// ConsecutiveFailures reports the current consecutive failure count per CachedImage.
+	ConsecutiveFailures = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "drop_consecutive_failures",
+			Help: "Current number of consecutive pull failures for a CachedImage.",
+		},
+		[]string{"cachedimage", "image"},
+	)
 )
 
 func init() {
@@ -90,5 +117,8 @@ func init() {
 		ReconcileTotal,
 		DiscoverySourceHealth,
 		DiscoverySourceLatencySeconds,
+		NodesTargeted,
+		NodesCached,
+		ConsecutiveFailures,
 	)
 }

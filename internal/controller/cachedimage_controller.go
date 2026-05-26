@@ -43,11 +43,12 @@ import (
 )
 
 const (
-	conditionTypeReady = "Ready"
-	phasePending       = "Pending"
-	phaseReady         = "Ready"
-	phasePulling       = "Pulling"
-	phaseDegraded      = "Degraded"
+	conditionTypeReady        = "Ready"
+	conditionTypePullProgress = "PullProgress"
+	phasePending              = "Pending"
+	phaseReady                = "Ready"
+	phasePulling              = "Pulling"
+	phaseDegraded             = "Degraded"
 )
 
 // CachedImageReconciler reconciles a CachedImage object
@@ -128,6 +129,11 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := r.Status().Patch(ctx, ci, patch); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patching status: %w", err)
 	}
+
+	// Emit gauge metrics for observability
+	dropmetrics.NodesTargeted.WithLabelValues(ci.Name).Set(float64(ci.Status.NodesTargeted))
+	dropmetrics.NodesCached.WithLabelValues(ci.Name).Set(float64(ci.Status.NodesReady))
+	dropmetrics.ConsecutiveFailures.WithLabelValues(ci.Name, ci.Spec.Image).Set(float64(ci.Status.ConsecutiveFailures))
 
 	// 12. Determine requeue
 	// If degraded with no running pods, apply exponential backoff based on PullPolicy config.
@@ -560,6 +566,14 @@ func (r *CachedImageReconciler) updateCachedImageStatus(ci *dropv1alpha1.CachedI
 		phase = phasePulling
 	}
 
+	// Count nodes currently pulling (have an active pod)
+	var nodesPulling int32
+	for _, state := range stateMap {
+		if state.pod != nil && !state.ready && !state.failed {
+			nodesPulling++
+		}
+	}
+
 	// Collect failure info
 	var failReason, failMessage string
 	var newFailureObserved bool
@@ -572,6 +586,11 @@ func (r *CachedImageReconciler) updateCachedImageStatus(ci *dropv1alpha1.CachedI
 				failMessage = state.failMessage
 			}
 		}
+	}
+
+	// If we have active pulls, phase should be Pulling (even if some nodes are ready)
+	if nodesPulling > 0 && phase != phaseDegraded {
+		phase = phasePulling
 	}
 
 	// If no new failure but we have previous failures and aren't Ready yet, stay Degraded
@@ -595,6 +614,7 @@ func (r *CachedImageReconciler) updateCachedImageStatus(ci *dropv1alpha1.CachedI
 	ci.Status.ObservedGeneration = ci.Generation
 	ci.Status.NodesTargeted = nodesTargeted
 	ci.Status.NodesReady = nodesReady
+	ci.Status.NodesPulling = nodesPulling
 	ci.Status.Ready = fmt.Sprintf("%d/%d", nodesReady, nodesTargeted)
 	ci.Status.CachedNodes = cachedNodes
 	ci.Status.Phase = phase
@@ -641,6 +661,34 @@ func (r *CachedImageReconciler) updateCachedImageStatus(ci *dropv1alpha1.CachedI
 		readyCondition.Message = fmt.Sprintf("%d/%d nodes ready", nodesReady, nodesTargeted)
 	}
 	meta.SetStatusCondition(&ci.Status.Conditions, readyCondition)
+
+	// PullProgress condition: provides real-time pull status visibility.
+	// Kubernetes 1.35+ exposes better image pull progress; this condition
+	// surfaces that information to users watching the CachedImage resource.
+	progressCondition := metav1.Condition{
+		Type:               conditionTypePullProgress,
+		ObservedGeneration: ci.Generation,
+		LastTransitionTime: now,
+	}
+	switch {
+	case nodesPulling > 0:
+		progressCondition.Status = metav1.ConditionTrue
+		progressCondition.Reason = "Pulling"
+		progressCondition.Message = fmt.Sprintf("Actively pulling on %d node(s), %d/%d complete", nodesPulling, nodesReady, nodesTargeted)
+	case phase == phaseReady:
+		progressCondition.Status = metav1.ConditionFalse
+		progressCondition.Reason = "Complete"
+		progressCondition.Message = "All pulls complete"
+	case phase == phaseDegraded:
+		progressCondition.Status = metav1.ConditionFalse
+		progressCondition.Reason = "Stalled"
+		progressCondition.Message = fmt.Sprintf("Pull stalled: %d/%d nodes ready, retrying with backoff", nodesReady, nodesTargeted)
+	default:
+		progressCondition.Status = metav1.ConditionFalse
+		progressCondition.Reason = "Idle"
+		progressCondition.Message = "Waiting to start pulls"
+	}
+	meta.SetStatusCondition(&ci.Status.Conditions, progressCondition)
 }
 
 // filterNodesByTolerations returns nodes whose taints are tolerated.
