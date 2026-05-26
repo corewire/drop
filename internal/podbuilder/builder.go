@@ -5,6 +5,7 @@ import (
 
 	v1alpha1 "github.com/Breee/drop/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
@@ -52,12 +53,41 @@ func BuildDropPod(ci *v1alpha1.CachedImage, nodeName, namespace string) (*corev1
 			RestartPolicy:    corev1.RestartPolicyNever,
 			Tolerations:      ci.Spec.Tolerations,
 			ImagePullSecrets: ci.Spec.ImagePullSecrets,
+			// Pod-level security: run as non-root with restricted profile.
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsNonRoot: ptr.To(true),
+				RunAsUser:    ptr.To(int64(65534)), // nobody
+				RunAsGroup:   ptr.To(int64(65534)),
+				FSGroup:      ptr.To(int64(65534)),
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+			},
 			Containers: []corev1.Container{
 				{
 					Name:            "pull",
 					Image:           imageRef,
 					Command:         []string{"true"},
 					ImagePullPolicy: pullPolicy,
+					// Container-level security: drop all capabilities, read-only fs.
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						ReadOnlyRootFilesystem:   ptr.To(true),
+						RunAsNonRoot:             ptr.To(true),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{"ALL"},
+						},
+					},
+					// Explicit resource requests prevent scheduling issues on resource-constrained nodes.
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("16Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("64Mi"),
+						},
+					},
 				},
 			},
 			AutomountServiceAccountToken:  ptr.To(false),

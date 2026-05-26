@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // CachedImageSpec defines the desired state of CachedImage.
@@ -79,6 +80,9 @@ type CachedImageStatus struct {
 	NodesTargeted int32 `json:"nodesTargeted,omitempty"`
 	// NodesReady is the number of nodes that have successfully pulled the image.
 	NodesReady int32 `json:"nodesReady,omitempty"`
+	// NodesPulling is the number of nodes currently pulling the image.
+	// +optional
+	NodesPulling int32 `json:"nodesPulling,omitempty"`
 	// CachedNodes is the list of node names that have successfully cached the image.
 	// +optional
 	CachedNodes []string `json:"cachedNodes,omitempty"`
@@ -92,6 +96,7 @@ type CachedImageStatus struct {
 	// +optional
 	LastAttemptedAt *metav1.Time `json:"lastAttemptedAt,omitempty"`
 	// Conditions represent the latest available observations.
+	// Condition types: Ready, PullProgress.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
@@ -128,5 +133,8 @@ type CachedImageList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&CachedImage{}, &CachedImageList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &CachedImage{}, &CachedImageList{})
+		return nil
+	})
 }

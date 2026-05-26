@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -43,11 +43,12 @@ import (
 )
 
 const (
-	conditionTypeReady = "Ready"
-	phasePending       = "Pending"
-	phaseReady         = "Ready"
-	phasePulling       = "Pulling"
-	phaseDegraded      = "Degraded"
+	conditionTypeReady        = "Ready"
+	conditionTypePullProgress = "PullProgress"
+	phasePending              = "Pending"
+	phaseReady                = "Ready"
+	phasePulling              = "Pulling"
+	phaseDegraded             = "Degraded"
 )
 
 // CachedImageReconciler reconciles a CachedImage object
@@ -55,7 +56,7 @@ type CachedImageReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	PacingEngine *pacing.Engine
-	Recorder     record.EventRecorder
+	Recorder     events.EventRecorder
 	PodNamespace string
 }
 
@@ -128,6 +129,11 @@ func (r *CachedImageReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := r.Status().Patch(ctx, ci, patch); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patching status: %w", err)
 	}
+
+	// Emit gauge metrics for observability
+	dropmetrics.NodesTargeted.WithLabelValues(ci.Name).Set(float64(ci.Status.NodesTargeted))
+	dropmetrics.NodesCached.WithLabelValues(ci.Name).Set(float64(ci.Status.NodesReady))
+	dropmetrics.ConsecutiveFailures.WithLabelValues(ci.Name, ci.Spec.Image).Set(float64(ci.Status.ConsecutiveFailures))
 
 	// 12. Determine requeue
 	// If degraded with no running pods, apply exponential backoff based on PullPolicy config.
@@ -316,7 +322,7 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *dropv1
 			}
 			dropmetrics.ActivePulls.Dec()
 			dropmetrics.ImagesCachedTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
-			r.Recorder.Eventf(ci, corev1.EventTypeNormal, "PullSucceeded", "Image %s cached on node %s", ci.Spec.Image, nodeName)
+			r.Recorder.Eventf(ci, nil, corev1.EventTypeNormal, "PullSucceeded", "CacheImage", "Image %s cached on node %s", ci.Spec.Image, nodeName)
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting succeeded pod", "pod", state.pod.Name, "node", nodeName)
 			}
@@ -325,7 +331,7 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *dropv1
 			state.failReason, state.failMessage = extractPodFailureReason(state.pod)
 			dropmetrics.ActivePulls.Dec()
 			dropmetrics.PullErrorsTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
-			r.Recorder.Eventf(ci, corev1.EventTypeWarning, state.failReason, "Failed to pull image %s on node %s: %s", ci.Spec.Image, nodeName, state.failMessage)
+			r.Recorder.Eventf(ci, nil, corev1.EventTypeWarning, state.failReason, "CacheImage", "Failed to pull image %s on node %s: %s", ci.Spec.Image, nodeName, state.failMessage)
 			log.Info("drop pod failed", "pod", state.pod.Name, "node", nodeName, "reason", state.failReason)
 			if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 				log.Error(err, "deleting failed pod", "pod", state.pod.Name, "node", nodeName)
@@ -338,7 +344,7 @@ func (r *CachedImageReconciler) processPodStates(ctx context.Context, ci *dropv1
 				state.failMessage = msg
 				dropmetrics.ActivePulls.Dec()
 				dropmetrics.PullErrorsTotal.WithLabelValues(ci.Spec.Image, nodeName).Inc()
-				r.Recorder.Eventf(ci, corev1.EventTypeWarning, reason, "Image %s on node %s: %s", ci.Spec.Image, nodeName, msg)
+				r.Recorder.Eventf(ci, nil, corev1.EventTypeWarning, reason, "CacheImage", "Image %s on node %s: %s", ci.Spec.Image, nodeName, msg)
 				// Delete the stuck pod; backoff retry will create a new one
 				if err := r.Delete(ctx, state.pod); client.IgnoreNotFound(err) != nil {
 					log.Error(err, "deleting stuck pod", "pod", state.pod.Name, "node", nodeName)
@@ -540,7 +546,7 @@ func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *dropv1alp
 			now := metav1.Now()
 			ci.Status.LastAttemptedAt = &now
 			dropmetrics.ActivePulls.Inc()
-			r.Recorder.Eventf(ci, corev1.EventTypeNormal, "PullStarted", "Started pulling image %s on node %s", ci.Spec.Image, nodeName)
+			r.Recorder.Eventf(ci, nil, corev1.EventTypeNormal, "PullStarted", "CacheImage", "Started pulling image %s on node %s", ci.Spec.Image, nodeName)
 			log.Info("created drop pod", "pod", pod.Name, "node", nodeName, "image", ci.Spec.Image)
 		}
 
@@ -553,36 +559,7 @@ func (r *CachedImageReconciler) schedulePulls(ctx context.Context, ci *dropv1alp
 
 // updateCachedImageStatus computes and sets the status fields on the CachedImage.
 func (r *CachedImageReconciler) updateCachedImageStatus(ci *dropv1alpha1.CachedImage, stateMap map[string]*nodeState, nodesTargeted, nodesReady int32, now metav1.Time) {
-	phase := phasePending
-	if nodesReady == nodesTargeted && nodesTargeted > 0 {
-		phase = phaseReady
-	} else if nodesReady > 0 {
-		phase = phasePulling
-	}
-
-	// Collect failure info
-	var failReason, failMessage string
-	var newFailureObserved bool
-	for _, state := range stateMap {
-		if state.failed && !state.ready {
-			phase = phaseDegraded
-			newFailureObserved = true
-			if state.failReason != "" && failReason == "" {
-				failReason = state.failReason
-				failMessage = state.failMessage
-			}
-		}
-	}
-
-	// If no new failure but we have previous failures and aren't Ready yet, stay Degraded
-	if !newFailureObserved && ci.Status.ConsecutiveFailures > 0 && phase != phaseReady {
-		phase = phaseDegraded
-		// Preserve the last known failure reason from existing condition
-		if existing := meta.FindStatusCondition(ci.Status.Conditions, conditionTypeReady); existing != nil && existing.Status == metav1.ConditionFalse {
-			failReason = existing.Reason
-			failMessage = existing.Message
-		}
-	}
+	phase, nodesPulling, newFailureObserved, failReason, failMessage := computePhase(ci, stateMap, nodesTargeted, nodesReady)
 
 	// Persist the list of nodes that have successfully cached the image
 	cachedNodes := make([]string, 0, nodesReady)
@@ -595,52 +572,126 @@ func (r *CachedImageReconciler) updateCachedImageStatus(ci *dropv1alpha1.CachedI
 	ci.Status.ObservedGeneration = ci.Generation
 	ci.Status.NodesTargeted = nodesTargeted
 	ci.Status.NodesReady = nodesReady
+	ci.Status.NodesPulling = nodesPulling
 	ci.Status.Ready = fmt.Sprintf("%d/%d", nodesReady, nodesTargeted)
 	ci.Status.CachedNodes = cachedNodes
 	ci.Status.Phase = phase
 
 	// Track consecutive failures for backoff calculation.
-	// Only increment when we actually observed a new failure this reconcile.
 	if newFailureObserved {
 		ci.Status.ConsecutiveFailures++
 		ci.Status.LastAttemptedAt = &now
 	} else if phase == phaseReady {
 		ci.Status.ConsecutiveFailures = 0
 	}
-	// If phase is Degraded but no new failure observed (idle requeue), preserve current CF.
 
 	if nodesReady > 0 {
 		ci.Status.LastPulledAt = &now
 	}
 
-	readyCondition := metav1.Condition{
+	meta.SetStatusCondition(&ci.Status.Conditions, buildReadyCondition(ci.Generation, now, phase, nodesTargeted, nodesReady, failReason, failMessage))
+	meta.SetStatusCondition(&ci.Status.Conditions, buildPullProgressCondition(ci.Generation, now, phase, nodesPulling, nodesTargeted, nodesReady))
+}
+
+// computePhase determines the current phase and failure state from the node state map.
+func computePhase(ci *dropv1alpha1.CachedImage, stateMap map[string]*nodeState, nodesTargeted, nodesReady int32) (phase string, nodesPulling int32, newFailureObserved bool, failReason, failMessage string) {
+	phase = phasePending
+	if nodesReady == nodesTargeted && nodesTargeted > 0 {
+		phase = phaseReady
+	} else if nodesReady > 0 {
+		phase = phasePulling
+	}
+
+	for _, state := range stateMap {
+		if state.pod != nil && !state.ready && !state.failed {
+			nodesPulling++
+		}
+	}
+
+	for _, state := range stateMap {
+		if state.failed && !state.ready {
+			phase = phaseDegraded
+			newFailureObserved = true
+			if state.failReason != "" && failReason == "" {
+				failReason = state.failReason
+				failMessage = state.failMessage
+			}
+		}
+	}
+
+	if nodesPulling > 0 && phase != phaseDegraded {
+		phase = phasePulling
+	}
+
+	if !newFailureObserved && ci.Status.ConsecutiveFailures > 0 && phase != phaseReady {
+		phase = phaseDegraded
+		if existing := meta.FindStatusCondition(ci.Status.Conditions, conditionTypeReady); existing != nil && existing.Status == metav1.ConditionFalse {
+			failReason = existing.Reason
+			failMessage = existing.Message
+		}
+	}
+
+	return phase, nodesPulling, newFailureObserved, failReason, failMessage
+}
+
+// buildReadyCondition constructs the Ready status condition.
+func buildReadyCondition(generation int64, now metav1.Time, phase string, nodesTargeted, nodesReady int32, failReason, failMessage string) metav1.Condition {
+	c := metav1.Condition{
 		Type:               conditionTypeReady,
-		ObservedGeneration: ci.Generation,
+		ObservedGeneration: generation,
 		LastTransitionTime: now,
 	}
 	switch {
 	case phase == phaseReady:
-		readyCondition.Status = metav1.ConditionTrue
-		readyCondition.Reason = "Cached"
-		readyCondition.Message = fmt.Sprintf("Image cached on all %d target nodes", nodesTargeted)
+		c.Status = metav1.ConditionTrue
+		c.Reason = "Cached"
+		c.Message = fmt.Sprintf("Image cached on all %d target nodes", nodesTargeted)
 	case phase == phaseDegraded && failReason != "":
-		readyCondition.Status = metav1.ConditionFalse
-		readyCondition.Reason = failReason
+		c.Status = metav1.ConditionFalse
+		c.Reason = failReason
 		if failMessage != "" {
-			readyCondition.Message = failMessage
+			c.Message = failMessage
 		} else {
-			readyCondition.Message = fmt.Sprintf("%d/%d nodes ready", nodesReady, nodesTargeted)
+			c.Message = fmt.Sprintf("%d/%d nodes ready", nodesReady, nodesTargeted)
 		}
 	case phase == phaseDegraded:
-		readyCondition.Status = metav1.ConditionFalse
-		readyCondition.Reason = "PullFailed"
-		readyCondition.Message = fmt.Sprintf("%d/%d nodes ready", nodesReady, nodesTargeted)
+		c.Status = metav1.ConditionFalse
+		c.Reason = "PullFailed"
+		c.Message = fmt.Sprintf("%d/%d nodes ready", nodesReady, nodesTargeted)
 	default:
-		readyCondition.Status = metav1.ConditionFalse
-		readyCondition.Reason = "InProgress"
-		readyCondition.Message = fmt.Sprintf("%d/%d nodes ready", nodesReady, nodesTargeted)
+		c.Status = metav1.ConditionFalse
+		c.Reason = "InProgress"
+		c.Message = fmt.Sprintf("%d/%d nodes ready", nodesReady, nodesTargeted)
 	}
-	meta.SetStatusCondition(&ci.Status.Conditions, readyCondition)
+	return c
+}
+
+// buildPullProgressCondition constructs the PullProgress status condition.
+func buildPullProgressCondition(generation int64, now metav1.Time, phase string, nodesPulling, nodesTargeted, nodesReady int32) metav1.Condition {
+	c := metav1.Condition{
+		Type:               conditionTypePullProgress,
+		ObservedGeneration: generation,
+		LastTransitionTime: now,
+	}
+	switch {
+	case nodesPulling > 0:
+		c.Status = metav1.ConditionTrue
+		c.Reason = "Pulling"
+		c.Message = fmt.Sprintf("Actively pulling on %d node(s), %d/%d complete", nodesPulling, nodesReady, nodesTargeted)
+	case phase == phaseReady:
+		c.Status = metav1.ConditionFalse
+		c.Reason = "Complete"
+		c.Message = "All pulls complete"
+	case phase == phaseDegraded:
+		c.Status = metav1.ConditionFalse
+		c.Reason = "Stalled"
+		c.Message = fmt.Sprintf("Pull stalled: %d/%d nodes ready, retrying with backoff", nodesReady, nodesTargeted)
+	default:
+		c.Status = metav1.ConditionFalse
+		c.Reason = "Idle"
+		c.Message = "Waiting to start pulls"
+	}
+	return c
 }
 
 // filterNodesByTolerations returns nodes whose taints are tolerated.

@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // DiscoveryPolicySpec defines the desired state of DiscoveryPolicy.
@@ -152,5 +153,8 @@ type DiscoveryPolicyList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&DiscoveryPolicy{}, &DiscoveryPolicyList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &DiscoveryPolicy{}, &DiscoveryPolicyList{})
+		return nil
+	})
 }

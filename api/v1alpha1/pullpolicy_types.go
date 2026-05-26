@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // PullPolicySpec defines pacing and behavior configuration for image pulls.
@@ -80,5 +81,8 @@ type PullPolicyList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&PullPolicy{}, &PullPolicyList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &PullPolicy{}, &PullPolicyList{})
+		return nil
+	})
 }

@@ -40,11 +40,12 @@ Controller: internal/controller/cachedimage_controller.go | Test: internal/contr
 | ResolvedDigest | `resolvedDigest` | `string` | ResolvedDigest is the sha256 digest of the image as reported by the container runtime after pull. |
 | NodesTargeted | `nodesTargeted` | `int32` | NodesTargeted is the number of nodes that should have this image. |
 | NodesReady | `nodesReady` | `int32` | NodesReady is the number of nodes that have successfully pulled the image. |
+| NodesPulling | `nodesPulling` | `int32` | NodesPulling is the number of nodes currently pulling the image. |
 | CachedNodes | `cachedNodes` | `[]string` | CachedNodes is the list of node names that have successfully cached the image. |
 | ConsecutiveFailures | `consecutiveFailures` | `int32` | ConsecutiveFailures counts sequential reconcile failures for backoff calculation. |
 | LastPulledAt | `lastPulledAt` | `*metav1.Time` | LastPulledAt is the timestamp of the most recent successful pull. |
 | LastAttemptedAt | `lastAttemptedAt` | `*metav1.Time` | LastAttemptedAt is the timestamp of the most recent pull attempt (success or failure). |
-| Conditions | `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. |
+| Conditions | `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. Condition types: Ready, PullProgress. |
 
 
 ### CachedImageSet
@@ -240,6 +241,9 @@ graph LR
 | `drop_reconcile_total` | counter | Total number of reconciliation attempts. |
 | `drop_discovery_source_health` | gauge | Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy). |
 | `drop_discovery_source_latency_seconds` | histogram | Latency of discovery source queries in seconds. |
+| `drop_nodes_targeted` | gauge | Number of nodes targeted by each CachedImage resource. |
+| `drop_nodes_cached` | gauge | Number of nodes where the image is successfully cached. |
+| `drop_consecutive_failures` | gauge | Current number of consecutive pull failures for a CachedImage. |
 
 ## Sample CRs
 

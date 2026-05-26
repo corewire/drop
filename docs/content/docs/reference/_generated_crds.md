@@ -57,11 +57,12 @@ CachedImage is the Schema for the cachedimages API.
 | `resolvedDigest` | `string` | ResolvedDigest is the sha256 digest of the image as reported by the container runtime after pull. |
 | `nodesTargeted` | `int32` | NodesTargeted is the number of nodes that should have this image. |
 | `nodesReady` | `int32` | NodesReady is the number of nodes that have successfully pulled the image. |
+| `nodesPulling` | `int32` | NodesPulling is the number of nodes currently pulling the image. |
 | `cachedNodes` | `[]string` | CachedNodes is the list of node names that have successfully cached the image. |
 | `consecutiveFailures` | `int32` | ConsecutiveFailures counts sequential reconcile failures for backoff calculation. |
 | `lastPulledAt` | `*metav1.Time` | LastPulledAt is the timestamp of the most recent successful pull. |
 | `lastAttemptedAt` | `*metav1.Time` | LastAttemptedAt is the timestamp of the most recent pull attempt (success or failure). |
-| `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. |
+| `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. Condition types: Ready, PullProgress. |
 
 ---
 
