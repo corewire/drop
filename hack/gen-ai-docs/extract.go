@@ -284,7 +284,19 @@ func extractPackages(root, module string) []Package {
 
 var reasonAssignRe = regexp.MustCompile(`(?:\.Reason|Reason)\s*[:=]\s*"([A-Z][a-zA-Z]+)"`)
 var reasonConstRe = regexp.MustCompile(`reason\w+\s*=\s*"([A-Z][a-zA-Z]+)"`)
-var messageRe = regexp.MustCompile(`\.Message\s*=\s*"([^"]+)"`)
+var messageLiteralRe = regexp.MustCompile(`\.Message\s*=\s*"([^"]+)"`)
+var messageSprintfRe = regexp.MustCompile(`\.Message\s*=\s*fmt\.Sprintf\(\s*"([^"]+)"`)
+var fmtVerbRe = regexp.MustCompile(`%[+\-#0 ]*[0-9*]*\.?[0-9*]*[vTtbcdoOqxXUeEfFgGspw]`)
+
+// cleanFormatString strips Go fmt verbs from a format string to produce a human-readable description.
+func cleanFormatString(s string) string {
+	cleaned := fmtVerbRe.ReplaceAllString(s, "N")
+	// Collapse multiple spaces left by replacements
+	for strings.Contains(cleaned, "  ") {
+		cleaned = strings.ReplaceAll(cleaned, "  ", " ")
+	}
+	return strings.TrimSpace(cleaned)
+}
 
 // extractErrorReasons scans controller source files for Reason assignments/constants
 // and extracts the associated Message string (if found within 3 lines).
@@ -328,11 +340,15 @@ func extractErrorReasons(root string) []ErrorReason {
 			}
 			seen[kind+"/"+r] = true
 
-			// Try to find .Message = "..." on nearby lines
+			// Try to find .Message = "..." or .Message = fmt.Sprintf("...") on same or next 2 lines
 			meaning := ""
-			for j := i + 1; j < len(lines) && j <= i+3; j++ {
-				if mm := messageRe.FindStringSubmatch(lines[j]); mm != nil {
-					meaning = mm[1]
+			for j := i; j <= i+2 && j < len(lines); j++ {
+				if mm := messageLiteralRe.FindStringSubmatch(lines[j]); mm != nil {
+					meaning = cleanFormatString(mm[1])
+					break
+				}
+				if mm := messageSprintfRe.FindStringSubmatch(lines[j]); mm != nil {
+					meaning = cleanFormatString(mm[1])
 					break
 				}
 			}
@@ -464,97 +480,6 @@ func extractMakeTargets(path string) []MakeTarget {
 		}
 	}
 	return targets
-}
-
-// ─── Sample Parsing ──────────────────────────────────────────────────────────
-
-// parseSampleGroups splits dev-samples.yaml on "---" separators, reads the `kind:`
-// field from each YAML document, and groups them by kind. Descriptions are derived
-// from CRD doc strings — no hardcoded list needed.
-func parseSampleGroups(raw string, crds []CRD) []SampleGroup {
-	crdDocs := map[string]string{}
-	for _, c := range crds {
-		crdDocs[c.Kind] = c.Doc
-	}
-
-	// Split on YAML document separators
-	docs := splitYAMLDocs(raw)
-
-	// Group documents by kind
-	kindGroups := map[string]*SampleGroup{}
-	var kindOrder []string
-
-	for _, doc := range docs {
-		kind := extractYAMLKind(doc)
-		if kind == "" {
-			kind = "Other"
-		}
-		if _, exists := kindGroups[kind]; !exists {
-			kindGroups[kind] = &SampleGroup{Title: kind, Description: crdDocs[kind]}
-			kindOrder = append(kindOrder, kind)
-		}
-		g := kindGroups[kind]
-		if g.YAML != "" {
-			g.YAML += "\n---\n"
-		}
-		g.YAML += doc
-	}
-
-	groups := make([]SampleGroup, 0, len(kindOrder))
-	for _, kind := range kindOrder {
-		groups = append(groups, *kindGroups[kind])
-	}
-	return groups
-}
-
-// splitYAMLDocs splits a multi-document YAML file on "---" lines,
-// strips comments and blank lines around each doc, and returns non-empty documents.
-func splitYAMLDocs(raw string) []string {
-	var docs []string
-	var current []string
-
-	for _, line := range strings.Split(raw, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "---" {
-			if doc := joinAndClean(current); doc != "" {
-				docs = append(docs, doc)
-			}
-			current = nil
-			continue
-		}
-		current = append(current, line)
-	}
-	if doc := joinAndClean(current); doc != "" {
-		docs = append(docs, doc)
-	}
-	return docs
-}
-
-// joinAndClean joins lines, strips leading comment-only lines, and trims whitespace.
-func joinAndClean(lines []string) string {
-	// Drop leading comment/blank lines (section headers like "# === PullPolicy ===")
-	start := 0
-	for start < len(lines) {
-		t := strings.TrimSpace(lines[start])
-		if t == "" || strings.HasPrefix(t, "#") {
-			start++
-		} else {
-			break
-		}
-	}
-	result := strings.TrimSpace(strings.Join(lines[start:], "\n"))
-	return result
-}
-
-// extractYAMLKind reads the `kind:` field from a YAML document without full unmarshaling.
-var kindLineRe = regexp.MustCompile(`(?m)^kind:\s*(\S+)`)
-
-func extractYAMLKind(doc string) string {
-	m := kindLineRe.FindStringSubmatch(doc)
-	if m == nil {
-		return ""
-	}
-	return m[1]
 }
 
 // ─── AST Helpers ─────────────────────────────────────────────────────────────

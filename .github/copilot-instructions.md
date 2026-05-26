@@ -29,15 +29,10 @@ make docs-gen      # regenerate AI docs from source
 
 ## Code Conventions
 
-- All CRDs are cluster-scoped
-- Status uses metav1.Condition with type "Ready"
 - No privileged containers — kubelet-based image pulls only
 - Single responsibility reconcilers — one controller per CRD
 - Pod builder is a pure function in internal/podbuilder/ (no k8s client)
 - Pacing logic lives exclusively in internal/pacing/
-- ownerReferences: CachedImageSet→CachedImage, controller→Pod
-- Table-driven tests preferred; envtest for controllers
-- Pods use nodeName placement + command: ["true"]
 - Don't manually edit generated files — run make docs-gen
 
 ## Testing Patterns

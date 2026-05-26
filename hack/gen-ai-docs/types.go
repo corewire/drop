@@ -17,7 +17,6 @@ type Knowledge struct {
 	Metrics       []Metric      `yaml:"metrics"`
 	MakeTargets   []MakeTarget  `yaml:"makeTargets"`
 	Samples       string        `yaml:"samples"`
-	SampleGroups  []SampleGroup `yaml:"sampleGroups,omitempty"`
 }
 
 // Project holds top-level project metadata.
@@ -100,13 +99,6 @@ type Metric struct {
 type MakeTarget struct {
 	Name string `yaml:"name"`
 	Desc string `yaml:"desc"`
-}
-
-// SampleGroup represents a group of related example manifests for the examples page.
-type SampleGroup struct {
-	Title       string `yaml:"title"`
-	Description string `yaml:"description"`
-	YAML        string `yaml:"yaml"`
 }
 
 // OutputTarget defines a single generated file: where to write it and which template to use.

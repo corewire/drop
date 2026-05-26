@@ -17,23 +17,23 @@ All drop CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` field 
 
 | Reason | Controller | Meaning | How to Fix |
 |--------|-----------|---------|------------|
-| **Cached** | CachedImage |  | — |
+| **Cached** | CachedImage | Image cached on all N target nodes | — |
 | **Complete** | CachedImage | All pulls complete | — |
 | **Idle** | CachedImage | Waiting to start pulls | — |
-| **InProgress** | CachedImage |  | — |
-| **PullFailed** | CachedImage |  | — |
-| **Pulling** | CachedImage |  | — |
-| **Stalled** | CachedImage |  | — |
-| **Degraded** | CachedImageSet |  | — |
-| **Progressing** | CachedImageSet |  | — |
-| **Ready** | CachedImageSet |  | — |
+| **InProgress** | CachedImage | N/N nodes ready | — |
+| **PullFailed** | CachedImage | N/N nodes ready | — |
+| **Pulling** | CachedImage | Actively pulling on N node(s), N/N complete | — |
+| **Stalled** | CachedImage | Pull stalled: N/N nodes ready, retrying with backoff | — |
+| **Degraded** | CachedImageSet | N/N images cached, failing: N | — |
+| **Progressing** | CachedImageSet | N/N images cached | — |
+| **Ready** | CachedImageSet | All N images are cached | — |
 | **AllSourcesHealthy** | DiscoveryPolicy | All discovery sources responded successfully | — |
 | **ConnectionRefused** | DiscoveryPolicy |  | — |
 | **DNSError** | DiscoveryPolicy |  | — |
-| **PartiallyFailed** | DiscoveryPolicy |  | — |
+| **PartiallyFailed** | DiscoveryPolicy | Discovered N images, but some sources failed: N | — |
 | **SourceError** | DiscoveryPolicy | One or more sources failed to respond | — |
 | **SyncFailed** | DiscoveryPolicy |  | — |
-| **Synced** | DiscoveryPolicy |  | — |
+| **Synced** | DiscoveryPolicy | Discovered N images | — |
 
 ## By Controller
 
@@ -41,21 +41,21 @@ All drop CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` field 
 
 | Reason | Meaning |
 |--------|---------|
-| **Cached** |  |
+| **Cached** | Image cached on all N target nodes |
 | **Complete** | All pulls complete |
 | **Idle** | Waiting to start pulls |
-| **InProgress** |  |
-| **PullFailed** |  |
-| **Pulling** |  |
-| **Stalled** |  |
+| **InProgress** | N/N nodes ready |
+| **PullFailed** | N/N nodes ready |
+| **Pulling** | Actively pulling on N node(s), N/N complete |
+| **Stalled** | Pull stalled: N/N nodes ready, retrying with backoff |
 
 ### CachedImageSet
 
 | Reason | Meaning |
 |--------|---------|
-| **Degraded** |  |
-| **Progressing** |  |
-| **Ready** |  |
+| **Degraded** | N/N images cached, failing: N |
+| **Progressing** | N/N images cached |
+| **Ready** | All N images are cached |
 
 ### DiscoveryPolicy
 
@@ -64,7 +64,7 @@ All drop CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` field 
 | **AllSourcesHealthy** | All discovery sources responded successfully |
 | **ConnectionRefused** |  |
 | **DNSError** |  |
-| **PartiallyFailed** |  |
+| **PartiallyFailed** | Discovered N images, but some sources failed: N |
 | **SourceError** | One or more sources failed to respond |
 | **SyncFailed** |  |
-| **Synced** |  |
+| **Synced** | Discovered N images |

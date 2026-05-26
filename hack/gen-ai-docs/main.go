@@ -31,7 +31,7 @@ func main() {
 	writeKnowledgeYAML(root, k)
 	renderAll(root, k)
 
-	fmt.Println("✓ Generated: knowledge.yaml + llms.txt + llms-full.txt + agent instructions + Hugo reference pages + examples + doc-generation.md")
+	fmt.Println("✓ Generated: knowledge.yaml + llms.txt + llms-full.txt + agent instructions + Hugo reference pages")
 }
 
 // buildKnowledge assembles the full knowledge model from source code and config.
@@ -52,7 +52,6 @@ func buildKnowledge(root string) Knowledge {
 		Metrics:       extractMetrics(filepath.Join(root, "internal", "metrics", "metrics.go")),
 		MakeTargets:   extractMakeTargets(filepath.Join(root, "Makefile")),
 		Samples:       samples,
-		SampleGroups:  parseSampleGroups(samples, crds),
 	}
 }
 
