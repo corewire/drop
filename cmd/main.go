@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
@@ -203,16 +204,16 @@ func main() {
 		// resync intervals for stable resources (Nodes change infrequently) and shorter
 		// intervals for our own CRDs where timely reconciliation matters.
 		Cache: cache.Options{
-			SyncPeriod: ptr(10 * time.Minute), // default for all types
+			SyncPeriod: ptr.To(10 * time.Minute), // default for all types
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Node{}: {
-					SyncPeriod: ptr(30 * time.Minute), // nodes rarely change
+					SyncPeriod: ptr.To(30 * time.Minute), // nodes rarely change
 				},
 				&dropv1alpha1.CachedImage{}: {
-					SyncPeriod: ptr(5 * time.Minute), // CRDs: tighter resync
+					SyncPeriod: ptr.To(5 * time.Minute), // CRDs: tighter resync
 				},
 				&dropv1alpha1.CachedImageSet{}: {
-					SyncPeriod: ptr(5 * time.Minute),
+					SyncPeriod: ptr.To(5 * time.Minute),
 				},
 			},
 		},
@@ -284,9 +285,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-// ptr returns a pointer to the given value.
-func ptr[T any](v T) *T {
-	return &v
 }
