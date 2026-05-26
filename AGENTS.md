@@ -3,15 +3,16 @@
 ## Critical Rules
 
 1. ALWAYS read project files (Tiltfile, Makefile, source) before acting. Never guess.
-2. Documentation: short, concise, high-level. No volatile details.
-3. Simplicity over complexity. DRY is NOT always best. No premature optimization.
-4. Kubernetes: use kubectl explain or read CRD types before suggesting specs.
-5. Security: never expose secrets in code or docs.
-6. Tilt handles the dev loop. `tilt up` does everything. Don't suggest manual commands for automated steps.
+2. Simplicity over complexity. DRY is NOT always best.
+3. Kubernetes: use kubectl explain or read CRD types before suggesting specs.
+4. Never expose secrets in code or docs.
+5. `tilt up` handles the dev loop — don't suggest manual commands for automated steps.
+6. Never edit generated files directly — run `make docs-gen`.
 
 ## Project: drop
 
 Kubernetes operator (Go 1.26.0) that pre-caches container images on cluster nodes.
+API group: `drop.corewire.io/v1alpha1` (cluster-scoped). Framework: Kubebuilder + controller-runtime.
 
 ## Quick Start
 
@@ -22,44 +23,30 @@ make test          # unit tests
 make docs-gen      # regenerate AI docs
 ```
 
-## Architecture
-
-- API group: `drop.corewire.io/v1alpha1` (cluster-scoped)
-- Framework: Kubebuilder + controller-runtime
-- Pull mechanism: short-lived Pods with `nodeName` + `command: ["true"]`
-
 ## CRDs
 
 | Kind | Purpose |
 |------|---------|
-| CachedImage | CachedImage is the Schema for the cachedimages API. |
-| CachedImageSet | CachedImageSet is the Schema for the cachedimagesets API. |
-| PullPolicy | PullPolicy is the Schema for the pullpolicies API. It is a configuration-only resource with no status. |
-| DiscoveryPolicy | DiscoveryPolicy is the Schema for the discoverypolicies API. |
+| CachedImage | CachedImage ensures a single container image is pre-cached on cluster nodes. |
+| CachedImageSet | CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy. |
+| DiscoveryPolicy | DiscoveryPolicy automatically discovers images from registries or Prometheus metrics. |
+| PullPolicy | PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes. It is a configuration-only resource with no status. |
 
 ## Key Directories
 
 | Path | Contents |
 |------|----------|
 | api/v1alpha1 | Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group. |
-| internal/controller | Reconciler implementations (one per CRD) |
-| internal/discovery | Discovery source interface + implementations |
-| internal/metrics | Prometheus metrics registration |
-| internal/pacing | Shared pacing engine for rate-limited pulls |
-| internal/podbuilder | Pure Pod construction function (no k8s client) |
+| internal/controller | Package controller implements Kubernetes reconcilers for the drop CRDs (one per Kind). |
+| internal/discovery | Package discovery implements image discovery from registries and Prometheus metrics. |
+| internal/metrics | Package metrics registers Prometheus metrics for the drop operator. |
+| internal/pacing | Package pacing implements the shared rate-limiting engine for image pull scheduling. |
+| internal/podbuilder | Package podbuilder constructs pull Pods as a pure function (no Kubernetes client dependency). |
 | charts/drop/ | Helm chart |
 | test/e2e/ | Chainsaw E2E tests |
 | hack/gen-ai-docs/ | This doc generator |
 
-## Rules
+## References
 
-1. Run `make codegen` after changing api/v1alpha1/ types
-2. Run `make docs-gen` after changing types or Makefile (regenerates this file)
-3. Never edit generated files directly
-4. All CRDs are cluster-scoped — no namespaced resources
-5. No privileged containers — kubelet-based image pulls only
-6. Status uses `metav1.Condition` with type "Ready"
-
-## Full Reference
-
-See [llms-full.txt](llms-full.txt) for complete CRD field documentation.
+- [llms-full.txt](llms-full.txt) — complete CRD fields, error reasons, metrics, samples
+- [.github/copilot-instructions.md](.github/copilot-instructions.md) — conventions, testing patterns, package graph, don'ts

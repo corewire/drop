@@ -7,14 +7,14 @@
 - **Module**: github.com/Breee/drop
 - **API Group**: drop.corewire.io/v1alpha1
 - **Scope**: All CRDs cluster-scoped
-- **License**: Apache-2.0
+- **License**: MIT
 - **Framework**: Kubebuilder / controller-runtime
 
 ## CRD Field Reference
 
 ### CachedImage
 
-CachedImage is the Schema for the cachedimages API.
+CachedImage ensures a single container image is pre-cached on cluster nodes.
 
 Controller: internal/controller/cachedimage_controller.go | Test: internal/controller/cachedimage_controller_test.go
 
@@ -50,7 +50,7 @@ Controller: internal/controller/cachedimage_controller.go | Test: internal/contr
 
 ### CachedImageSet
 
-CachedImageSet is the Schema for the cachedimagesets API.
+CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy.
 
 Controller: internal/controller/cachedimageset_controller.go | Test: internal/controller/cachedimageset_controller_test.go
 
@@ -75,24 +75,9 @@ Controller: internal/controller/cachedimageset_controller.go | Test: internal/co
 | Conditions | `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. |
 
 
-### PullPolicy
-
-PullPolicy is the Schema for the pullpolicies API. It is a configuration-only resource with no status.
-
-#### Spec
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| MaxConcurrentNodes | `maxConcurrentNodes` | `int32` | — | `1` | MaxConcurrentNodes is the max nodes pulling simultaneously for this policy. |
-| MinDelayBetweenPulls | `minDelayBetweenPulls` | `metav1.Duration` | — | `10s` | MinDelayBetweenPulls is the minimum time between starting pulls on different nodes. |
-| FailureBackoff | `failureBackoff` | `*BackoffConfig` | — |  | FailureBackoff configures retry delays on pull failures. |
-| RepullInterval | `repullInterval` | `*metav1.Duration` | — |  | RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull. |
-| NodeSelector | `nodeSelector` | `map[string]string` | — |  | NodeSelector scopes this policy to a specific node pool. |
-| Tolerations | `tolerations` | `[]corev1.Toleration` | — |  | Tolerations match tainted nodes in the pool. |
-
-
 ### DiscoveryPolicy
 
-DiscoveryPolicy is the Schema for the discoverypolicies API.
+DiscoveryPolicy automatically discovers images from registries or Prometheus metrics.
 
 Controller: internal/controller/discoverypolicy_controller.go | Test: internal/controller/discoverypolicy_controller_test.go
 
@@ -114,34 +99,23 @@ Controller: internal/controller/discoverypolicy_controller.go | Test: internal/c
 | Conditions | `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. |
 
 
+### PullPolicy
+
+PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes. It is a configuration-only resource with no status.
+
+#### Spec
+| Field | JSON | Type | Required | Default | Description |
+|-------|------|------|----------|---------|-------------|
+| MaxConcurrentNodes | `maxConcurrentNodes` | `int32` | — | `1` | MaxConcurrentNodes is the max nodes pulling simultaneously for this policy. |
+| MinDelayBetweenPulls | `minDelayBetweenPulls` | `metav1.Duration` | — | `10s` | MinDelayBetweenPulls is the minimum time between starting pulls on different nodes. |
+| FailureBackoff | `failureBackoff` | `*BackoffConfig` | — |  | FailureBackoff configures retry delays on pull failures. |
+| RepullInterval | `repullInterval` | `*metav1.Duration` | — |  | RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull. |
+| NodeSelector | `nodeSelector` | `map[string]string` | — |  | NodeSelector scopes this policy to a specific node pool. |
+| Tolerations | `tolerations` | `[]corev1.Toleration` | — |  | Tolerations match tainted nodes in the pool. |
+
+
 
 ## Helper Types
-
-### PolicyReference
-
-PolicyReference is a reference to a PullPolicy resource.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| Name | `name` | `string` | ✓ |  | Name of the PullPolicy resource. |
-
-### DiscoveryPolicyReference
-
-DiscoveryPolicyReference is a reference to a DiscoveryPolicy resource.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| Name | `name` | `string` | ✓ |  | Name of the DiscoveryPolicy resource. |
-
-### ImageEntry
-
-ImageEntry defines a single image to include in a set.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| Image | `image` | `string` | ✓ |  | Image is the fully qualified image reference (registry/repository). |
-| Tag | `tag` | `string` | — |  | Tag to pull. |
-| Digest | `digest` | `string` | — |  | Digest to pull. |
 
 ### BackoffConfig
 
@@ -151,6 +125,24 @@ BackoffConfig defines retry backoff behavior.
 |-------|------|------|----------|---------|-------------|
 | Initial | `initial` | `metav1.Duration` | — | `30s` | Initial delay before first retry. |
 | Max | `max` | `metav1.Duration` | — | `5m` | Max delay cap for exponential backoff. |
+
+### DiscoveredImage
+
+DiscoveredImage represents a single discovered image with metadata.
+
+| Field | JSON | Type | Required | Default | Description |
+|-------|------|------|----------|---------|-------------|
+| Image | `image` | `string` | ✓ |  | Image is the fully qualified image reference. |
+| Score | `score` | `int64` | ✓ |  | Score is the ranking score from the source (higher = more relevant). |
+| Source | `source` | `string` | ✓ |  | Source identifies which discovery source produced this image. |
+
+### DiscoveryPolicyReference
+
+DiscoveryPolicyReference is a reference to a DiscoveryPolicy resource.
+
+| Field | JSON | Type | Required | Default | Description |
+|-------|------|------|----------|---------|-------------|
+| Name | `name` | `string` | ✓ |  | Name of the DiscoveryPolicy resource. |
 
 ### DiscoverySource
 
@@ -162,6 +154,24 @@ DiscoverySource defines a single discovery backend.
 | Prometheus | `prometheus` | `*PrometheusSource` | — |  | Prometheus config (when type=prometheus). |
 | Registry | `registry` | `*RegistrySource` | — |  | Registry config (when type=registry). |
 | SecretRef | `secretRef` | `*corev1.LocalObjectReference` | — |  | SecretRef references a Secret for auth/TLS for this source. |
+
+### ImageEntry
+
+ImageEntry defines a single image to include in a set.
+
+| Field | JSON | Type | Required | Default | Description |
+|-------|------|------|----------|---------|-------------|
+| Image | `image` | `string` | ✓ |  | Image is the fully qualified image reference (registry/repository). |
+| Tag | `tag` | `string` | — |  | Tag to pull. |
+| Digest | `digest` | `string` | — |  | Digest to pull. |
+
+### PolicyReference
+
+PolicyReference is a reference to a PullPolicy resource.
+
+| Field | JSON | Type | Required | Default | Description |
+|-------|------|------|----------|---------|-------------|
+| Name | `name` | `string` | ✓ |  | Name of the PullPolicy resource. |
 
 ### PrometheusSource
 
@@ -186,48 +196,37 @@ RegistrySource defines OCI registry tag listing configuration.
 | TopX | `topX` | `int32` | — |  | TopX limits the number of tags to fetch per repository. |
 | ImageTemplate | `imageTemplate` | `string` | — |  | ImageTemplate is a Go text/template for constructing the full image reference. Available variables: .Registry, .Repository, .Tag |
 
-### DiscoveredImage
-
-DiscoveredImage represents a single discovered image with metadata.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| Image | `image` | `string` | ✓ |  | Image is the fully qualified image reference. |
-| Score | `score` | `int64` | ✓ |  | Score is the ranking score from the source (higher = more relevant). |
-| Source | `source` | `string` | ✓ |  | Source identifies which discovery source produced this image. |
-
 
 ## Relationships
 
 ```mermaid
 graph LR
-  CachedImageSet -->|owns| CachedImage
-  CachedImage -->|creates| Pod
   CachedImage -->|references| PullPolicy
   CachedImageSet -->|references| PullPolicy
   CachedImageSet -->|references| DiscoveryPolicy
-  DiscoveryPolicy -->|feeds| CachedImageSet
 ```
 
 ## Status Conditions & Error Reasons
 
 | Reason | Controller | Meaning | Troubleshooting |
 |--------|-----------|---------|-----------------|
-| Cached | CachedImage | All target nodes have the image cached |  |
-| Degraded | CachedImageSet | Some child CachedImages have failures | Check individual CachedImage statuses |
-| ErrImagePull | CachedImage | Registry unreachable or image does not exist | Verify registry DNS, image name, tag. Check network policies |
-| ImagePullBackOff | CachedImage | Repeated pull failures, kubelet is backing off | Check imagePullSecrets, registry auth. Verify image exists |
-| InProgress | CachedImage | Image pulls are actively running on some nodes |  |
-| InvalidImageName | CachedImage | The image reference is malformed | Check spec.image format: registry/repository |
-| PartiallyFailed | DiscoveryPolicy | Some discovery sources failed to sync | Check source endpoints and credentials |
-| PodFailed | CachedImage | Pull Pod failed for a non-image-pull reason | Check node health, resource limits, Pod security policies |
-| Progressing | CachedImageSet | Children are still being pulled |  |
-| PullFailed | CachedImage | One or more nodes failed to pull the image | Check image name, tag, registry connectivity, imagePullSecrets |
-| Ready | CachedImageSet | All child CachedImages are ready |  |
-| RegistryUnavailable | CachedImage | Cannot connect to the container registry | Check registry URL, DNS, firewall rules |
-| SourceError | DiscoveryPolicy | One or more discovery sources returned errors | Check source configuration and connectivity |
-| SyncFailed | DiscoveryPolicy | All discovery sources failed | Check all source endpoints, credentials, network |
-| Synced | DiscoveryPolicy | All sources synced successfully |  |
+| Cached | CachedImage |  |  |
+| Complete | CachedImage | All pulls complete |  |
+| Idle | CachedImage | Waiting to start pulls |  |
+| InProgress | CachedImage |  |  |
+| PullFailed | CachedImage |  |  |
+| Pulling | CachedImage |  |  |
+| Stalled | CachedImage |  |  |
+| Degraded | CachedImageSet |  |  |
+| Progressing | CachedImageSet |  |  |
+| Ready | CachedImageSet |  |  |
+| AllSourcesHealthy | DiscoveryPolicy | All discovery sources responded successfully |  |
+| ConnectionRefused | DiscoveryPolicy |  |  |
+| DNSError | DiscoveryPolicy |  |  |
+| PartiallyFailed | DiscoveryPolicy |  |  |
+| SourceError | DiscoveryPolicy | One or more sources failed to respond |  |
+| SyncFailed | DiscoveryPolicy |  |  |
+| Synced | DiscoveryPolicy |  |  |
 
 ## Metrics
 

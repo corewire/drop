@@ -29,7 +29,7 @@ spec:
 
 ## CachedImage
 
-CachedImage is the Schema for the cachedimages API.
+CachedImage ensures a single container image is pre-cached on cluster nodes.
 
 **Controller:** `internal/controller/cachedimage_controller.go`
 
@@ -68,7 +68,7 @@ CachedImage is the Schema for the cachedimages API.
 
 ## CachedImageSet
 
-CachedImageSet is the Schema for the cachedimagesets API.
+CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy.
 
 **Controller:** `internal/controller/cachedimageset_controller.go`
 
@@ -96,26 +96,9 @@ CachedImageSet is the Schema for the cachedimagesets API.
 
 ---
 
-## PullPolicy
-
-PullPolicy is the Schema for the pullpolicies API. It is a configuration-only resource with no status.
-
-### Spec
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `maxConcurrentNodes` | `int32` | No | 1 | MaxConcurrentNodes is the max nodes pulling simultaneously for this policy. |
-| `minDelayBetweenPulls` | `metav1.Duration` | No | 10s | MinDelayBetweenPulls is the minimum time between starting pulls on different nodes. |
-| `failureBackoff` | `*BackoffConfig` | No | — | FailureBackoff configures retry delays on pull failures. |
-| `repullInterval` | `*metav1.Duration` | No | — | RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull. |
-| `nodeSelector` | `map[string]string` | No | — | NodeSelector scopes this policy to a specific node pool. |
-| `tolerations` | `[]corev1.Toleration` | No | — | Tolerations match tainted nodes in the pool. |
-
----
-
 ## DiscoveryPolicy
 
-DiscoveryPolicy is the Schema for the discoverypolicies API.
+DiscoveryPolicy automatically discovers images from registries or Prometheus metrics.
 
 **Controller:** `internal/controller/discoverypolicy_controller.go`
 
@@ -140,34 +123,25 @@ DiscoveryPolicy is the Schema for the discoverypolicies API.
 
 ---
 
+## PullPolicy
+
+PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes. It is a configuration-only resource with no status.
+
+### Spec
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `maxConcurrentNodes` | `int32` | No | 1 | MaxConcurrentNodes is the max nodes pulling simultaneously for this policy. |
+| `minDelayBetweenPulls` | `metav1.Duration` | No | 10s | MinDelayBetweenPulls is the minimum time between starting pulls on different nodes. |
+| `failureBackoff` | `*BackoffConfig` | No | — | FailureBackoff configures retry delays on pull failures. |
+| `repullInterval` | `*metav1.Duration` | No | — | RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull. |
+| `nodeSelector` | `map[string]string` | No | — | NodeSelector scopes this policy to a specific node pool. |
+| `tolerations` | `[]corev1.Toleration` | No | — | Tolerations match tainted nodes in the pool. |
+
+---
+
 
 ## Helper Types
-
-### PolicyReference
-
-PolicyReference is a reference to a PullPolicy resource.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | `string` | Yes | — | Name of the PullPolicy resource. |
-
-### DiscoveryPolicyReference
-
-DiscoveryPolicyReference is a reference to a DiscoveryPolicy resource.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | `string` | Yes | — | Name of the DiscoveryPolicy resource. |
-
-### ImageEntry
-
-ImageEntry defines a single image to include in a set.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `image` | `string` | Yes | — | Image is the fully qualified image reference (registry/repository). |
-| `tag` | `string` | No | — | Tag to pull. |
-| `digest` | `string` | No | — | Digest to pull. |
 
 ### BackoffConfig
 
@@ -177,6 +151,24 @@ BackoffConfig defines retry backoff behavior.
 |-------|------|----------|---------|-------------|
 | `initial` | `metav1.Duration` | No | 30s | Initial delay before first retry. |
 | `max` | `metav1.Duration` | No | 5m | Max delay cap for exponential backoff. |
+
+### DiscoveredImage
+
+DiscoveredImage represents a single discovered image with metadata.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `image` | `string` | Yes | — | Image is the fully qualified image reference. |
+| `score` | `int64` | Yes | — | Score is the ranking score from the source (higher = more relevant). |
+| `source` | `string` | Yes | — | Source identifies which discovery source produced this image. |
+
+### DiscoveryPolicyReference
+
+DiscoveryPolicyReference is a reference to a DiscoveryPolicy resource.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `string` | Yes | — | Name of the DiscoveryPolicy resource. |
 
 ### DiscoverySource
 
@@ -188,6 +180,24 @@ DiscoverySource defines a single discovery backend.
 | `prometheus` | `*PrometheusSource` | No | — | Prometheus config (when type=prometheus). |
 | `registry` | `*RegistrySource` | No | — | Registry config (when type=registry). |
 | `secretRef` | `*corev1.LocalObjectReference` | No | — | SecretRef references a Secret for auth/TLS for this source. |
+
+### ImageEntry
+
+ImageEntry defines a single image to include in a set.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `image` | `string` | Yes | — | Image is the fully qualified image reference (registry/repository). |
+| `tag` | `string` | No | — | Tag to pull. |
+| `digest` | `string` | No | — | Digest to pull. |
+
+### PolicyReference
+
+PolicyReference is a reference to a PullPolicy resource.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `string` | Yes | — | Name of the PullPolicy resource. |
 
 ### PrometheusSource
 
@@ -211,14 +221,4 @@ RegistrySource defines OCI registry tag listing configuration.
 | `tagFilter` | `string` | No | — | TagFilter is a regex to filter tags. |
 | `topX` | `int32` | No | — | TopX limits the number of tags to fetch per repository. |
 | `imageTemplate` | `string` | No | — | ImageTemplate is a Go text/template for constructing the full image reference. Available variables: .Registry, .Repository, .Tag |
-
-### DiscoveredImage
-
-DiscoveredImage represents a single discovered image with metadata.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `image` | `string` | Yes | — | Image is the fully qualified image reference. |
-| `score` | `int64` | Yes | — | Score is the ranking score from the source (higher = more relevant). |
-| `source` | `string` | Yes | — | Source identifies which discovery source produced this image. |
 

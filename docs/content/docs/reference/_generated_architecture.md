@@ -15,12 +15,9 @@ llmsDescription: |
 
 ```mermaid
 graph TD
-  CachedImageSet -->|owns| CachedImage
-  CachedImage -->|creates| Pod
   CachedImage -->|references| PullPolicy
   CachedImageSet -->|references| PullPolicy
   CachedImageSet -->|references| DiscoveryPolicy
-  DiscoveryPolicy -->|feeds| CachedImageSet
 ```
 
 ## Package Dependencies
@@ -44,8 +41,8 @@ graph LR
 |-----|-----------|--------------|
 | CachedImage | `internal/controller/cachedimage_controller.go` | podbuilder, pacing, metrics |
 | CachedImageSet | `internal/controller/cachedimageset_controller.go` | podbuilder, pacing, metrics |
-| PullPolicy | (config-only) |  |
 | DiscoveryPolicy | `internal/controller/discoverypolicy_controller.go` | podbuilder, pacing, metrics |
+| PullPolicy | (config-only) |  |
 
 ## Pull Mechanism
 

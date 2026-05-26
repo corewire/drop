@@ -17,21 +17,23 @@ All drop CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` field 
 
 | Reason | Controller | Meaning | How to Fix |
 |--------|-----------|---------|------------|
-| **Cached** | CachedImage | All target nodes have the image cached | — |
-| **Degraded** | CachedImageSet | Some child CachedImages have failures | Check individual CachedImage statuses |
-| **ErrImagePull** | CachedImage | Registry unreachable or image does not exist | Verify registry DNS, image name, tag. Check network policies |
-| **ImagePullBackOff** | CachedImage | Repeated pull failures, kubelet is backing off | Check imagePullSecrets, registry auth. Verify image exists |
-| **InProgress** | CachedImage | Image pulls are actively running on some nodes | — |
-| **InvalidImageName** | CachedImage | The image reference is malformed | Check spec.image format: registry/repository |
-| **PartiallyFailed** | DiscoveryPolicy | Some discovery sources failed to sync | Check source endpoints and credentials |
-| **PodFailed** | CachedImage | Pull Pod failed for a non-image-pull reason | Check node health, resource limits, Pod security policies |
-| **Progressing** | CachedImageSet | Children are still being pulled | — |
-| **PullFailed** | CachedImage | One or more nodes failed to pull the image | Check image name, tag, registry connectivity, imagePullSecrets |
-| **Ready** | CachedImageSet | All child CachedImages are ready | — |
-| **RegistryUnavailable** | CachedImage | Cannot connect to the container registry | Check registry URL, DNS, firewall rules |
-| **SourceError** | DiscoveryPolicy | One or more discovery sources returned errors | Check source configuration and connectivity |
-| **SyncFailed** | DiscoveryPolicy | All discovery sources failed | Check all source endpoints, credentials, network |
-| **Synced** | DiscoveryPolicy | All sources synced successfully | — |
+| **Cached** | CachedImage |  | — |
+| **Complete** | CachedImage | All pulls complete | — |
+| **Idle** | CachedImage | Waiting to start pulls | — |
+| **InProgress** | CachedImage |  | — |
+| **PullFailed** | CachedImage |  | — |
+| **Pulling** | CachedImage |  | — |
+| **Stalled** | CachedImage |  | — |
+| **Degraded** | CachedImageSet |  | — |
+| **Progressing** | CachedImageSet |  | — |
+| **Ready** | CachedImageSet |  | — |
+| **AllSourcesHealthy** | DiscoveryPolicy | All discovery sources responded successfully | — |
+| **ConnectionRefused** | DiscoveryPolicy |  | — |
+| **DNSError** | DiscoveryPolicy |  | — |
+| **PartiallyFailed** | DiscoveryPolicy |  | — |
+| **SourceError** | DiscoveryPolicy | One or more sources failed to respond | — |
+| **SyncFailed** | DiscoveryPolicy |  | — |
+| **Synced** | DiscoveryPolicy |  | — |
 
 ## By Controller
 
@@ -39,28 +41,30 @@ All drop CRDs use `metav1.Condition` with type **"Ready"**. The `.reason` field 
 
 | Reason | Meaning |
 |--------|---------|
-| **Cached** | All target nodes have the image cached |
-| **ErrImagePull** | Registry unreachable or image does not exist |
-| **ImagePullBackOff** | Repeated pull failures, kubelet is backing off |
-| **InProgress** | Image pulls are actively running on some nodes |
-| **InvalidImageName** | The image reference is malformed |
-| **PodFailed** | Pull Pod failed for a non-image-pull reason |
-| **PullFailed** | One or more nodes failed to pull the image |
-| **RegistryUnavailable** | Cannot connect to the container registry |
+| **Cached** |  |
+| **Complete** | All pulls complete |
+| **Idle** | Waiting to start pulls |
+| **InProgress** |  |
+| **PullFailed** |  |
+| **Pulling** |  |
+| **Stalled** |  |
 
 ### CachedImageSet
 
 | Reason | Meaning |
 |--------|---------|
-| **Degraded** | Some child CachedImages have failures |
-| **Progressing** | Children are still being pulled |
-| **Ready** | All child CachedImages are ready |
+| **Degraded** |  |
+| **Progressing** |  |
+| **Ready** |  |
 
 ### DiscoveryPolicy
 
 | Reason | Meaning |
 |--------|---------|
-| **PartiallyFailed** | Some discovery sources failed to sync |
-| **SourceError** | One or more discovery sources returned errors |
-| **SyncFailed** | All discovery sources failed |
-| **Synced** | All sources synced successfully |
+| **AllSourcesHealthy** | All discovery sources responded successfully |
+| **ConnectionRefused** |  |
+| **DNSError** |  |
+| **PartiallyFailed** |  |
+| **SourceError** | One or more sources failed to respond |
+| **SyncFailed** |  |
+| **Synced** |  |

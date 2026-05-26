@@ -51,22 +51,22 @@ make docs-gen      # regenerate AI docs from source
 
 | Kind | Controller | Purpose |
 |------|-----------|---------|
-| CachedImage | internal/controller/cachedimage_controller.go | CachedImage is the Schema for the cachedimages API. |
-| CachedImageSet | internal/controller/cachedimageset_controller.go | CachedImageSet is the Schema for the cachedimagesets API. |
-| PullPolicy |  | PullPolicy is the Schema for the pullpolicies API. It is a configuration-only resource with no status. |
-| DiscoveryPolicy | internal/controller/discoverypolicy_controller.go | DiscoveryPolicy is the Schema for the discoverypolicies API. |
+| CachedImage | internal/controller/cachedimage_controller.go | CachedImage ensures a single container image is pre-cached on cluster nodes. |
+| CachedImageSet | internal/controller/cachedimageset_controller.go | CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy. |
+| DiscoveryPolicy | internal/controller/discoverypolicy_controller.go | DiscoveryPolicy automatically discovers images from registries or Prometheus metrics. |
+| PullPolicy |  | PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes. It is a configuration-only resource with no status. |
 
 ## Package Dependency Graph
 
 ```
 api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group.
-internal/controller — Reconciler implementations (one per CRD)
+internal/controller — Package controller implements Kubernetes reconcilers for the drop CRDs (one per Kind).
   imports: api/v1alpha1, internal/discovery, internal/metrics, internal/pacing, internal/podbuilder
-internal/discovery — Discovery source interface + implementations
-internal/metrics — Prometheus metrics registration
-internal/pacing — Shared pacing engine for rate-limited pulls
+internal/discovery — Package discovery implements image discovery from registries and Prometheus metrics.
+internal/metrics — Package metrics registers Prometheus metrics for the drop operator.
+internal/pacing — Package pacing implements the shared rate-limiting engine for image pull scheduling.
   imports: api/v1alpha1, internal/podbuilder
-internal/podbuilder — Pure Pod construction function (no k8s client)
+internal/podbuilder — Package podbuilder constructs pull Pods as a pure function (no Kubernetes client dependency).
   imports: api/v1alpha1
 ```
 

@@ -1,6 +1,8 @@
 package main
 
 // ─── llms.txt (USE agents — short onboarding) ───────────────────────────────
+// Purpose: Discovery file. Tells agents what the project is and where to find details.
+// Should NOT duplicate llms-full.txt content (fields, errors, metrics).
 
 var llmsTxtTmpl = `# {{.Project.Name}} — {{.Project.Description}}
 
@@ -32,58 +34,23 @@ Reconcilers:
 {{- end}}
 | charts/drop/ | Helm chart |
 | test/e2e/ | Chainsaw E2E tests |
-| hack/gen-ai-docs/ | Documentation generator |
-
-## Build & Test
-
-` + "```" + `
-{{- range .MakeTargets}}
-  make {{.Name}}{{"\t"}}# {{.Desc}}
-{{- end}}
-` + "```" + `
-
-## CRD Quick Reference
-{{range .CRDs}}
-### {{.Kind}}
-
-{{.Doc}}
-
-**Spec fields:** {{range .SpecFields}}` + "`{{.JSON}}`" + `{{if .Default}} (default: {{.Default}}){{end}}, {{end}}
-{{- if .StatusFields}}
-**Status fields:** {{range .StatusFields}}` + "`{{.JSON}}`" + `, {{end}}
-{{- end}}
-{{end}}
-
-## Status Condition Reasons
-
-| Reason | Controller | Meaning |
-|--------|-----------|---------|
-{{- range .Errors}}
-| {{.Reason}} | {{.Controller}} | {{.Meaning}} |
-{{- end}}
-
-## Metrics
-
-{{- range .Metrics}}
-- ` + "`{{.Name}}`" + ` ({{.Type}}) — {{.Help}}
-{{- end}}
 
 ## Full Reference
 
-See [llms-full.txt](llms-full.txt) for complete field documentation with types and examples.
+See [llms-full.txt](llms-full.txt) for complete CRD field docs, error reasons, metrics, and sample manifests.
 
 ## Documentation Pages
 
-| Page | llmsDescription |
-|------|-----------------|
+| Page | Description |
+|------|-------------|
 | [Installation](docs/install/) | Install via Helm. Requires K8s 1.28+. |
 | [Usage](docs/usage/) | CachedImage, CachedImageSet, PullPolicy examples with YAML. |
 | [Discovery](docs/discovery/) | DiscoveryPolicy for automatic image discovery from Prometheus/OCI registries. |
 | [Monitoring](docs/monitoring/) | Prometheus metrics, Kubernetes events, and status conditions. |
-| [CRD Reference](docs/reference/crds/) | Complete field reference for all drop CRDs with types, defaults, and validation. |
-| [Status & Errors](docs/reference/errors/) | Every condition reason emitted by controllers. Diagnose why resources are not Ready. |
-| [Metrics](docs/reference/metrics/) | Prometheus metrics: names, types, descriptions, and example PromQL queries. |
-| [Architecture](docs/reference/architecture/) | Package dependency graph and CRD ownership relationships. |
+| [CRD Reference](docs/reference/crds/) | Complete field reference for all drop CRDs. |
+| [Status & Errors](docs/reference/errors/) | Every condition reason emitted by controllers. |
+| [Metrics](docs/reference/metrics/) | Prometheus metrics reference. |
+| [Architecture](docs/reference/architecture/) | Package dependency graph and CRD relationships. |
 | [Developing](docs/developing/) | Build, test, lint, project structure for contributors. |
 `
 
@@ -178,7 +145,9 @@ graph LR
 ` + "```" + `
 `
 
-// ─── .github/copilot-instructions.md (CODE agents) ──────────────────────────
+// ─── .github/copilot-instructions.md (CODE agents — primary) ────────────────
+// Purpose: Detailed coding agent instructions. The single source for conventions,
+// testing patterns, package graph, and don'ts. .cursorrules defers here.
 
 var copilotInstructionsTmpl = `# Copilot Instructions for {{.Project.Name}}
 
@@ -247,74 +216,71 @@ make docs-gen      # regenerate AI docs from source
 - Don't manually edit ` + "`llms.txt`" + `, ` + "`llms-full.txt`" + `, ` + "`.cursorrules`" + `, ` + "`AGENTS.md`" + ` — run ` + "`make docs-gen`" + `
 `
 
-// ─── .cursorrules (CODE agents) ──────────────────────────────────────────────
+// ─── .cursorrules (CODE agents — compact, defers to copilot-instructions) ───
+// Purpose: Minimal rules for Cursor. Avoids duplicating copilot-instructions.md.
 
 var cursorRulesTmpl = `# Cursor Rules for {{.Project.Name}}
 
 ## Critical Rules
 
 1. ALWAYS read project files (Tiltfile, Makefile, source) before acting. Never guess.
-2. Documentation: short, concise, high-level. No volatile details.
-3. Simplicity over complexity. DRY is NOT always best. No premature optimization.
-4. Kubernetes: use kubectl explain or read CRD types before suggesting specs.
-5. Security: never expose secrets in code or docs.
-6. Tilt handles the dev loop. tilt up does everything. Don't suggest manual commands for automated steps.
+2. Simplicity over complexity. DRY is NOT always best. No premature optimization.
+3. Kubernetes: use kubectl explain or read CRD types before suggesting specs.
+4. Security: never expose secrets in code or docs.
+5. Tilt handles the dev loop. tilt up does everything.
 
-## Project Context
+## Project
+
 Kubernetes operator (Go {{.Project.GoVersion}}, Kubebuilder, controller-runtime).
 Module: {{.Project.Module}}
 API group: {{.Project.APIGroup}}. All CRDs cluster-scoped.
-
-## Key Commands
-- Build: go build ./...
-- Test: make test
-- Lint: make lint
-- CRD gen: make manifests
-- Deepcopy gen: make generate
-- All codegen: make codegen
-- AI docs gen: make docs-gen
-
-## Structure
-{{- range .Packages}}
-- {{.Path}} — {{.Role}}
-{{- end}}
-- charts/drop/ — Helm chart
-- test/e2e/ — Chainsaw E2E tests
-- hack/gen-ai-docs/ — generates all docs from source
 
 ## CRDs → Controllers
 {{- range .CRDs}}
 - {{.Kind}}{{if .Controller}} → {{.Controller}}{{else}} (config-only, no controller){{end}}
 {{- end}}
 
-## Conventions
-{{- range .Conventions}}
-- {{.Rule}}
-{{- end}}
+## Key Commands
+
+` + "```bash" + `
+make codegen       # deepcopy + CRDs + docs
+go build ./...     # compile
+make test          # unit tests
+make lint          # golangci-lint
+make docs-gen      # regenerate AI docs
+` + "```" + `
 
 ## Don't
+
 - Edit generated files (zz_generated.deepcopy.go, config/crd/bases/, llms.txt, llms-full.txt, knowledge.yaml)
 - Add privileged containers or CRI socket mounts
 - Create namespaced CRDs
 - Put pacing logic outside internal/pacing/
+
+## Full Details
+
+See [.github/copilot-instructions.md](.github/copilot-instructions.md) for conventions, testing patterns, and package graph.
 `
 
-// ─── AGENTS.md (CODE agents — generic) ──────────────────────────────────────
+// ─── AGENTS.md (CODE agents — entry point) ──────────────────────────────────
+// Purpose: Quick orientation for any agent. Points to llms-full.txt for details.
+// Does NOT repeat conventions, package graph, or build commands (those are in copilot-instructions.md).
 
 var agentsMdTmpl = `# Agent Instructions
 
 ## Critical Rules
 
 1. ALWAYS read project files (Tiltfile, Makefile, source) before acting. Never guess.
-2. Documentation: short, concise, high-level. No volatile details.
-3. Simplicity over complexity. DRY is NOT always best. No premature optimization.
-4. Kubernetes: use kubectl explain or read CRD types before suggesting specs.
-5. Security: never expose secrets in code or docs.
-6. Tilt handles the dev loop. ` + "`tilt up`" + ` does everything. Don't suggest manual commands for automated steps.
+2. Simplicity over complexity. DRY is NOT always best.
+3. Kubernetes: use kubectl explain or read CRD types before suggesting specs.
+4. Never expose secrets in code or docs.
+5. ` + "`tilt up`" + ` handles the dev loop — don't suggest manual commands for automated steps.
+6. Never edit generated files directly — run ` + "`make docs-gen`" + `.
 
 ## Project: {{.Project.Name}}
 
 Kubernetes operator (Go {{.Project.GoVersion}}) that pre-caches container images on cluster nodes.
+API group: ` + "`{{.Project.APIGroup}}`" + ` (cluster-scoped). Framework: Kubebuilder + controller-runtime.
 
 ## Quick Start
 
@@ -324,12 +290,6 @@ go build ./...     # compile
 make test          # unit tests
 make docs-gen      # regenerate AI docs
 ` + "```" + `
-
-## Architecture
-
-- API group: ` + "`{{.Project.APIGroup}}`" + ` (cluster-scoped)
-- Framework: Kubebuilder + controller-runtime
-- Pull mechanism: short-lived Pods with ` + "`nodeName`" + ` + ` + "`command: [\"true\"]`" + `
 
 ## CRDs
 
@@ -350,18 +310,10 @@ make docs-gen      # regenerate AI docs
 | test/e2e/ | Chainsaw E2E tests |
 | hack/gen-ai-docs/ | This doc generator |
 
-## Rules
+## References
 
-1. Run ` + "`make codegen`" + ` after changing api/v1alpha1/ types
-2. Run ` + "`make docs-gen`" + ` after changing types or Makefile (regenerates this file)
-3. Never edit generated files directly
-4. All CRDs are cluster-scoped — no namespaced resources
-5. No privileged containers — kubelet-based image pulls only
-6. Status uses ` + "`metav1.Condition`" + ` with type "Ready"
-
-## Full Reference
-
-See [llms-full.txt](llms-full.txt) for complete CRD field documentation.
+- [llms-full.txt](llms-full.txt) — complete CRD fields, error reasons, metrics, samples
+- [.github/copilot-instructions.md](.github/copilot-instructions.md) — conventions, testing patterns, package graph, don'ts
 `
 
 // ─── Hugo: CRD Reference ────────────────────────────────────────────────────

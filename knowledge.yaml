@@ -8,10 +8,10 @@ project:
   apiGroup: drop.corewire.io/v1alpha1
   goVersion: 1.26.0
   module: github.com/Breee/drop
-  license: Apache-2.0
+  license: MIT
 crds:
   - kind: CachedImage
-    doc: CachedImage is the Schema for the cachedimages API.
+    doc: CachedImage ensures a single container image is pre-cached on cluster nodes.
     scope: Cluster
     controller: internal/controller/cachedimage_controller.go
     testFile: internal/controller/cachedimage_controller_test.go
@@ -132,8 +132,21 @@ crds:
         type: '[]metav1.Condition'
         required: false
         doc: 'Conditions represent the latest available observations. Condition types: Ready, PullProgress.'
+    markers:
+      - +kubebuilder:printcolumn:name="Policy",type=string,JSONPath=`.spec.policyRef.name`,priority=1
+      - +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
+      - +kubebuilder:printcolumn:name="Set",type=string,JSONPath=`.metadata.labels.drop\.corewire\.io/imageset`,description="Parent CachedImageSet",priority=1
+      - +kubebuilder:printcolumn:name="Digest",type=string,JSONPath=`.status.resolvedDigest`,priority=1
+      - +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+      - +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
+      - +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
+      - +kubebuilder:printcolumn:name="Tag",type=string,JSONPath=`.spec.tag`
+      - +kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
+      - +kubebuilder:resource:scope=Cluster,categories=drop
+      - +kubebuilder:subresource:status
+      - +kubebuilder:object:root=true
   - kind: CachedImageSet
-    doc: CachedImageSet is the Schema for the cachedimagesets API.
+    doc: CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy.
     scope: Cluster
     controller: internal/controller/cachedimageset_controller.go
     testFile: internal/controller/cachedimageset_controller_test.go
@@ -208,44 +221,18 @@ crds:
         type: '[]metav1.Condition'
         required: false
         doc: Conditions represent the latest available observations.
-  - kind: PullPolicy
-    doc: PullPolicy is the Schema for the pullpolicies API. It is a configuration-only resource with no status.
-    scope: Cluster
-    specFields:
-      - name: MaxConcurrentNodes
-        json: maxConcurrentNodes
-        type: int32
-        required: false
-        default: "1"
-        doc: MaxConcurrentNodes is the max nodes pulling simultaneously for this policy.
-      - name: MinDelayBetweenPulls
-        json: minDelayBetweenPulls
-        type: metav1.Duration
-        required: false
-        default: 10s
-        doc: MinDelayBetweenPulls is the minimum time between starting pulls on different nodes.
-      - name: FailureBackoff
-        json: failureBackoff
-        type: '*BackoffConfig'
-        required: false
-        doc: FailureBackoff configures retry delays on pull failures.
-      - name: RepullInterval
-        json: repullInterval
-        type: '*metav1.Duration'
-        required: false
-        doc: RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull.
-      - name: NodeSelector
-        json: nodeSelector
-        type: map[string]string
-        required: false
-        doc: NodeSelector scopes this policy to a specific node pool.
-      - name: Tolerations
-        json: tolerations
-        type: '[]corev1.Toleration'
-        required: false
-        doc: Tolerations match tainted nodes in the pool.
+    markers:
+      - +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+      - +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
+      - +kubebuilder:printcolumn:name="Source",type=string,JSONPath=`.spec.discoveryPolicyRef.name`
+      - +kubebuilder:printcolumn:name="Managed",type=integer,JSONPath=`.status.imagesManaged`
+      - +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.imagesReady`
+      - +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
+      - +kubebuilder:resource:scope=Cluster,categories=drop
+      - +kubebuilder:subresource:status
+      - +kubebuilder:object:root=true
   - kind: DiscoveryPolicy
-    doc: DiscoveryPolicy is the Schema for the discoverypolicies API.
+    doc: DiscoveryPolicy automatically discovers images from registries or Prometheus metrics.
     scope: Cluster
     controller: internal/controller/discoverypolicy_controller.go
     testFile: internal/controller/discoverypolicy_controller_test.go
@@ -298,41 +285,60 @@ crds:
         type: '[]metav1.Condition'
         required: false
         doc: Conditions represent the latest available observations.
+    markers:
+      - +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+      - +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
+      - +kubebuilder:printcolumn:name="LastSync",type=date,JSONPath=`.status.lastSyncTime`
+      - +kubebuilder:printcolumn:name="Images",type=integer,JSONPath=`.status.imageCount`
+      - +kubebuilder:printcolumn:name="Sources",type=integer,JSONPath=`.status.sourceCount`
+      - +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
+      - +kubebuilder:resource:scope=Cluster,categories=drop
+      - +kubebuilder:subresource:status
+      - +kubebuilder:object:root=true
+  - kind: PullPolicy
+    doc: PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes. It is a configuration-only resource with no status.
+    scope: Cluster
+    specFields:
+      - name: MaxConcurrentNodes
+        json: maxConcurrentNodes
+        type: int32
+        required: false
+        default: "1"
+        doc: MaxConcurrentNodes is the max nodes pulling simultaneously for this policy.
+      - name: MinDelayBetweenPulls
+        json: minDelayBetweenPulls
+        type: metav1.Duration
+        required: false
+        default: 10s
+        doc: MinDelayBetweenPulls is the minimum time between starting pulls on different nodes.
+      - name: FailureBackoff
+        json: failureBackoff
+        type: '*BackoffConfig'
+        required: false
+        doc: FailureBackoff configures retry delays on pull failures.
+      - name: RepullInterval
+        json: repullInterval
+        type: '*metav1.Duration'
+        required: false
+        doc: RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull.
+      - name: NodeSelector
+        json: nodeSelector
+        type: map[string]string
+        required: false
+        doc: NodeSelector scopes this policy to a specific node pool.
+      - name: Tolerations
+        json: tolerations
+        type: '[]corev1.Toleration'
+        required: false
+        doc: Tolerations match tainted nodes in the pool.
+    markers:
+      - +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+      - +kubebuilder:printcolumn:name="RepullInterval",type=string,JSONPath=`.spec.repullInterval`
+      - +kubebuilder:printcolumn:name="MinDelay",type=string,JSONPath=`.spec.minDelayBetweenPulls`
+      - +kubebuilder:printcolumn:name="MaxNodes",type=integer,JSONPath=`.spec.maxConcurrentNodes`
+      - +kubebuilder:resource:scope=Cluster,categories=drop
+      - +kubebuilder:object:root=true
 helperTypes:
-  - name: PolicyReference
-    doc: PolicyReference is a reference to a PullPolicy resource.
-    fields:
-      - name: Name
-        json: name
-        type: string
-        required: true
-        doc: Name of the PullPolicy resource.
-  - name: DiscoveryPolicyReference
-    doc: DiscoveryPolicyReference is a reference to a DiscoveryPolicy resource.
-    fields:
-      - name: Name
-        json: name
-        type: string
-        required: true
-        doc: Name of the DiscoveryPolicy resource.
-  - name: ImageEntry
-    doc: ImageEntry defines a single image to include in a set.
-    fields:
-      - name: Image
-        json: image
-        type: string
-        required: true
-        doc: Image is the fully qualified image reference (registry/repository).
-      - name: Tag
-        json: tag
-        type: string
-        required: false
-        doc: Tag to pull.
-      - name: Digest
-        json: digest
-        type: string
-        required: false
-        doc: Digest to pull.
   - name: BackoffConfig
     doc: BackoffConfig defines retry backoff behavior.
     fields:
@@ -348,6 +354,32 @@ helperTypes:
         required: false
         default: 5m
         doc: Max delay cap for exponential backoff.
+  - name: DiscoveredImage
+    doc: DiscoveredImage represents a single discovered image with metadata.
+    fields:
+      - name: Image
+        json: image
+        type: string
+        required: true
+        doc: Image is the fully qualified image reference.
+      - name: Score
+        json: score
+        type: int64
+        required: true
+        doc: Score is the ranking score from the source (higher = more relevant).
+      - name: Source
+        json: source
+        type: string
+        required: true
+        doc: Source identifies which discovery source produced this image.
+  - name: DiscoveryPolicyReference
+    doc: DiscoveryPolicyReference is a reference to a DiscoveryPolicy resource.
+    fields:
+      - name: Name
+        json: name
+        type: string
+        required: true
+        doc: Name of the DiscoveryPolicy resource.
   - name: DiscoverySource
     doc: DiscoverySource defines a single discovery backend.
     fields:
@@ -374,6 +406,32 @@ helperTypes:
         type: '*corev1.LocalObjectReference'
         required: false
         doc: SecretRef references a Secret for auth/TLS for this source.
+  - name: ImageEntry
+    doc: ImageEntry defines a single image to include in a set.
+    fields:
+      - name: Image
+        json: image
+        type: string
+        required: true
+        doc: Image is the fully qualified image reference (registry/repository).
+      - name: Tag
+        json: tag
+        type: string
+        required: false
+        doc: Tag to pull.
+      - name: Digest
+        json: digest
+        type: string
+        required: false
+        doc: Digest to pull.
+  - name: PolicyReference
+    doc: PolicyReference is a reference to a PullPolicy resource.
+    fields:
+      - name: Name
+        json: name
+        type: string
+        required: true
+        doc: Name of the PullPolicy resource.
   - name: PrometheusSource
     doc: PrometheusSource defines Prometheus query configuration.
     fields:
@@ -426,33 +484,7 @@ helperTypes:
         type: string
         required: false
         doc: 'ImageTemplate is a Go text/template for constructing the full image reference. Available variables: .Registry, .Repository, .Tag'
-  - name: DiscoveredImage
-    doc: DiscoveredImage represents a single discovered image with metadata.
-    fields:
-      - name: Image
-        json: image
-        type: string
-        required: true
-        doc: Image is the fully qualified image reference.
-      - name: Score
-        json: score
-        type: int64
-        required: true
-        doc: Score is the ranking score from the source (higher = more relevant).
-      - name: Source
-        json: source
-        type: string
-        required: true
-        doc: Source identifies which discovery source produced this image.
 relationships:
-  - from: CachedImageSet
-    to: CachedImage
-    type: owns
-    mechanism: ownerReferences
-  - from: CachedImage
-    to: Pod
-    type: creates
-    mechanism: controller-runtime client
   - from: CachedImage
     to: PullPolicy
     type: references
@@ -465,15 +497,11 @@ relationships:
     to: DiscoveryPolicy
     type: references
     mechanism: spec.discoveryPolicyRef
-  - from: DiscoveryPolicy
-    to: CachedImageSet
-    type: feeds
-    mechanism: status.discoveredImages
 packages:
   - path: api/v1alpha1
     role: Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group.
   - path: internal/controller
-    role: Reconciler implementations (one per CRD)
+    role: Package controller implements Kubernetes reconcilers for the drop CRDs (one per Kind).
     imports:
       - api/v1alpha1
       - internal/discovery
@@ -481,16 +509,16 @@ packages:
       - internal/pacing
       - internal/podbuilder
   - path: internal/discovery
-    role: Discovery source interface + implementations
+    role: Package discovery implements image discovery from registries and Prometheus metrics.
   - path: internal/metrics
-    role: Prometheus metrics registration
+    role: Package metrics registers Prometheus metrics for the drop operator.
   - path: internal/pacing
-    role: Shared pacing engine for rate-limited pulls
+    role: Package pacing implements the shared rate-limiting engine for image pull scheduling.
     imports:
       - api/v1alpha1
       - internal/podbuilder
   - path: internal/podbuilder
-    role: Pure Pod construction function (no k8s client)
+    role: Package podbuilder constructs pull Pods as a pure function (no Kubernetes client dependency).
     imports:
       - api/v1alpha1
 conventions:
@@ -530,59 +558,55 @@ conventions:
 errors:
   - reason: Cached
     controller: CachedImage
-    meaning: All target nodes have the image cached
-  - reason: Degraded
-    controller: CachedImageSet
-    meaning: Some child CachedImages have failures
-    troubleshooting: Check individual CachedImage statuses
-  - reason: ErrImagePull
+    meaning: ""
+  - reason: Complete
     controller: CachedImage
-    meaning: Registry unreachable or image does not exist
-    troubleshooting: Verify registry DNS, image name, tag. Check network policies
-  - reason: ImagePullBackOff
+    meaning: All pulls complete
+  - reason: Idle
     controller: CachedImage
-    meaning: Repeated pull failures, kubelet is backing off
-    troubleshooting: Check imagePullSecrets, registry auth. Verify image exists
+    meaning: Waiting to start pulls
   - reason: InProgress
     controller: CachedImage
-    meaning: Image pulls are actively running on some nodes
-  - reason: InvalidImageName
-    controller: CachedImage
-    meaning: The image reference is malformed
-    troubleshooting: 'Check spec.image format: registry/repository'
-  - reason: PartiallyFailed
-    controller: DiscoveryPolicy
-    meaning: Some discovery sources failed to sync
-    troubleshooting: Check source endpoints and credentials
-  - reason: PodFailed
-    controller: CachedImage
-    meaning: Pull Pod failed for a non-image-pull reason
-    troubleshooting: Check node health, resource limits, Pod security policies
-  - reason: Progressing
-    controller: CachedImageSet
-    meaning: Children are still being pulled
+    meaning: ""
   - reason: PullFailed
     controller: CachedImage
-    meaning: One or more nodes failed to pull the image
-    troubleshooting: Check image name, tag, registry connectivity, imagePullSecrets
+    meaning: ""
+  - reason: Pulling
+    controller: CachedImage
+    meaning: ""
+  - reason: Stalled
+    controller: CachedImage
+    meaning: ""
+  - reason: Degraded
+    controller: CachedImageSet
+    meaning: ""
+  - reason: Progressing
+    controller: CachedImageSet
+    meaning: ""
   - reason: Ready
     controller: CachedImageSet
-    meaning: All child CachedImages are ready
-  - reason: RegistryUnavailable
-    controller: CachedImage
-    meaning: Cannot connect to the container registry
-    troubleshooting: Check registry URL, DNS, firewall rules
+    meaning: ""
+  - reason: AllSourcesHealthy
+    controller: DiscoveryPolicy
+    meaning: All discovery sources responded successfully
+  - reason: ConnectionRefused
+    controller: DiscoveryPolicy
+    meaning: ""
+  - reason: DNSError
+    controller: DiscoveryPolicy
+    meaning: ""
+  - reason: PartiallyFailed
+    controller: DiscoveryPolicy
+    meaning: ""
   - reason: SourceError
     controller: DiscoveryPolicy
-    meaning: One or more discovery sources returned errors
-    troubleshooting: Check source configuration and connectivity
+    meaning: One or more sources failed to respond
   - reason: SyncFailed
     controller: DiscoveryPolicy
-    meaning: All discovery sources failed
-    troubleshooting: Check all source endpoints, credentials, network
+    meaning: ""
   - reason: Synced
     controller: DiscoveryPolicy
-    meaning: All sources synced successfully
+    meaning: ""
 metrics:
   - name: drop_images_cached_total
     help: Total number of images successfully cached on nodes.
@@ -820,7 +844,7 @@ samples: |
     maxImages: 10
 sampleGroups:
   - title: PullPolicy
-    description: PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes.
+    description: PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes. It is a configuration-only resource with no status.
     yaml: |-
       apiVersion: drop.corewire.io/v1alpha1
       kind: PullPolicy

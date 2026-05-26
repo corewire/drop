@@ -18,7 +18,7 @@ to ensure they stay in sync with the code.
 
 ## PullPolicy
 
-PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes.
+PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes. It is a configuration-only resource with no status.
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1

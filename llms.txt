@@ -6,10 +6,10 @@
 
 | Kind | Purpose |
 |------|---------|
-| CachedImage | CachedImage is the Schema for the cachedimages API. |
-| CachedImageSet | CachedImageSet is the Schema for the cachedimagesets API. |
-| PullPolicy | PullPolicy is the Schema for the pullpolicies API. It is a configuration-only resource with no status. |
-| DiscoveryPolicy | DiscoveryPolicy is the Schema for the discoverypolicies API. |
+| CachedImage | CachedImage ensures a single container image is pre-cached on cluster nodes. |
+| CachedImageSet | CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy. |
+| DiscoveryPolicy | DiscoveryPolicy automatically discovers images from registries or Prometheus metrics. |
+| PullPolicy | PullPolicy controls the pacing and retry behavior for image pulls across cluster nodes. It is a configuration-only resource with no status. |
 
 ## Architecture
 
@@ -25,123 +25,28 @@ Reconcilers:
 | Path | Role |
 |------|------|
 | api/v1alpha1 | Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group. |
-| internal/controller | Reconciler implementations (one per CRD) |
-| internal/discovery | Discovery source interface + implementations |
-| internal/metrics | Prometheus metrics registration |
-| internal/pacing | Shared pacing engine for rate-limited pulls |
-| internal/podbuilder | Pure Pod construction function (no k8s client) |
+| internal/controller | Package controller implements Kubernetes reconcilers for the drop CRDs (one per Kind). |
+| internal/discovery | Package discovery implements image discovery from registries and Prometheus metrics. |
+| internal/metrics | Package metrics registers Prometheus metrics for the drop operator. |
+| internal/pacing | Package pacing implements the shared rate-limiting engine for image pull scheduling. |
+| internal/podbuilder | Package podbuilder constructs pull Pods as a pure function (no Kubernetes client dependency). |
 | charts/drop/ | Helm chart |
 | test/e2e/ | Chainsaw E2E tests |
-| hack/gen-ai-docs/ | Documentation generator |
-
-## Build & Test
-
-```
-  make help	# Display this help.
-  make build	# Build manager binary.
-  make run	# Run controller from your host.
-  make fmt	# Run go fmt.
-  make vet	# Run go vet.
-  make lint	# Run golangci-lint.
-  make lint-fix	# Run golangci-lint with auto-fix.
-  make generate	# Generate DeepCopy methods.
-  make manifests	# Generate CRD and RBAC manifests.
-  make codegen	# Run all code generation (deepcopy + CRDs + docs).
-  make test	# Run unit tests.
-  make test-e2e	# Run Chainsaw E2E tests (requires kind cluster).
-  make kind-create	# Create kind cluster for development.
-  make kind-delete	# Delete the kind cluster.
-  make install	# Install CRDs into cluster.
-  make uninstall	# Uninstall CRDs from cluster.
-  make e2e-infra	# Deploy Prometheus + Registry for E2E/dev.
-  make docker-build	# Build docker image.
-  make docker-push	# Push docker image.
-  make kind-load	# Build and load image into kind.
-  make helm-lint	# Lint the Helm chart.
-  make helm-template	# Render Helm templates locally.
-  make docs-serve	# Serve Hugo docs locally.
-  make docs-gen	# Regenerate AI agent docs (llms.txt, instructions, etc.) from source.
-  make docs-gen-check	# Verify generated AI docs are up to date.
-  make tools	# Install local tooling and check optional docs/chart binaries.
-```
-
-## CRD Quick Reference
-
-### CachedImage
-
-CachedImage is the Schema for the cachedimages API.
-
-**Spec fields:** `image`, `tag`, `digest`, `imagePullPolicy` (default: Always), `imagePullSecrets`, `nodeSelector`, `tolerations`, `priority`, `policyRef`, 
-**Status fields:** `observedGeneration`, `phase`, `ready`, `resolvedDigest`, `nodesTargeted`, `nodesReady`, `nodesPulling`, `cachedNodes`, `consecutiveFailures`, `lastPulledAt`, `lastAttemptedAt`, `conditions`, 
-
-### CachedImageSet
-
-CachedImageSet is the Schema for the cachedimagesets API.
-
-**Spec fields:** `policyRef`, `discoveryPolicyRef`, `imagePullPolicy` (default: Always), `imagePullSecrets`, `nodeSelector`, `tolerations`, `images`, 
-**Status fields:** `observedGeneration`, `phase`, `imagesManaged`, `imagesReady`, `conditions`, 
-
-### PullPolicy
-
-PullPolicy is the Schema for the pullpolicies API. It is a configuration-only resource with no status.
-
-**Spec fields:** `maxConcurrentNodes` (default: 1), `minDelayBetweenPulls` (default: 10s), `failureBackoff`, `repullInterval`, `nodeSelector`, `tolerations`, 
-
-### DiscoveryPolicy
-
-DiscoveryPolicy is the Schema for the discoverypolicies API.
-
-**Spec fields:** `sources`, `imageFilter`, `syncInterval` (default: 30m), `maxImages` (default: 50), 
-**Status fields:** `lastSyncTime`, `discoveredImages`, `imageCount`, `sourceCount`, `conditions`, 
-
-
-## Status Condition Reasons
-
-| Reason | Controller | Meaning |
-|--------|-----------|---------|
-| Cached | CachedImage | All target nodes have the image cached |
-| Degraded | CachedImageSet | Some child CachedImages have failures |
-| ErrImagePull | CachedImage | Registry unreachable or image does not exist |
-| ImagePullBackOff | CachedImage | Repeated pull failures, kubelet is backing off |
-| InProgress | CachedImage | Image pulls are actively running on some nodes |
-| InvalidImageName | CachedImage | The image reference is malformed |
-| PartiallyFailed | DiscoveryPolicy | Some discovery sources failed to sync |
-| PodFailed | CachedImage | Pull Pod failed for a non-image-pull reason |
-| Progressing | CachedImageSet | Children are still being pulled |
-| PullFailed | CachedImage | One or more nodes failed to pull the image |
-| Ready | CachedImageSet | All child CachedImages are ready |
-| RegistryUnavailable | CachedImage | Cannot connect to the container registry |
-| SourceError | DiscoveryPolicy | One or more discovery sources returned errors |
-| SyncFailed | DiscoveryPolicy | All discovery sources failed |
-| Synced | DiscoveryPolicy | All sources synced successfully |
-
-## Metrics
-- `drop_images_cached_total` (counter) — Total number of images successfully cached on nodes.
-- `drop_pull_duration_seconds` (histogram) — Duration of image pull operations in seconds.
-- `drop_pull_errors_total` (counter) — Total number of failed image pull attempts.
-- `drop_discovery_images_found` (gauge) — Number of images found by a discovery policy.
-- `drop_active_pulls` (gauge) — Current number of active image pull Pods.
-- `drop_reconcile_total` (counter) — Total number of reconciliation attempts.
-- `drop_discovery_source_health` (gauge) — Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy).
-- `drop_discovery_source_latency_seconds` (histogram) — Latency of discovery source queries in seconds.
-- `drop_nodes_targeted` (gauge) — Number of nodes targeted by each CachedImage resource.
-- `drop_nodes_cached` (gauge) — Number of nodes where the image is successfully cached.
-- `drop_consecutive_failures` (gauge) — Current number of consecutive pull failures for a CachedImage.
 
 ## Full Reference
 
-See [llms-full.txt](llms-full.txt) for complete field documentation with types and examples.
+See [llms-full.txt](llms-full.txt) for complete CRD field docs, error reasons, metrics, and sample manifests.
 
 ## Documentation Pages
 
-| Page | llmsDescription |
-|------|-----------------|
+| Page | Description |
+|------|-------------|
 | [Installation](docs/install/) | Install via Helm. Requires K8s 1.28+. |
 | [Usage](docs/usage/) | CachedImage, CachedImageSet, PullPolicy examples with YAML. |
 | [Discovery](docs/discovery/) | DiscoveryPolicy for automatic image discovery from Prometheus/OCI registries. |
 | [Monitoring](docs/monitoring/) | Prometheus metrics, Kubernetes events, and status conditions. |
-| [CRD Reference](docs/reference/crds/) | Complete field reference for all drop CRDs with types, defaults, and validation. |
-| [Status & Errors](docs/reference/errors/) | Every condition reason emitted by controllers. Diagnose why resources are not Ready. |
-| [Metrics](docs/reference/metrics/) | Prometheus metrics: names, types, descriptions, and example PromQL queries. |
-| [Architecture](docs/reference/architecture/) | Package dependency graph and CRD ownership relationships. |
+| [CRD Reference](docs/reference/crds/) | Complete field reference for all drop CRDs. |
+| [Status & Errors](docs/reference/errors/) | Every condition reason emitted by controllers. |
+| [Metrics](docs/reference/metrics/) | Prometheus metrics reference. |
+| [Architecture](docs/reference/architecture/) | Package dependency graph and CRD relationships. |
 | [Developing](docs/developing/) | Build, test, lint, project structure for contributors. |
