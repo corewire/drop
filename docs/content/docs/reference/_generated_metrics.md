@@ -23,6 +23,9 @@ The drop operator exposes the following metrics:
 | `drop_reconcile_total` | counter | Total number of reconciliation attempts. |
 | `drop_discovery_source_health` | gauge | Whether a discovery source is reachable and queryable (1=healthy, 0=unhealthy). |
 | `drop_discovery_source_latency_seconds` | histogram | Latency of discovery source queries in seconds. |
+| `drop_nodes_targeted` | gauge | Number of nodes targeted by each CachedImage resource. |
+| `drop_nodes_cached` | gauge | Number of nodes where the image is successfully cached. |
+| `drop_consecutive_failures` | gauge | Current number of consecutive pull failures for a CachedImage. |
 
 ## Useful Queries
 

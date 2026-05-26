@@ -219,7 +219,6 @@ func buildKnowledge(root string) Knowledge {
 
 // parseSampleGroups splits dev-samples.yaml into logical groups by comment headers.
 func parseSampleGroups(raw string) []SampleGroup {
-	var groups []SampleGroup
 	lines := strings.Split(raw, "\n")
 
 	type docBlock struct {
@@ -305,6 +304,7 @@ func parseSampleGroups(raw string) []SampleGroup {
 		"CachedImageSet":  "CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy.",
 		"DiscoveryPolicy": "DiscoveryPolicy automatically discovers images from registries or Prometheus metrics.",
 	}
+	groups := make([]SampleGroup, 0, len(kindOrder))
 	for _, kind := range kindOrder {
 		g := kindGroups[kind]
 		g.Description = descriptions[kind]

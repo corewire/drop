@@ -102,6 +102,11 @@ crds:
         type: int32
         required: false
         doc: NodesReady is the number of nodes that have successfully pulled the image.
+      - name: NodesPulling
+        json: nodesPulling
+        type: int32
+        required: false
+        doc: NodesPulling is the number of nodes currently pulling the image.
       - name: CachedNodes
         json: cachedNodes
         type: '[]string'
@@ -126,7 +131,7 @@ crds:
         json: conditions
         type: '[]metav1.Condition'
         required: false
-        doc: Conditions represent the latest available observations.
+        doc: 'Conditions represent the latest available observations. Condition types: Ready, PullProgress.'
   - kind: CachedImageSet
     doc: CachedImageSet is the Schema for the cachedimagesets API.
     scope: Cluster
@@ -603,6 +608,15 @@ metrics:
   - name: drop_discovery_source_latency_seconds
     help: Latency of discovery source queries in seconds.
     type: histogram
+  - name: drop_nodes_targeted
+    help: Number of nodes targeted by each CachedImage resource.
+    type: gauge
+  - name: drop_nodes_cached
+    help: Number of nodes where the image is successfully cached.
+    type: gauge
+  - name: drop_consecutive_failures
+    help: Current number of consecutive pull failures for a CachedImage.
+    type: gauge
 makeTargets:
   - name: help
     desc: Display this help.

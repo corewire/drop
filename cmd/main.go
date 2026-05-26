@@ -233,7 +233,7 @@ func main() {
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),
 		PacingEngine: pacing.NewEngine(mgr.GetClient(), podNamespace),
-		Recorder:     mgr.GetEventRecorderFor("cachedimage-controller"),
+		Recorder:     mgr.GetEventRecorder("cachedimage-controller"),
 		PodNamespace: podNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CachedImage")
