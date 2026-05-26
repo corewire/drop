@@ -28,15 +28,10 @@ func projectConfig(goVersion, module string) Project {
 // Scope values: "code" (for CODE agents), "use" (for USE agents), "both" (shown everywhere).
 func conventions() []Convention {
 	return []Convention{
-		{Rule: "All CRDs are cluster-scoped", Scope: []string{"code", "use"}},
-		{Rule: `Status uses metav1.Condition with type "Ready"`, Scope: []string{"code", "use"}},
 		{Rule: "No privileged containers — kubelet-based image pulls only", Scope: []string{"code"}},
 		{Rule: "Single responsibility reconcilers — one controller per CRD", Scope: []string{"code"}},
 		{Rule: "Pod builder is a pure function in internal/podbuilder/ (no k8s client)", Scope: []string{"code"}},
 		{Rule: "Pacing logic lives exclusively in internal/pacing/", Scope: []string{"code"}},
-		{Rule: "ownerReferences: CachedImageSet→CachedImage, controller→Pod", Scope: []string{"code"}},
-		{Rule: "Table-driven tests preferred; envtest for controllers", Scope: []string{"code"}},
-		{Rule: `Pods use nodeName placement + command: ["true"]`, Scope: []string{"code", "use"}},
 		{Rule: "Don't manually edit generated files — run make docs-gen", Scope: []string{"code"}},
 	}
 }
@@ -60,9 +55,5 @@ func outputTargets() []OutputTarget {
 		{Path: filepath.Join("docs", "content", "docs", "reference", "_generated_errors.md"), Template: hugoErrorsTmpl},
 		{Path: filepath.Join("docs", "content", "docs", "reference", "_generated_metrics.md"), Template: hugoMetricsTmpl},
 		{Path: filepath.Join("docs", "content", "docs", "reference", "_generated_architecture.md"), Template: hugoArchTmpl},
-		{Path: filepath.Join("docs", "content", "docs", "_generated_examples.md"), Template: hugoExamplesTmpl},
-
-		// Meta
-		{Path: filepath.Join("docs", "doc-generation.md"), Template: docGenDiagramTmpl},
 	}
 }
