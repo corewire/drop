@@ -52,7 +52,6 @@ func outputTargets() []OutputTarget {
 
 		// HUMANS (Hugo reference pages)
 		{Path: filepath.Join("docs", "content", "docs", "reference", "_generated_crds.md"), Template: hugoCRDsTmpl},
-		{Path: filepath.Join("docs", "content", "docs", "reference", "_generated_errors.md"), Template: hugoErrorsTmpl},
 		{Path: filepath.Join("docs", "content", "docs", "reference", "_generated_metrics.md"), Template: hugoMetricsTmpl},
 		{Path: filepath.Join("docs", "content", "docs", "reference", "_generated_architecture.md"), Template: hugoArchTmpl},
 	}
