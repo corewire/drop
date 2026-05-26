@@ -44,8 +44,10 @@ echo ''
 echo '$ kubectl get cachedimages nginx-demo -w'
 kubectl get cachedimages nginx-demo -w &
 PID=\$!
-sleep 20
+sleep 12
 kill \$PID 2>/dev/null || true
+sleep 3
+printf '\n'
 REC"
 
 # ─── Recording 2: Watch pods with node placement ─────────────────────────────
@@ -58,8 +60,10 @@ kubectl get pods -l app.kubernetes.io/managed-by=drop -o custom-columns=NAME:.me
 PID=\$!
 sleep 2
 kubectl apply -f $TMPFILE >/dev/null 2>&1
-sleep 20
+sleep 12
 kill \$PID 2>/dev/null || true
+sleep 3
+printf '\n'
 REC"
 
 # ─── Recording 3: Watch Kubernetes events ────────────────────────────────────
@@ -72,8 +76,10 @@ kubectl get events --field-selector reason!=LeaderElection --watch-only &
 PID=\$!
 sleep 2
 kubectl apply -f $TMPFILE >/dev/null 2>&1
-sleep 20
+sleep 12
 kill \$PID 2>/dev/null || true
+sleep 3
+printf '\n'
 REC"
 
 rm -f "$TMPFILE"

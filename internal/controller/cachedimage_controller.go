@@ -801,6 +801,18 @@ func (r *CachedImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if pod.Labels[podbuilder.LabelManagedBy] != podbuilder.LabelManagedByValue {
 					return nil
 				}
+				// Skip delete events for completed pods — we already handled them
+				// in the reconcile that deleted them. Re-reconciling before the
+				// status patch lands causes transient status flapping.
+				if pod.DeletionTimestamp != nil && pod.Status.Phase == corev1.PodSucceeded {
+					return nil
+				}
+				// Skip delete events for completed pods — we already handled them
+				// in the reconcile that deleted them. Re-reconciling before the
+				// status patch lands causes transient status flapping.
+				if pod.DeletionTimestamp != nil && pod.Status.Phase == corev1.PodSucceeded {
+					return nil
+				}
 				ciName := pod.Labels[podbuilder.LabelCachedImage]
 				if ciName == "" {
 					return nil
