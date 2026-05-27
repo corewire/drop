@@ -489,5 +489,3 @@ sequenceDiagram
   Ctrl->>CR: Update status (Ready)
 ` + "```" + `
 `
-
-
