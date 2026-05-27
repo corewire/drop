@@ -706,9 +706,6 @@ const tactical = (() => {
     pods.forEach(p => {
       if (p.trail.length < 2) return;
       for (let i = 1; i < p.trail.length; i++) {
-        const a = (i / p.trail.length) * 0.7;
-        ctx.strokeStyle = p.color.replace(')', `,${a})`).replace('rgb(', 'rgba(').replace('#', 'rgba(').replace('rgba(#', 'rgba(');
-        // simpler: just use globalAlpha
         ctx.globalAlpha = (i / p.trail.length) * 0.5;
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 1.5;
@@ -1187,7 +1184,9 @@ function initSSE() {
         loading.style.display = 'none';
         document.getElementById('app').style.display = 'flex';
       }
-    } catch {}
+    } catch(err) {
+      console.error('[drop-ui] SSE parse error:', err);
+    }
   };
 }
 
@@ -1205,6 +1204,7 @@ async function poll() {
       document.getElementById('app').style.display = 'flex';
     }
   } catch(e) {
+    console.error('[drop-ui] poll error:', e);
     setConnected(false);
   }
 }

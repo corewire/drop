@@ -113,6 +113,7 @@ type Server struct {
 }
 
 // NewServer creates a new UI server backed by the provided Kubernetes client.
+// A pollInterval <= 0 is replaced with the default of 10 seconds.
 func NewServer(c client.Client, pollInterval time.Duration) *Server {
 	if pollInterval <= 0 {
 		pollInterval = 10 * time.Second
@@ -130,6 +131,11 @@ func (s *Server) Handler() http.Handler {
 	}
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
+	// Lightweight health check used by the Helm readiness/liveness probes.
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	mux.HandleFunc("/api/v1/nodes", s.withCORS(s.handleNodes))
 	mux.HandleFunc("/api/v1/cachedimages", s.withCORS(s.handleCachedImages))
 	mux.HandleFunc("/api/v1/cachedimagesets", s.withCORS(s.handleCachedImageSets))
@@ -141,6 +147,9 @@ func (s *Server) Handler() http.Handler {
 	return mux
 }
 
+// withCORS adds CORS headers. The UI is designed to be served in-cluster
+// (accessed via port-forward or NodePort); the wildcard origin is acceptable
+// for this internal tooling use-case.
 func (s *Server) withCORS(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
