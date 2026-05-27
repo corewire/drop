@@ -1,0 +1,19 @@
+{{- if .Values.ui.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "drop.fullname" . }}-ui
+  labels:
+    {{- include "drop.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ui
+rules:
+  - apiGroups: ["drop.corewire.io"]
+    resources: ["cachedimages", "cachedimagesets", "discoverypolicies", "pullpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["drop.corewire.io"]
+    resources: ["cachedimages/status", "cachedimagesets/status", "discoverypolicies/status"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+{{- end }}

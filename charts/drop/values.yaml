@@ -43,3 +43,27 @@ certManager:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# Drop Control Center UI
+ui:
+  # Set to true to deploy the Drop Control Center UI alongside the operator.
+  enabled: false
+  image:
+    repository: ghcr.io/breee/drop-ui
+    pullPolicy: IfNotPresent
+    tag: ""  # Defaults to Chart appVersion
+  # Port the UI container listens on.
+  port: 8888
+  # How often the UI polls Kubernetes for live SSE updates.
+  pollInterval: 10s
+  service:
+    type: ClusterIP
+    port: 8888
+    # nodePort: 30888  # Uncomment when type=NodePort
+  resources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 10m
+      memory: 32Mi

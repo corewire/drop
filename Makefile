@@ -1,5 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
+IMG_UI ?= drop-ui:latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -27,9 +28,17 @@ help: ## Display this help.
 build: ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
+.PHONY: build-ui
+build-ui: ## Build Drop Control Center UI binary.
+	go build -o bin/drop-ui ./cmd/ui/
+
 .PHONY: run
 run: ## Run controller from your host.
 	go run ./cmd/main.go
+
+.PHONY: run-ui
+run-ui: ## Run Drop Control Center UI from your host (requires kubeconfig).
+	go run ./cmd/ui/
 
 .PHONY: fmt
 fmt: ## Run go fmt.
