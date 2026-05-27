@@ -112,7 +112,7 @@ jobs:
 
       - name: Set up Docker Buildx
         if: steps.changes.outputs.skip != 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Install cosign
         if: steps.changes.outputs.skip != 'true'
