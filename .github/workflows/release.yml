@@ -167,7 +167,7 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
           helm package charts/drop --version "${VERSION#v}" --app-version "${VERSION#v}"
-          helm push drop-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+          helm push drop-*.tgz oci://ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/charts
 
       - name: Create GitHub Release
         if: steps.changes.outputs.skip != 'true'
