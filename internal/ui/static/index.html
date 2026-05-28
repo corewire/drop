@@ -469,17 +469,15 @@ tr:hover td{background:rgba(0,212,255,.03)}
 
 <!-- NAV -->
 <nav>
-  <div class="tab active" data-view="tactical"><span class="tab-icon">◈</span>TACTICAL</div>
-  <div class="tab" data-view="matrix"><span class="tab-icon">⊞</span>MATRIX</div>
+  <div class="tab active" data-view="matrix"><span class="tab-icon">⊞</span>MATRIX</div>
   <div class="tab" data-view="recon"><span class="tab-icon">◉</span>RECON</div>
-  <div class="tab" data-view="debug"><span class="tab-icon">⚙</span>DEBUG</div>
 </nav>
 
 <!-- MAIN -->
 <main>
 
   <!-- ── TACTICAL ── -->
-  <div class="view active" id="tactical">
+  <div class="view" id="tactical">
     <canvas id="tac-canvas"></canvas>
     <div class="tac-sidebar" id="tac-sidebar">
       <h3>◈ NODES</h3>
@@ -512,7 +510,7 @@ tr:hover td{background:rgba(0,212,255,.03)}
   </div>
 
   <!-- ── MATRIX ── -->
-  <div class="view" id="matrix">
+  <div class="view active" id="matrix">
     <div class="matrix-toolbar">
       <input class="search-box" id="search" placeholder="⌕  filter images…" autocomplete="off">
       <button class="filter-btn active" data-phase="">ALL</button>
