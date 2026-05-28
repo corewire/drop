@@ -97,6 +97,48 @@ main{flex:1;overflow:hidden;display:flex;position:relative}
 .view{position:absolute;inset:0;display:none;overflow:hidden}
 .view.active{display:flex}
 
+/* ── DEBUG VIEW ────────────────────────────────────────────────────── */
+#debug{flex-direction:column;overflow-y:auto;padding:0}
+.debug-panel{padding:16px 24px;max-width:1200px}
+.debug-controls{
+  display:flex;align-items:center;gap:8px;margin-bottom:16px;
+  padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;
+}
+.debug-controls button{
+  background:var(--bg2);border:1px solid var(--border);color:var(--cyan);
+  padding:6px 14px;cursor:pointer;font-family:var(--font);font-size:11px;
+  border-radius:2px;transition:all .2s;
+}
+.debug-controls button:hover{border-color:var(--cyan);background:rgba(0,212,255,.1)}
+.debug-controls button.active{background:rgba(0,212,255,.15);border-color:var(--cyan)}
+.debug-preview{
+  display:flex;gap:24px;align-items:flex-start;margin-bottom:16px;
+  flex-wrap:wrap;
+}
+.debug-frame-box{
+  background:var(--bg3);border:1px solid var(--border);padding:12px;border-radius:3px;
+}
+.debug-frame-box canvas{display:block;background:repeating-conic-gradient(#1a1a2e 0% 25%,#111126 0% 50%) 0 0/16px 16px;border:1px solid var(--border)}
+.debug-sheets{display:flex;flex-wrap:wrap;gap:16px}
+.debug-sheet-item{
+  position:relative;flex:1;min-width:300px;max-width:420px;
+}
+.debug-sheet-img{
+  width:100%;height:auto;display:block;position:relative;
+  background:repeating-conic-gradient(#1a1a2e 0% 25%,#111126 0% 50%) 0 0/16px 16px;
+  border:1px solid var(--border);border-radius:2px;
+}
+.debug-sheet-grid{
+  position:absolute;left:1px;right:1px;
+  display:grid;pointer-events:none;
+}
+.debug-sheet-item .debug-sheet-grid > *{
+  border:1px dashed rgba(0,212,255,0.5);
+  display:flex;align-items:flex-start;justify-content:flex-start;
+  padding:2px 4px;font-size:9px;color:rgba(0,212,255,0.8);font-weight:bold;
+  text-shadow:0 0 3px #000,0 0 6px #000;
+}
+
 /* ── TACTICAL VIEW ────────────────────────────────────────────────── */
 #tactical{flex-direction:column}
 #tactical canvas{flex:1;width:100%;display:block}
@@ -134,6 +176,89 @@ main{flex:1;overflow:hidden;display:flex;position:relative}
 }
 .legend-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
 .legend-dot{width:10px;height:10px;border-radius:50%}
+
+/* ── ZOOM CONTROLS ────────────────────────────────────────────────── */
+.zoom-controls{
+  position:absolute;bottom:12px;right:260px;z-index:10;
+  display:flex;gap:4px;align-items:center;
+  background:rgba(13,13,26,.85);border:1px solid var(--border);
+  padding:6px 10px;border-radius:3px;
+}
+.zoom-controls button{
+  background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  width:28px;height:28px;cursor:pointer;font-size:14px;border-radius:2px;
+  display:flex;align-items:center;justify-content:center;
+}
+.zoom-controls button:hover{border-color:var(--cyan);color:var(--cyan)}
+.zoom-controls .zoom-label{color:var(--text2);font-size:10px;min-width:38px;text-align:center}
+
+/* ── PLANET CLOSEUP MODAL ─────────────────────────────────────────── */
+.planet-modal{
+  display:none;position:absolute;z-index:100;
+  background:rgba(8,8,20,.96);border:1px solid var(--cyan);
+  border-radius:6px;padding:0;overflow:hidden;
+  box-shadow:0 0 30px rgba(0,212,255,.15);
+  min-width:360px;max-width:480px;max-height:80vh;
+}
+.planet-modal.open{display:flex;flex-direction:column}
+.planet-modal-header{
+  display:flex;align-items:center;gap:10px;padding:12px 16px;
+  border-bottom:1px solid var(--border);background:rgba(13,13,26,.8);
+}
+.planet-modal-header .planet-thumb{
+  width:48px;height:48px;border-radius:50%;object-fit:cover;
+  border:2px solid var(--cyan);
+}
+.planet-modal-header .planet-title{
+  flex:1;color:var(--cyan);font-size:13px;font-weight:bold;
+  letter-spacing:1px;text-transform:uppercase;
+}
+.planet-modal-header .planet-close{
+  background:none;border:none;color:var(--text2);font-size:18px;
+  cursor:pointer;padding:4px 8px;
+}
+.planet-modal-header .planet-close:hover{color:var(--red)}
+.planet-modal-body{
+  padding:12px 16px;overflow-y:auto;max-height:calc(80vh - 80px);
+}
+.planet-img-row{
+  display:flex;align-items:center;gap:8px;padding:6px 0;
+  border-bottom:1px solid rgba(60,60,120,.3);
+}
+.planet-img-row:last-child{border-bottom:none}
+.planet-img-name{
+  flex:1;color:var(--text);font-size:11px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;
+}
+.planet-img-bar{
+  width:60px;height:6px;background:var(--bg3);border-radius:3px;
+  overflow:hidden;border:1px solid var(--border);
+}
+.planet-img-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.planet-img-phase{
+  font-size:9px;font-weight:bold;letter-spacing:.5px;min-width:50px;text-align:right;
+}
+
+/* ── EVENT FEED ───────────────────────────────────────────────────── */
+.event-feed{
+  position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:10;
+  background:rgba(13,13,26,.92);border:1px solid var(--border);
+  padding:10px 16px;font-size:12px;width:560px;max-height:160px;
+  overflow-y:auto;border-radius:3px;backdrop-filter:blur(4px);
+}
+.event-feed h4{
+  color:var(--cyan);font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:5px;
+}
+.feed-item{
+  display:flex;gap:10px;align-items:center;padding:3px 0;
+  animation:feed-in .3s ease-out;
+}
+@keyframes feed-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.feed-ts{color:var(--text2);font-size:10px;min-width:62px}
+.feed-icon{font-size:12px}
+.feed-msg{color:var(--text);font-size:11px;flex:1}
+.feed-node{color:var(--cyan);font-size:10px;opacity:.8}
 
 /* ── MATRIX VIEW (TABLE) ──────────────────────────────────────────── */
 #matrix{flex-direction:column;overflow:hidden}
@@ -347,6 +472,7 @@ tr:hover td{background:rgba(0,212,255,.03)}
   <div class="tab active" data-view="tactical"><span class="tab-icon">◈</span>TACTICAL</div>
   <div class="tab" data-view="matrix"><span class="tab-icon">⊞</span>MATRIX</div>
   <div class="tab" data-view="recon"><span class="tab-icon">◉</span>RECON</div>
+  <div class="tab" data-view="debug"><span class="tab-icon">⚙</span>DEBUG</div>
 </nav>
 
 <!-- MAIN -->
@@ -364,6 +490,24 @@ tr:hover td{background:rgba(0,212,255,.03)}
       <div class="legend-row"><div class="legend-dot" style="background:var(--yellow)"></div> Pulling</div>
       <div class="legend-row"><div class="legend-dot" style="background:var(--red)"></div> Degraded</div>
       <div class="legend-row"><div class="legend-dot" style="background:var(--text2)"></div> Offline</div>
+    </div>
+    <div class="event-feed" id="event-feed">
+      <h4>⚡ LIVE FEED</h4>
+      <div id="feed-items"></div>
+    </div>
+    <div class="zoom-controls" id="zoom-controls">
+      <button id="zoom-in" title="Zoom In">+</button>
+      <span class="zoom-label" id="zoom-label">100%</span>
+      <button id="zoom-out" title="Zoom Out">−</button>
+      <button id="zoom-reset" title="Reset">⟲</button>
+    </div>
+    <div class="planet-modal" id="planet-modal">
+      <div class="planet-modal-header">
+        <img class="planet-thumb" id="planet-thumb" src="/images/planet.png">
+        <span class="planet-title" id="planet-title">NODE</span>
+        <button class="planet-close" id="planet-close">✕</button>
+      </div>
+      <div class="planet-modal-body" id="planet-body"></div>
     </div>
   </div>
 
@@ -405,6 +549,105 @@ tr:hover td{background:rgba(0,212,255,.03)}
     </div>
     <div class="policy-detail" id="policy-detail">
       <div class="no-policy">SELECT A POLICY</div>
+    </div>
+  </div>
+
+  <!-- ── DEBUG ── -->
+  <div class="view" id="debug">
+    <div class="debug-panel">
+      <h2 style="color:var(--cyan);margin-bottom:12px;font-size:14px;letter-spacing:2px">⚙ SPRITE DEBUG</h2>
+
+      <!-- Controls -->
+      <div class="debug-controls">
+        <button id="dbg-prev">◀ Prev</button>
+        <button id="dbg-play">▶ Play</button>
+        <button id="dbg-next">Next ▶</button>
+        <label style="color:var(--text2);font-size:11px;margin-left:12px">Speed:
+          <input type="range" id="dbg-speed" min="1" max="30" value="8" style="width:80px;vertical-align:middle">
+          <span id="dbg-speed-val">8</span> fps
+        </label>
+        <span id="dbg-frame-info" style="margin-left:16px;color:var(--cyan);font-size:12px">Frame 0/36</span>
+      </div>
+
+      <!-- Frame preview -->
+      <div class="debug-preview">
+        <div class="debug-frame-box">
+          <canvas id="dbg-canvas" width="256" height="256"></canvas>
+          <div id="dbg-label" style="text-align:center;color:var(--text2);font-size:10px;margin-top:4px">Sheet: descent | Frame: 0</div>
+        </div>
+        <!-- CSS sprite method preview -->
+        <div class="debug-frame-box">
+          <div id="dbg-css-sprite" style="width:256px;height:256px;background-size:1024px 768px;background-repeat:no-repeat;border:1px solid var(--border)"></div>
+          <div style="text-align:center;color:var(--text2);font-size:10px;margin-top:4px">CSS background-position method</div>
+        </div>
+      </div>
+
+      <!-- Full sheets -->
+      <h3 style="color:var(--yellow);margin:16px 0 8px;font-size:11px;letter-spacing:1px">FULL SPRITE SHEETS</h3>
+      <div class="debug-sheets">
+        <div class="debug-sheet-item">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">Sheet 1: DESCENT (new1.png) — 4×3, 12 frames</div>
+          <img src="/images/drop-descent.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr)"></div>
+        </div>
+        <div class="debug-sheet-item">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">Sheet 2: LANDING (new2.png) — 4×3, 12 frames</div>
+          <img src="/images/drop-landing.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr)"></div>
+        </div>
+        <div class="debug-sheet-item">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">Sheet 3: DEPLOYED (new3.png) — 4×3, 12 frames</div>
+          <img src="/images/drop-deployed.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr)"></div>
+        </div>
+      </div>
+
+      <!-- Ground assets -->
+      <h3 style="color:var(--yellow);margin:16px 0 8px;font-size:11px;letter-spacing:1px">GROUND ASSETS</h3>
+
+      <!-- Ground animation controls -->
+      <div class="debug-controls">
+        <button id="gnd-prev">◀ Prev</button>
+        <button id="gnd-play">▶ Play</button>
+        <button id="gnd-next">Next ▶</button>
+        <label style="color:var(--text2);font-size:11px;margin-left:12px">Speed:
+          <input type="range" id="gnd-speed" min="1" max="30" value="8" style="width:80px;vertical-align:middle">
+          <span id="gnd-speed-val">8</span> fps
+        </label>
+        <select id="gnd-select" style="background:var(--bg3);border:1px solid var(--border);color:var(--cyan);padding:4px 8px;font-family:var(--font);font-size:11px;margin-left:12px">
+          <option value="0">ground1 (4×6, 24 frames)</option>
+          <option value="1">ground2 (5×6, 30 frames)</option>
+          <option value="2">ground3 (5×6, 30 frames)</option>
+        </select>
+        <span id="gnd-frame-info" style="margin-left:16px;color:var(--cyan);font-size:12px">Frame 0/24</span>
+      </div>
+
+      <!-- Ground frame preview -->
+      <div class="debug-preview">
+        <div class="debug-frame-box">
+          <canvas id="gnd-canvas" width="256" height="256"></canvas>
+          <div id="gnd-label" style="text-align:center;color:var(--text2);font-size:10px;margin-top:4px">ground1 | Frame 0</div>
+        </div>
+      </div>
+
+      <!-- Ground full sheets -->
+      <div class="debug-sheets">
+        <div class="debug-sheet-item" data-gnd-cols="4" data-gnd-rows="6">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">ground1.png — 4×6, 24 frames</div>
+          <img src="/images/ground1.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(6,1fr)"></div>
+        </div>
+        <div class="debug-sheet-item" data-gnd-cols="5" data-gnd-rows="6">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">ground2.png — 5×6, 30 frames</div>
+          <img src="/images/ground2.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr)"></div>
+        </div>
+        <div class="debug-sheet-item" data-gnd-cols="5" data-gnd-rows="6">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">ground3.png — 5×6, 30 frames</div>
+          <img src="/images/ground3.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr)"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -455,6 +698,231 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
+// ── DEBUG SPRITE VIEWER ───────────────────────────────────────────────
+(function() {
+  const DBG_COLS = 4, DBG_ROWS = 3, DBG_FRAMES = 12;
+  const DBG_TOTAL = DBG_FRAMES * 3; // 36 total across 3 sheets
+  const DBG_SHEET_W = 1024, DBG_SHEET_H = 768;
+  const DBG_FW = DBG_SHEET_W / DBG_COLS;  // 256
+  const DBG_FH = DBG_SHEET_H / DBG_ROWS;  // 256
+
+  const sheets = [
+    { name: 'descent', src: '/images/drop-descent.png', img: null, ready: false },
+    { name: 'landing', src: '/images/drop-landing.png', img: null, ready: false },
+    { name: 'deployed', src: '/images/drop-deployed.png', img: null, ready: false },
+  ];
+  sheets.forEach(s => {
+    s.img = new Image();
+    s.img.src = s.src;
+    s.img.onload = () => { s.ready = true; renderDebugFrame(); };
+  });
+
+  let currentFrame = 0;
+  let playing = false;
+  let playInterval = null;
+  let fps = 8;
+
+  const canvas = document.getElementById('dbg-canvas');
+  const ctx2 = canvas.getContext('2d');
+  const cssSprite = document.getElementById('dbg-css-sprite');
+  const frameInfo = document.getElementById('dbg-frame-info');
+  const label = document.getElementById('dbg-label');
+  const speedSlider = document.getElementById('dbg-speed');
+  const speedVal = document.getElementById('dbg-speed-val');
+  const playBtn = document.getElementById('dbg-play');
+
+  function getSheetAndLocal(globalFrame) {
+    const sheetIdx = Math.floor(globalFrame / DBG_FRAMES);
+    const localFrame = globalFrame % DBG_FRAMES;
+    const col = localFrame % DBG_COLS;
+    const row = Math.floor(localFrame / DBG_COLS);
+    return { sheetIdx, localFrame, col, row };
+  }
+
+  function renderDebugFrame() {
+    const { sheetIdx, localFrame, col, row } = getSheetAndLocal(currentFrame);
+    const sheet = sheets[sheetIdx];
+
+    // Canvas method
+    ctx2.clearRect(0, 0, 256, 256);
+    if (sheet.ready) {
+      ctx2.drawImage(
+        sheet.img,
+        col * DBG_FW, row * DBG_FH, DBG_FW, DBG_FH,
+        0, 0, 256, 256
+      );
+    }
+
+    // CSS background-position method
+    cssSprite.style.backgroundImage = `url('${sheet.src}')`;
+    // Scale: 256px display / 256px frame = 1:1; sheet = 1024x768
+    const scale = 256 / DBG_FW;
+    const bgW = DBG_SHEET_W * scale;
+    const bgH = DBG_SHEET_H * scale;
+    cssSprite.style.backgroundSize = `${bgW}px ${bgH}px`;
+    cssSprite.style.backgroundPosition = `-${col * DBG_FW * scale}px -${row * DBG_FH * scale}px`;
+
+    // Labels
+    frameInfo.textContent = `Frame ${currentFrame}/${DBG_TOTAL} (sheet ${sheetIdx + 1}, local ${localFrame})`;
+    label.textContent = `Sheet: ${sheet.name} | Col: ${col} Row: ${row} | Frame: ${localFrame}`;
+  }
+
+  function stepFrame(dir) {
+    currentFrame = (currentFrame + dir + DBG_TOTAL) % DBG_TOTAL;
+    renderDebugFrame();
+  }
+
+  function togglePlay() {
+    playing = !playing;
+    playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
+    playBtn.classList.toggle('active', playing);
+    if (playing) {
+      playInterval = setInterval(() => stepFrame(1), 1000 / fps);
+    } else {
+      clearInterval(playInterval);
+    }
+  }
+
+  document.getElementById('dbg-prev').addEventListener('click', () => stepFrame(-1));
+  document.getElementById('dbg-next').addEventListener('click', () => stepFrame(1));
+  playBtn.addEventListener('click', togglePlay);
+  speedSlider.addEventListener('input', () => {
+    fps = parseInt(speedSlider.value);
+    speedVal.textContent = fps;
+    if (playing) {
+      clearInterval(playInterval);
+      playInterval = setInterval(() => stepFrame(1), 1000 / fps);
+    }
+  });
+
+  // Populate grid overlays with numbered cells and position over images
+  document.querySelectorAll('.debug-sheet-item:not([data-gnd-cols])').forEach((item, sheetIdx) => {
+    const grid = item.querySelector('.debug-sheet-grid');
+    if (!grid) return;
+    const img = item.querySelector('.debug-sheet-img');
+    for (let i = 0; i < DBG_FRAMES; i++) {
+      const cell = document.createElement('div');
+      cell.textContent = sheetIdx * DBG_FRAMES + i;
+      grid.appendChild(cell);
+    }
+    // Position grid over image once loaded
+    function positionGrid() {
+      grid.style.top = img.offsetTop + 'px';
+      grid.style.height = img.offsetHeight + 'px';
+    }
+    img.addEventListener('load', positionGrid);
+    if (img.complete) positionGrid();
+    window.addEventListener('resize', positionGrid);
+  });
+
+  renderDebugFrame();
+})();
+
+// ── GROUND DEBUG ANIMATION ────────────────────────────────────────────
+(function() {
+  const GROUND_SHEETS = [
+    { src: '/images/ground1.png', cols: 4, rows: 6, name: 'ground1' },
+    { src: '/images/ground2.png', cols: 5, rows: 6, name: 'ground2' },
+    { src: '/images/ground3.png', cols: 5, rows: 6, name: 'ground3' },
+  ];
+  const FW = 256, FH = 256;
+  const gndCanvas = document.getElementById('gnd-canvas');
+  const gndCtx = gndCanvas.getContext('2d');
+  const gndSelect = document.getElementById('gnd-select');
+  const gndFrameInfo = document.getElementById('gnd-frame-info');
+  const gndLabel = document.getElementById('gnd-label');
+  const gndSpeedSlider = document.getElementById('gnd-speed');
+  const gndSpeedVal = document.getElementById('gnd-speed-val');
+  const gndPlayBtn = document.getElementById('gnd-play');
+
+  let gndImages = [];
+  let gndCurrent = 0; // which sheet
+  let gndFrame = 0;
+  let gndFps = 8;
+  let gndPlaying = false;
+  let gndInterval = null;
+
+  // Load images
+  GROUND_SHEETS.forEach((s, i) => {
+    const img = new Image();
+    img.src = s.src;
+    gndImages.push(img);
+    img.onload = () => { if (i === 0) renderGndFrame(); };
+  });
+
+  function totalFrames() {
+    const s = GROUND_SHEETS[gndCurrent];
+    return s.cols * s.rows;
+  }
+
+  function renderGndFrame() {
+    const s = GROUND_SHEETS[gndCurrent];
+    const img = gndImages[gndCurrent];
+    const col = gndFrame % s.cols;
+    const row = Math.floor(gndFrame / s.cols);
+    gndCtx.clearRect(0, 0, FW, FH);
+    if (img.complete && img.naturalWidth) {
+      gndCtx.drawImage(img, col * FW, row * FH, FW, FH, 0, 0, FW, FH);
+    }
+    gndFrameInfo.textContent = `Frame ${gndFrame}/${totalFrames()}`;
+    gndLabel.textContent = `${s.name} | Frame ${gndFrame} (row ${row}, col ${col})`;
+  }
+
+  function gndStep(dir) {
+    const t = totalFrames();
+    gndFrame = (gndFrame + dir + t) % t;
+    renderGndFrame();
+  }
+
+  function gndTogglePlay() {
+    gndPlaying = !gndPlaying;
+    gndPlayBtn.textContent = gndPlaying ? '⏸ Pause' : '▶ Play';
+    if (gndPlaying) {
+      gndInterval = setInterval(() => gndStep(1), 1000 / gndFps);
+    } else {
+      clearInterval(gndInterval);
+    }
+  }
+
+  document.getElementById('gnd-prev').addEventListener('click', () => gndStep(-1));
+  document.getElementById('gnd-next').addEventListener('click', () => gndStep(1));
+  gndPlayBtn.addEventListener('click', gndTogglePlay);
+  gndSpeedSlider.addEventListener('input', () => {
+    gndFps = parseInt(gndSpeedSlider.value);
+    gndSpeedVal.textContent = gndFps;
+    if (gndPlaying) {
+      clearInterval(gndInterval);
+      gndInterval = setInterval(() => gndStep(1), 1000 / gndFps);
+    }
+  });
+  gndSelect.addEventListener('change', () => {
+    gndCurrent = parseInt(gndSelect.value);
+    gndFrame = 0;
+    renderGndFrame();
+  });
+
+  // Populate ground sheet grid overlays
+  document.querySelectorAll('.debug-sheet-item[data-gnd-cols]').forEach(item => {
+    const cols = parseInt(item.dataset.gndCols);
+    const rows = parseInt(item.dataset.gndRows);
+    const grid = item.querySelector('.debug-sheet-grid');
+    if (!grid) return;
+    const img = item.querySelector('.debug-sheet-img');
+    for (let i = 0; i < cols * rows; i++) {
+      const cell = document.createElement('div');
+      cell.textContent = i;
+      grid.appendChild(cell);
+    }
+    function positionGrid() {
+      grid.style.top = img.offsetTop + 'px';
+      grid.style.height = img.offsetHeight + 'px';
+    }
+    img.addEventListener('load', positionGrid);
+    if (img.complete) positionGrid();
+    window.addEventListener('resize', positionGrid);
+  });
+})();
+
 // ── HEADER STATS ──────────────────────────────────────────────────────
 function updateStats(s) {
   document.getElementById('s-nodes').textContent   = s.totalNodes   ?? '—';
@@ -492,8 +960,141 @@ const tactical = (() => {
   let tick = 0;
   const nodePos  = {};   // name → {x,y,angle}
   const pods     = [];   // active drop-pod animations
+  const landedPods = []; // pods that landed and are opening
+
+  // ── Zoom & Pan ──
+  let zoom = 1;
+  let panX = 0, panY = 0;
+  let dragging = false, dragStartX = 0, dragStartY = 0, dragPanX = 0, dragPanY = 0;
   const particles= [];   // success burst particles
   const stars    = [];   // background stars
+  const flowDots = [];   // flow particles on active connections
+  const events   = [];   // event feed entries
+  let prevPhases = {};   // track phase changes for events
+
+  // ── Sprite assets (3 sprite sheets, 4 cols × 3 rows = 12 frames each) ──
+  const SPRITE_COLS = 4, SPRITE_ROWS = 3;
+  const SPRITE_SHEET_W = 1024, SPRITE_SHEET_H = 768;
+  const SPRITE_FW = SPRITE_SHEET_W / SPRITE_COLS;  // 256
+  const SPRITE_FH = SPRITE_SHEET_H / SPRITE_ROWS;  // 256
+  const FRAMES_PER_SHEET = SPRITE_COLS * SPRITE_ROWS; // 12
+  const SPRITE_TOTAL = FRAMES_PER_SHEET * 3; // 36 total frames
+
+  // Sheet 1: descent (frames 0-11)
+  const sheetDescent = new Image();
+  sheetDescent.src = '/images/drop-descent.png';
+  let descentReady = false;
+  sheetDescent.onload = () => { descentReady = true; };
+
+  // Sheet 2: landing/opening (frames 12-23)
+  const sheetLanding = new Image();
+  sheetLanding.src = '/images/drop-landing.png';
+  let landingReady = false;
+  sheetLanding.onload = () => { landingReady = true; };
+
+  // Sheet 3: deployed (frames 24-35)
+  const sheetDeployed = new Image();
+  sheetDeployed.src = '/images/drop-deployed.png';
+  let deployedReady = false;
+  sheetDeployed.onload = () => { deployedReady = true; };
+
+  const SPRITE_DESCENT_FRAMES = FRAMES_PER_SHEET;  // 12
+  const SPRITE_LANDING_FRAMES = FRAMES_PER_SHEET;  // 12
+  const SPRITE_DEPLOYED_FRAMES = FRAMES_PER_SHEET; // 12
+
+  // Get sheet + local frame index for a global frame number (0-35)
+  function spriteInfo(globalFrame) {
+    let sheet, localFrame;
+    if (globalFrame < FRAMES_PER_SHEET) {
+      sheet = sheetDescent;
+      localFrame = globalFrame;
+    } else if (globalFrame < FRAMES_PER_SHEET * 2) {
+      sheet = sheetLanding;
+      localFrame = globalFrame - FRAMES_PER_SHEET;
+    } else {
+      sheet = sheetDeployed;
+      localFrame = globalFrame - FRAMES_PER_SHEET * 2;
+    }
+    const col = localFrame % SPRITE_COLS;
+    const row = Math.floor(localFrame / SPRITE_COLS);
+    return { sheet, col, row };
+  }
+
+  function spriteReady() {
+    return descentReady && landingReady && deployedReady;
+  }
+
+  const dropshipImg = new Image();
+  dropshipImg.src = '/images/ship.png';
+  let dropshipReady = false;
+  dropshipImg.onload = () => { dropshipReady = true; };
+
+  const planetImg = new Image();
+  planetImg.src = '/images/planet.png';
+  let planetReady = false;
+  planetImg.onload = () => { planetReady = true; };
+
+  // ── Cached per-data-update computations (not per-frame) ──
+  let _cache = null;
+  function getCache() {
+    if (_cache) return _cache;
+    const targetNodes = new Set();
+    const cachedPerNode = {};   // nodeName → count
+    const pullingToNode = {};   // nodeName → true if something pulling there
+    const degradedToNode = {}; // nodeName → true
+    const connectedNodes = new Set(); // nodes with at least one cached connection
+
+    state.nodes.forEach(n => { cachedPerNode[n.name] = 0; });
+
+    // Determine target nodes: any node that has cached images
+    state.cachedImages.forEach(img => {
+      (img.cachedNodes || []).forEach(n => {
+        targetNodes.add(n);
+        cachedPerNode[n] = (cachedPerNode[n] || 0) + 1;
+        connectedNodes.add(n);
+      });
+    });
+
+    // If there are pulling images but no cached nodes yet (fresh deploy),
+    // infer targets: all non-control-plane nodes with nodesTargeted > 0
+    const hasPulling = state.cachedImages.some(img => img.phase === 'Pulling');
+    if (hasPulling && targetNodes.size === 0) {
+      state.nodes.forEach(n => {
+        const labels = n.labels || {};
+        const isCP = labels['node-role.kubernetes.io/control-plane'] !== undefined
+          || n.name.includes('control-plane');
+        if (!isCP) targetNodes.add(n.name);
+      });
+    }
+
+    // Now compute pulling/degraded per node
+    state.cachedImages.forEach(img => {
+      if (img.phase === 'Pulling') {
+        state.nodes.forEach(n => {
+          if (targetNodes.has(n.name) && !(img.cachedNodes || []).includes(n.name)) {
+            pullingToNode[n.name] = true;
+          }
+        });
+      }
+      if (img.phase === 'Degraded') {
+        // Only mark nodes that the image was actually targeted at but failed
+        (img.cachedNodes || []).forEach(() => {}); // no-op placeholder
+        state.nodes.forEach(n => {
+          if (targetNodes.has(n.name) && !(img.cachedNodes || []).includes(n.name)) {
+            // Only mark degraded if this node isn't already pulling something
+            if (!pullingToNode[n.name]) degradedToNode[n.name] = true;
+          }
+        });
+      }
+    });
+
+    const totalTargeted = state.cachedImages.filter(img => img.nodesTargeted > 0).length || 1;
+    const pullingNodeSet = new Set(Object.keys(pullingToNode));
+
+    _cache = { targetNodes, cachedPerNode, pullingToNode, degradedToNode, connectedNodes, totalTargeted, pullingNodeSet };
+    return _cache;
+  }
+  function invalidateCache() { _cache = null; }
 
   function initStars() {
     stars.length = 0;
@@ -510,40 +1111,121 @@ const tactical = (() => {
     canvas.height = H;
     cx = W / 2;
     cy = H / 2;
-    radius = Math.min(cx, cy) * 0.60;
+    radius = Math.min(cx, cy) * 0.75;
     initStars();
   }
 
-  // Compute node positions based on count
+  // Compute node positions — nodes on the ground (bottom), nexus at top
   function calcNodePositions() {
     const nodes = state.nodes;
-    nodes.forEach((n, i) => {
-      const angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
-      nodePos[n.name] = { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle), angle };
-    });
+    const count = nodes.length;
+    // Ground zone: bottom 60% of canvas
+    const groundTop = H * 0.38;
+    const groundH = H * 0.58;
+    const groundW = W * 0.85;
+    const groundLeft = (W - groundW) / 2;
+
+    if (count <= 30) {
+      // Single row spread
+      nodes.forEach((n, i) => {
+        const x = groundLeft + (groundW / (count + 1)) * (i + 1);
+        const y = groundTop + groundH * 0.5 + (Math.sin(i * 1.2) * groundH * 0.15);
+        nodePos[n.name] = { x, y };
+      });
+    } else if (count <= 100) {
+      // Grid layout
+      const cols = Math.ceil(Math.sqrt(count * 1.8));
+      const rows = Math.ceil(count / cols);
+      nodes.forEach((n, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = groundLeft + (groundW / (cols + 1)) * (col + 1);
+        const y = groundTop + (groundH / (rows + 1)) * (row + 1);
+        nodePos[n.name] = { x, y };
+      });
+    } else {
+      // Dense scatter — packed grid with slight jitter
+      const cols = Math.ceil(Math.sqrt(count * 2));
+      const rows = Math.ceil(count / cols);
+      const cellW = groundW / cols;
+      const cellH = groundH / rows;
+      nodes.forEach((n, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const jx = (Math.sin(i * 7.3) * 0.3) * cellW;
+        const jy = (Math.cos(i * 5.1) * 0.3) * cellH;
+        const x = groundLeft + cellW * (col + 0.5) + jx;
+        const y = groundTop + cellH * (row + 0.5) + jy;
+        nodePos[n.name] = { x, y };
+      });
+    }
   }
 
-  // Spawn a pod from nexus to target node
+  // Spawn a pod dropping straight down from the dropship to target node
   function spawnPod(imageName, nodeName, color) {
     if (pods.find(p => p.img === imageName && p.node === nodeName)) return;
     const pos = nodePos[nodeName];
     if (!pos) return;
+    // Launch from the ship bottom
+    const shipBottom = H * 0.08 + (W * 0.18 * 0.5) / 2 + 10;
     pods.push({
       img: imageName, node: nodeName,
-      x: cx, y: cy,
+      x: pos.x, y: shipBottom,
       tx: pos.x, ty: pos.y,
       t: 0, color,
       trail: [],
+      thruster: [],
+      frameTick: 0,  // counts render frames for sprite animation
     });
   }
 
-  // Spawn celebration particles
+  // Spawn flow dots dropping straight down from dropship toward a node
+  function spawnFlowDots(nodeName) {
+    const pos = nodePos[nodeName];
+    if (!pos) return;
+    // Only spawn if not too many already exist for this node
+    const existing = flowDots.filter(d => d.node === nodeName);
+    if (existing.length > 6) return;
+    flowDots.push({
+      node: nodeName,
+      t: 0,
+      speed: 0.008 + Math.random() * 0.006,
+      size: Math.random() * 2 + 1,
+      startX: pos.x,
+      offset: (Math.random() - 0.5) * 3,
+    });
+  }
+
+  // Add event to feed
+  function addEvent(icon, msg, color, nodes) {
+    const ts = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    events.unshift({ ts, icon, msg, color, nodes: nodes || '' });
+    if (events.length > 30) events.pop();
+    renderFeed();
+  }
+
+  function renderFeed() {
+    const el = document.getElementById('feed-items');
+    el.innerHTML = events.slice(0, 10).map(ev =>
+      `<div class="feed-item"><span class="feed-ts">${ev.ts}</span><span class="feed-icon" style="color:${ev.color}">${ev.icon}</span><span class="feed-msg">${ev.msg}</span>${ev.nodes ? `<span class="feed-node">→ ${ev.nodes}</span>` : ''}</div>`
+    ).join('');
+  }
+
+  // Spawn impact particles (scaled by node count)
   function burst(x, y, color) {
-    for (let i = 0; i < 10; i++) {
+    const count = state.nodes.length;
+    const n = count > 200 ? 3 : count > 80 ? 6 : 12;
+    const ringN = count > 200 ? 0 : count > 80 ? 3 : 6;
+    for (let i = 0; i < n; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 2 + 0.5;
-      particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-        life: 1, color, size: Math.random() * 2 + 1 });
+      const speed = Math.random() * 3 + 1;
+      particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1,
+        life: 1, color: Math.random() > 0.5 ? '#ff4400' : '#d4af37', size: Math.random() * 3 + 1 });
+    }
+    for (let i = 0; i < ringN; i++) {
+      const angle = (i / ringN) * Math.PI * 2;
+      particles.push({ x, y, vx: Math.cos(angle) * 3, vy: Math.sin(angle) * 3,
+        life: 0.5, color: '#ffffff', size: 1.2 });
     }
   }
 
@@ -551,19 +1233,60 @@ const tactical = (() => {
   function updatePods() {
     const dead = [];
     pods.forEach((p, i) => {
+      if (!p.sx) { p.sx = p.x; p.sy = p.y; } // store start position on first frame
       p.t = Math.min(p.t + 0.008, 1);
-      // Cubic ease-out
-      const e = 1 - Math.pow(1 - p.t, 3);
-      p.x = cx + (p.tx - cx) * e;
-      p.y = cy + (p.ty - cy) * e;
+      p.frameTick++;  // increment every render frame for sprite animation
+      // Ease-in (accelerating drop, like gravity)
+      const e = p.t * p.t * p.t;
+      p.x = p.sx + (p.tx - p.sx) * e;
+      p.y = p.sy + (p.ty - p.sy) * e;
       p.trail.push({ x: p.x, y: p.y });
       if (p.trail.length > 20) p.trail.shift();
+      // Thruster particles (capped for performance) — emit upward
+      if (p.t < 0.9 && p.thruster.length < 15) {
+        const thrusterCount = state.nodes.length > 200 ? 0 : state.nodes.length > 80 ? 1 : 2;
+        for (let j = 0; j < thrusterCount; j++) {
+          p.thruster.push({
+            x: p.x + (Math.random() - 0.5) * 4,
+            y: p.y - 6,
+            vx: (Math.random() - 0.5) * 1.5,
+            vy: -(1.5 + Math.random() * 2),
+            life: 1, size: Math.random() * 2.5 + 1,
+          });
+        }
+      }
+      // Update thrusters
+      p.thruster.forEach(t => { t.x += t.vx; t.y += t.vy; t.life -= 0.08; });
+      p.thruster = p.thruster.filter(t => t.life > 0);
       if (p.t >= 1) {
-        burst(p.tx, p.ty, p.color);
+        // At low node counts, land the pod and play landing/opening animation
+        if (state.nodes.length <= 30 && landingReady) {
+          landedPods.push({ x: p.tx, y: p.ty, node: p.node, img: p.img, frameTick: 0, maxFrames: SPRITE_LANDING_FRAMES });
+        }
+        burst(p.tx, p.ty, '#ff4400');
         dead.push(i);
       }
     });
     dead.reverse().forEach(i => pods.splice(i, 1));
+  }
+
+  // Update flow dots
+  function updateFlowDots() {
+    const dead = [];
+    flowDots.forEach((d, i) => {
+      d.t += d.speed;
+      if (d.t >= 1) dead.push(i);
+    });
+    dead.reverse().forEach(i => flowDots.splice(i, 1));
+    // Spawn new dots for pulling nodes (capped, scaled by node count)
+    const maxDots = state.nodes.length > 200 ? 15 : state.nodes.length > 80 ? 30 : 60;
+    const spawnChance = state.nodes.length > 200 ? 0.01 : state.nodes.length > 80 ? 0.02 : 0.04;
+    if (flowDots.length < maxDots) {
+      const c = getCache();
+      c.pullingNodeSet.forEach(nodeName => {
+        if (Math.random() < spawnChance) spawnFlowDots(nodeName);
+      });
+    }
   }
 
   function updateParticles() {
@@ -575,6 +1298,35 @@ const tactical = (() => {
       if (p.life <= 0) dead.push(i);
     });
     dead.reverse().forEach(i => particles.splice(i, 1));
+  }
+
+  // Update landed pods (tick-based frame advancement)
+  function updateLandedPods() {
+    const dead = [];
+    landedPods.forEach((lp, i) => {
+      lp.frameTick++;
+      // Check if animation is complete (all opening frames played)
+      const currentFrame = Math.floor(lp.frameTick / 12); // ~5fps for slow opening
+      if (currentFrame >= lp.maxFrames) dead.push(i);
+    });
+    dead.reverse().forEach(i => landedPods.splice(i, 1));
+  }
+
+  function drawLandedPods() {
+    if (!landingReady) return;
+    landedPods.forEach(lp => {
+      const currentFrame = Math.min(Math.floor(lp.frameTick / 12), lp.maxFrames - 1);
+      // Landing frames start at global frame 12
+      const globalFrame = FRAMES_PER_SHEET + currentFrame;
+      const { sheet, col, row } = spriteInfo(globalFrame);
+      const podSize = 32;
+      ctx.drawImage(
+        sheet,
+        Math.floor(col * SPRITE_FW), Math.floor(row * SPRITE_FH),
+        Math.floor(SPRITE_FW), Math.floor(SPRITE_FH),
+        lp.x - podSize / 2, lp.y - podSize * 0.7, podSize, podSize
+      );
+    });
   }
 
   // ── Draw functions ────────────────────────────────────────────────────
@@ -624,41 +1376,57 @@ const tactical = (() => {
   }
 
   function drawNexus() {
-    const r = 26;
-    const pulse = r + Math.sin(tick * 0.04) * 5;
+    // Dropship at top of canvas
+    const bx = cx, by = H * 0.08;
+    const pulse = Math.sin(tick * 0.03) * 3;
+    const shipW = W * 0.18, shipH = shipW * 0.5;
 
-    // Outer glow ring
-    const grd = ctx.createRadialGradient(cx, cy, r, cx, cy, pulse * 2.5);
-    grd.addColorStop(0, 'rgba(0,212,255,0.25)');
-    grd.addColorStop(1, 'rgba(0,212,255,0)');
-    ctx.fillStyle = grd;
-    ctx.beginPath(); ctx.arc(cx, cy, pulse * 2.5, 0, Math.PI*2); ctx.fill();
-
-    // Rotating hex
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(tick * 0.008);
-    ctx.strokeStyle = '#00d4ff';
-    ctx.lineWidth = 1.5;
-    ctx.shadowBlur = 12; ctx.shadowColor = '#00d4ff';
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const a = i * Math.PI / 3;
-      i === 0 ? ctx.moveTo(r*Math.cos(a), r*Math.sin(a)) : ctx.lineTo(r*Math.cos(a), r*Math.sin(a));
+    if (dropshipReady) {
+      // Draw the dropship image
+      ctx.drawImage(dropshipImg, bx - shipW / 2, by - shipH / 2 + pulse, shipW, shipH);
+    } else {
+      // Fallback: wide flat hull
+      ctx.save();
+      ctx.translate(bx, by + pulse);
+      ctx.fillStyle = '#1a1a2e';
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-shipW * 0.5, 0);
+      ctx.lineTo(-shipW * 0.45, -shipH * 0.4);
+      ctx.lineTo(shipW * 0.45, -shipH * 0.4);
+      ctx.lineTo(shipW * 0.5, 0);
+      ctx.lineTo(shipW * 0.3, shipH * 0.5);
+      ctx.lineTo(-shipW * 0.3, shipH * 0.5);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
     }
-    ctx.closePath(); ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.restore();
 
-    // Inner fill
-    ctx.fillStyle = 'rgba(0,212,255,0.08)';
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+    // Engine glow beneath (wider to match ship)
+    const glowW = shipW * 0.4;
+    const engGrd = ctx.createRadialGradient(bx, by + shipH / 2 + 20, 0, bx, by + shipH / 2 + 40, glowW);
+    engGrd.addColorStop(0, 'rgba(255,100,0,0.15)');
+    engGrd.addColorStop(1, 'rgba(255,50,0,0)');
+    ctx.fillStyle = engGrd;
+    ctx.beginPath(); ctx.arc(bx, by + shipH / 2 + 30, glowW, 0, Math.PI * 2); ctx.fill();
 
     // Label
-    ctx.fillStyle = '#00d4ff';
-    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = '#d4af37';
+    ctx.font = 'bold 10px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('NEXUS', cx, cy + r + 16);
+    ctx.fillText('DROP NEXUS', bx, by + shipH / 2 + 55 + pulse);
+
+    // Orbital line at ship bottom
+    const lineY = by + shipH / 2 + 60;
+    ctx.strokeStyle = 'rgba(212,175,55,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 12]);
+    ctx.beginPath();
+    ctx.moveTo(0, lineY);
+    ctx.lineTo(W, lineY);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   function phaseColor(img) {
@@ -669,67 +1437,148 @@ const tactical = (() => {
     return '#00d4ff';
   }
 
+  // Determine which nodes are actual pull targets (have at least one cached image)
+  function isTargetNode(nodeName) {
+    return getCache().targetNodes.has(nodeName);
+  }
+
   function nodeColor(nodeName) {
-    // Determine color based on images targeting this node
-    const pullingHere = state.cachedImages.some(img =>
-      img.phase === 'Pulling' &&
-      !(img.cachedNodes || []).includes(nodeName)
-    );
-    if (pullingHere) return '#ffaa00';
-    const degradedHere = state.cachedImages.some(img =>
-      img.phase === 'Degraded' &&
-      !(img.cachedNodes || []).includes(nodeName)
-    );
-    if (degradedHere) return '#ff3333';
     const node = state.nodes.find(n => n.name === nodeName);
     if (node && !node.ready) return '#555580';
+    if (!isTargetNode(nodeName)) return node && node.ready ? '#00ff41' : '#555580';
+    const c = getCache();
+    if (c.pullingToNode[nodeName]) return '#ffaa00';
+    if (c.degradedToNode[nodeName]) return '#ff3333';
     return '#00ff41';
   }
 
   function drawConnections() {
-    state.cachedImages.forEach(img => {
-      (img.cachedNodes || []).forEach(nodeName => {
+    const c = getCache();
+    const nodeCount = state.nodes.length;
+    const dense = nodeCount > 50;
+    const bargeY = H * 0.12; // bottom of battle barge
+
+    // Draw cached (green) connections — skip entirely for very large counts
+    if (nodeCount <= 200) {
+      ctx.strokeStyle = dense ? 'rgba(0,255,65,0.04)' : 'rgba(0,255,65,0.1)';
+      ctx.lineWidth = dense ? 0.3 : 0.6;
+      ctx.setLineDash([3, 10]);
+      c.connectedNodes.forEach(nodeName => {
         const pos = nodePos[nodeName];
         if (!pos) return;
-        ctx.strokeStyle = 'rgba(0,255,65,0.18)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 8]);
         ctx.beginPath();
-        ctx.moveTo(cx, cy); ctx.lineTo(pos.x, pos.y);
+        ctx.moveTo(cx, bargeY); ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
-        ctx.setLineDash([]);
       });
+      ctx.setLineDash([]);
+    }
+
+    // Draw active pull connections (thicker, pulsing) — skip at 500+
+    if (c.pullingNodeSet.size > 0 && nodeCount <= 500) {
+      const pulse = 0.3 + Math.sin(tick * 0.06) * 0.15;
+      const lw = dense ? 1 : 2;
+      const alpha = nodeCount > 200 ? 0.3 : dense ? 0.5 : 1;
+      c.pullingNodeSet.forEach(nodeName => {
+        const pos = nodePos[nodeName];
+        if (!pos) return;
+        const grd = ctx.createLinearGradient(cx, bargeY, pos.x, pos.y);
+        grd.addColorStop(0, `rgba(255,100,0,${pulse * alpha})`);
+        grd.addColorStop(0.5, `rgba(255,170,0,${(pulse + 0.1) * alpha})`);
+        grd.addColorStop(1, `rgba(255,170,0,${pulse * alpha * 0.5})`);
+        ctx.strokeStyle = grd;
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        ctx.moveTo(cx, bargeY); ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+      });
+    }
+  }
+
+  function drawFlowDots() {
+    const bargeY = H * 0.08 + (W * 0.6 * 0.18) / 2 + 10;
+    flowDots.forEach(d => {
+      const pos = nodePos[d.node];
+      if (!pos) return;
+      const e = d.t;
+      // Drop straight down from above the node
+      const startX = d.startX || pos.x;
+      const x = startX + d.offset * Math.sin(e * 3);
+      const y = bargeY + (pos.y - bargeY) * e;
+      const alpha = e < 0.1 ? e * 10 : e > 0.9 ? (1 - e) * 10 : 1;
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.fillStyle = '#ff6a00';
+      ctx.beginPath();
+      ctx.arc(x, y, d.size, 0, Math.PI * 2);
+      ctx.fill();
     });
+    ctx.globalAlpha = 1;
   }
 
   function drawPodTrails() {
     pods.forEach(p => {
       if (p.trail.length < 2) return;
+      // Fiery re-entry trail
       for (let i = 1; i < p.trail.length; i++) {
-        ctx.globalAlpha = (i / p.trail.length) * 0.5;
-        ctx.strokeStyle = p.color;
-        ctx.lineWidth = 1.5;
+        const a = (i / p.trail.length);
+        ctx.globalAlpha = a * 0.7;
+        ctx.strokeStyle = a > 0.6 ? '#ff4400' : '#ffaa00';
+        ctx.lineWidth = a * 4;
         ctx.beginPath();
         ctx.moveTo(p.trail[i-1].x, p.trail[i-1].y);
         ctx.lineTo(p.trail[i].x, p.trail[i].y);
         ctx.stroke();
       }
       ctx.globalAlpha = 1;
+
+      // Thruster sparks (no shadowBlur)
+      p.thruster.forEach(t => {
+        ctx.globalAlpha = t.life * 0.7;
+        ctx.fillStyle = t.life > 0.5 ? '#ff6a00' : '#ff3300';
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.size * t.life, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
     });
   }
 
   function drawPods() {
     pods.forEach(p => {
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = p.color;
-      ctx.fillStyle = p.color;
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+      if (descentReady && state.nodes.length <= 50) {
+        // Animate through descent spritesheet frames based on progress
+        const frameIdx = Math.min(Math.floor(p.t * SPRITE_DESCENT_FRAMES), SPRITE_DESCENT_FRAMES - 1);
+        const { sheet, col, row } = spriteInfo(frameIdx);
+        const podScale = 0.5 + p.t * 0.5;
+        const drawW = 48 * podScale;
+        const drawH = 48 * podScale;
+        ctx.drawImage(
+          sheet,
+          Math.floor(col * SPRITE_FW), Math.floor(row * SPRITE_FH),
+          Math.floor(SPRITE_FW), Math.floor(SPRITE_FH),
+          p.x - drawW / 2, p.y - drawH / 2, drawW, drawH
+        );
+      } else {
+        // Fallback: simple chevron for many nodes
+        const size = 8;
+        ctx.fillStyle = '#1a2a3a';
+        ctx.strokeStyle = '#4488aa';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y + size);
+        ctx.lineTo(p.x - size * 0.6, p.y - size * 0.5);
+        ctx.lineTo(p.x + size * 0.6, p.y - size * 0.5);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+      }
+      // Pod label
+      if (p.t > 0.15 && p.t < 0.7 && state.nodes.length <= 30) {
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#d4af37';
+        ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(shortName(p.img, 10), p.x, p.y - 24);
+        ctx.globalAlpha = 1;
+      }
     });
   }
 
@@ -737,33 +1586,41 @@ const tactical = (() => {
     particles.forEach(p => {
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
-      ctx.shadowBlur = 6;
-      ctx.shadowColor = p.color;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
       ctx.fill();
     });
     ctx.globalAlpha = 1;
-    ctx.shadowBlur = 0;
   }
 
   function drawNodes() {
+    const c = getCache();
+    const nodeCount = state.nodes.length;
+    // Adaptive sizing — bigger nodes with planet sprites
+    const scale = nodeCount <= 20 ? 1.4 : nodeCount <= 50 ? 1 : nodeCount <= 80 ? 0.7 : nodeCount <= 200 ? 0.45 : 0.25;
+    const showLabels = nodeCount <= 60;
+    const showProgress = nodeCount <= 40;
+
     state.nodes.forEach((node, i) => {
       const pos = nodePos[node.name];
       if (!pos) return;
       const { x, y } = pos;
-      const r = 18;
+      const r = Math.max(10, 32 * scale);
       const color = nodeColor(node.name);
       const isSelected = state.selectedNode === node.name;
-      const cachedCount = state.cachedImages.filter(img => (img.cachedNodes||[]).includes(node.name)).length;
+      const cachedCount = c.cachedPerNode[node.name] || 0;
+      const totalTargeted = c.totalTargeted;
+      const progress = cachedCount / totalTargeted;
 
-      // Outer ring pulse
-      if (color === '#ffaa00') {
-        const pr = r + Math.sin(tick * 0.12 + i * 0.9) * 5;
+      // Outer ring pulse for pulling (only when sparse enough)
+      if (color === '#ffaa00' && nodeCount <= 100) {
+        const pr = r + Math.sin(tick * 0.12 + i * 0.9) * 4;
         ctx.globalAlpha = 0.3;
         ctx.strokeStyle = color;
         ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
         ctx.beginPath(); ctx.arc(x, y, pr, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
         ctx.globalAlpha = 1;
       }
 
@@ -771,69 +1628,147 @@ const tactical = (() => {
       if (isSelected) {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
-        ctx.shadowBlur = 16; ctx.shadowColor = color;
         ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI*2); ctx.stroke();
-        ctx.shadowBlur = 0;
       }
 
-      // Main circle
-      ctx.shadowBlur = 14; ctx.shadowColor = color;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.stroke();
-      ctx.fillStyle = color + '18';
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      // Draw planet image or fallback circle
+      if (planetReady && nodeCount <= 100) {
+        const size = r * 2.2;
+        ctx.globalAlpha = color === '#555577' ? 0.4 : 0.85; // dim offline nodes
+        ctx.drawImage(planetImg, x - size / 2, y - size / 2, size, size);
+        ctx.globalAlpha = 1;
+        // Color tint ring
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(x, y, r * 1.05, 0, Math.PI*2); ctx.stroke();
+      } else {
+        // Fallback circle
+        ctx.fillStyle = color + '40';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = nodeCount > 200 ? 0.8 : 1.5;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+        ctx.fill(); ctx.stroke();
+      }
 
-      // Node icon
-      ctx.fillStyle = color;
-      ctx.font = '10px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('⬡', x, y);
-      ctx.textBaseline = 'alphabetic';
+      // Show small deployed pods scattered around ready target nodes (like pods on a planet)
+      if (spriteReady() && nodeCount <= 30 && isTargetNode(node.name) && color === '#00ff41') {
+        // Use the last frame from the deployed sheet
+        const lastGlobal = SPRITE_TOTAL - 1;
+        const { sheet, col, row } = spriteInfo(lastGlobal);
+        // Scatter tiny pods around the node
+        const cachedCount = c.cachedPerNode[node.name] || 0;
+        const podCount = Math.min(cachedCount, 6); // max 6 visible pods per node
+        const podSize = 14;
+        for (let pi = 0; pi < podCount; pi++) {
+          const angle = (pi / podCount) * Math.PI * 2 - Math.PI / 2;
+          const dist = r * 0.7;
+          const px = x + Math.cos(angle) * dist;
+          const py = y + Math.sin(angle) * dist;
+          ctx.drawImage(
+            sheet,
+            Math.floor(col * SPRITE_FW), Math.floor(row * SPRITE_FH),
+            Math.floor(SPRITE_FW), Math.floor(SPRITE_FH),
+            px - podSize / 2, py - podSize / 2, podSize, podSize
+          );
+        }
+      } else {
+        // Inner dot (simple, fast)
+        if (nodeCount <= 200) {
+          ctx.fillStyle = color + '90';
+          ctx.beginPath();
+          ctx.arc(x, y, r * 0.35, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
 
       // Short label below
-      const shortN = shortName(node.name, 12);
-      ctx.fillStyle = '#c8c8f0';
-      ctx.font = '9px monospace';
-      ctx.fillText(shortN, x, y + r + 14);
+      if (showLabels) {
+        const shortN = shortName(node.name, 14);
+        ctx.fillStyle = '#c8c8f0';
+        ctx.font = `${Math.max(7, 10 * scale)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(shortN, x, y + r + 12 * scale + 4);
+      }
 
-      // Cache count badge
-      if (cachedCount > 0) {
-        ctx.fillStyle = '#00ff41';
+      // Progress bar below node (only for target nodes)
+      if (showProgress && isTargetNode(node.name)) {
+        const barW = Math.max(20, 50 * scale), barH = Math.max(3, 5 * scale);
+        const barX = x - barW / 2;
+        const barY = y + r + (showLabels ? 16 * scale + 10 : 8);
+        // Background
+        ctx.fillStyle = 'rgba(30,30,66,0.9)';
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.strokeStyle = 'rgba(60,60,120,0.6)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(barX, barY, barW, barH);
+        // Fill
+        if (progress > 0) {
+          const fillW = barW * progress;
+          ctx.fillStyle = color;
+          ctx.shadowBlur = 4; ctx.shadowColor = color;
+          ctx.fillRect(barX, barY, fillW, barH);
+          ctx.shadowBlur = 0;
+        }
+        // Label
+        ctx.fillStyle = color;
         ctx.font = 'bold 9px monospace';
-        ctx.fillText(`◆${cachedCount}`, x + r - 2, y - r + 4);
+        ctx.fillText(`${cachedCount}/${totalTargeted}`, x, barY + barH + 11);
       }
     });
   }
 
   function drawImageLabels() {
-    // Show image labels near nexus (ring of image names)
-    const images = state.cachedImages.slice(0, 24);
+    // Show queued image names below the barge (payload manifest)
+    if (state.nodes.length > 60) return;
+    const images = state.cachedImages.filter(i => i.phase === 'Pulling').slice(0, 8);
+    if (!images.length) return;
+    const startY = H * 0.18;
+    ctx.fillStyle = '#d4af3380';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
     images.forEach((img, i) => {
-      const angle = (i / images.length) * Math.PI * 2 - Math.PI / 2;
-      const r = radius * 0.3;
-      const x = cx + r * Math.cos(angle);
-      const y = cy + r * Math.sin(angle);
-      const color = phaseColor(img);
-      ctx.fillStyle = color + 'aa';
-      ctx.font = '8px monospace';
-      ctx.textAlign = 'center';
-      const lbl = shortName(img.tag || img.image.split('/').pop(), 12);
-      ctx.fillText(lbl, x, y);
+      const x = cx + (i - images.length / 2) * 80;
+      ctx.fillText(`\u25bc ${shortName(img.tag || img.image.split('/').pop(), 12)}`, x, startY);
     });
   }
 
-  // Sync pods from current state
+  // Sync pods from current state + detect phase changes
   function syncPods() {
+    const c = getCache();
+    const newPhases = {};
     state.cachedImages.forEach(img => {
-      if (img.phase !== 'Pulling') return;
-      state.nodes.forEach(node => {
-        if ((img.cachedNodes || []).includes(node.name)) return;
-        spawnPod(img.name, node.name, '#00d4ff');
-      });
+      newPhases[img.name] = img.phase;
+      if (img.phase === 'Pulling') {
+        // One pod per image — pick first target node that doesn't have it yet
+        if (!pods.find(p => p.img === img.name)) {
+          const target = state.nodes.find(n =>
+            c.targetNodes.has(n.name) && !(img.cachedNodes || []).includes(n.name)
+          );
+          if (target) spawnPod(img.name, target.name, '#00d4ff');
+        }
+      }
+      // Detect phase transitions for events
+      const prev = prevPhases[img.name];
+      const targetNodeNames = state.nodes
+        .filter(n => c.targetNodes.has(n.name) && !(img.cachedNodes || []).includes(n.name))
+        .map(n => shortName(n.name, 16));
+      const nodeStr = targetNodeNames.join(', ');
+
+      if (prev && prev !== img.phase) {
+        if (img.phase === 'Ready' && prev === 'Pulling') {
+          const cachedOn = (img.cachedNodes || []).map(n => shortName(n, 16)).join(', ');
+          addEvent('\u2713', `${shortName(img.image.split('/').pop(),22)}:${img.tag||'latest'} cached (${img.nodesReady}/${img.nodesTargeted})`, '#00ff41', cachedOn);
+        } else if (img.phase === 'Pulling') {
+          addEvent('\u25bc', `Pulling ${shortName(img.image.split('/').pop(),22)}:${img.tag||'latest'}`, '#ffaa00', nodeStr);
+        } else if (img.phase === 'Degraded') {
+          addEvent('\u2717', `${shortName(img.image.split('/').pop(),22)} degraded`, '#ff3333', nodeStr);
+        }
+      } else if (!prev && img.phase === 'Pulling') {
+        addEvent('\u25bc', `Pulling ${shortName(img.image.split('/').pop(),22)}:${img.tag||'latest'}`, '#ffaa00', nodeStr);
+      }
     });
+    prevPhases = newPhases;
+
     // Remove pods for images no longer pulling
     for (let i = pods.length - 1; i >= 0; i--) {
       const p = pods[i];
@@ -848,17 +1783,33 @@ const tactical = (() => {
     calcNodePositions();
     syncPods();
     updatePods();
+    updateLandedPods();
+    updateFlowDots();
     updateParticles();
+
+    // Draw background (unzoomed)
     drawBg();
     drawStars();
+
+    // Apply zoom/pan for all world objects
+    ctx.save();
+    ctx.translate(panX, panY);
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-W / 2, -H / 2);
+
     drawRangeRings();
     drawConnections();
+    drawFlowDots();
     drawPodTrails();
     drawNexus();
     drawImageLabels();
     drawNodes();
+    drawLandedPods();
     drawPods();
     drawParticles();
+
+    ctx.restore();
     tick++;
   }
 
@@ -870,14 +1821,16 @@ const tactical = (() => {
       const div = document.createElement('div');
       div.className = 'node-list-item' + (state.selectedNode === node.name ? ' selected' : '');
       const cachedImgs = state.cachedImages.filter(img => (img.cachedNodes||[]).includes(node.name));
-      const pulling = state.cachedImages.filter(img =>
-        img.phase === 'Pulling' && !(img.cachedNodes||[]).includes(node.name));
+      const pulling = isTargetNode(node.name)
+        ? state.cachedImages.filter(img => img.phase === 'Pulling' && !(img.cachedNodes||[]).includes(node.name))
+        : [];
       let badges = `<span class="badge ${node.ready?'ready':'notready'}">${node.ready?'READY':'OFFLINE'}</span>`;
       if (cachedImgs.length) badges += ` <span class="badge ready">${cachedImgs.length} cached</span>`;
       if (pulling.length)    badges += ` <span class="badge pulling">${pulling.length} pulling</span>`;
       div.innerHTML = `<div class="node-name">${node.name}</div><div class="node-badges">${badges}</div>`;
       div.addEventListener('click', () => {
         state.selectedNode = state.selectedNode === node.name ? null : node.name;
+        openPlanetModal(node.name);
         renderNodeList();
       });
       div.addEventListener('mouseenter', e => {
@@ -896,14 +1849,20 @@ const tactical = (() => {
   }
 
   // Click on canvas to select node
+  function screenToWorld(sx, sy) {
+    return {
+      x: (sx - panX - W / 2) / zoom + W / 2,
+      y: (sy - panY - H / 2) / zoom + H / 2
+    };
+  }
   canvas.addEventListener('click', e => {
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const { x: mx, y: my } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const hitR = state.nodes.length > 50 ? 18 : 32;
     let found = null;
     for (const [name, pos] of Object.entries(nodePos)) {
       const d = Math.hypot(pos.x - mx, pos.y - my);
-      if (d < 22) { found = name; break; }
+      if (d < hitR) { found = name; break; }
     }
     state.selectedNode = found === state.selectedNode ? null : found;
     renderNodeList();
@@ -911,11 +1870,11 @@ const tactical = (() => {
 
   canvas.addEventListener('mousemove', e => {
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const { x: mx, y: my } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const hitR = state.nodes.length > 50 ? 18 : 32;
     let found = null;
     for (const [name, pos] of Object.entries(nodePos)) {
-      if (Math.hypot(pos.x - mx, pos.y - my) < 22) { found = name; break; }
+      if (Math.hypot(pos.x - mx, pos.y - my) < hitR) { found = name; break; }
     }
     if (found) {
       const node = state.nodes.find(n => n.name === found);
@@ -936,11 +1895,138 @@ const tactical = (() => {
   });
   canvas.addEventListener('mouseleave', hideTooltip);
 
+  // ── Zoom (scroll wheel) ──
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    const newZoom = Math.max(0.5, Math.min(5, zoom * zoomFactor));
+    // Zoom toward mouse position
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    panX -= (mx - panX) * (newZoom / zoom - 1);
+    panY -= (my - panY) * (newZoom / zoom - 1);
+    zoom = newZoom;
+    updateZoomLabel();
+  }, { passive: false });
+
+  // ── Pan (middle-click or shift+drag) ──
+  canvas.addEventListener('mousedown', e => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+      dragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      dragPanX = panX;
+      dragPanY = panY;
+      e.preventDefault();
+    }
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (dragging) {
+      panX = dragPanX + (e.clientX - dragStartX);
+      panY = dragPanY + (e.clientY - dragStartY);
+    }
+  });
+  canvas.addEventListener('mouseup', e => { if (e.button === 1 || e.button === 0) dragging = false; });
+  canvas.addEventListener('mouseleave', () => { dragging = false; });
+
+  // Double-click to open planet closeup
+  canvas.addEventListener('dblclick', e => {
+    const rect = canvas.getBoundingClientRect();
+    const { x: mx, y: my } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const hitR = state.nodes.length > 50 ? 18 : 32;
+    for (const [name, pos] of Object.entries(nodePos)) {
+      if (Math.hypot(pos.x - mx, pos.y - my) < hitR) {
+        openPlanetModal(name);
+        return;
+      }
+    }
+    // No node hit — reset zoom
+    zoom = 1; panX = 0; panY = 0;
+  });
+
+  // ── Zoom button controls ──
+  function updateZoomLabel() {
+    document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+  }
+  document.getElementById('zoom-in').addEventListener('click', () => {
+    zoom = Math.min(5, zoom * 1.2);
+    updateZoomLabel();
+  });
+  document.getElementById('zoom-out').addEventListener('click', () => {
+    zoom = Math.max(0.5, zoom / 1.2);
+    updateZoomLabel();
+  });
+  document.getElementById('zoom-reset').addEventListener('click', () => {
+    zoom = 1; panX = 0; panY = 0;
+    updateZoomLabel();
+  });
+
+  // ── Planet closeup modal ──
+  function openPlanetModal(nodeName) {
+    const modal = document.getElementById('planet-modal');
+    document.getElementById('planet-title').textContent = nodeName;
+    modal.classList.add('open');
+    // Position modal near center
+    modal.style.left = '50%';
+    modal.style.top = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    renderPlanetBody(nodeName);
+    modal.dataset.node = nodeName;
+  }
+  function closePlanetModal() {
+    document.getElementById('planet-modal').classList.remove('open');
+  }
+  document.getElementById('planet-close').addEventListener('click', closePlanetModal);
+
+  function renderPlanetBody(nodeName) {
+    const body = document.getElementById('planet-body');
+    // All images that target this node
+    const allImgs = state.cachedImages.filter(img => isTargetNode(nodeName));
+    const cached = new Set(state.cachedImages.filter(img => (img.cachedNodes||[]).includes(nodeName)).map(i => imgLabel(i)));
+
+    if (!allImgs.length) {
+      body.innerHTML = '<div style="color:var(--text2);font-size:11px;padding:8px">No images targeted for this node.</div>';
+      return;
+    }
+
+    body.innerHTML = allImgs.map(img => {
+      const label = imgLabel(img);
+      const isCached = cached.has(label);
+      const isPulling = img.phase === 'Pulling' && !isCached;
+      const isDegraded = img.phase === 'Degraded' && !isCached;
+      let phaseColor = 'var(--text2)';
+      let phaseText = 'Pending';
+      let barColor = 'var(--text2)';
+      let barWidth = '0%';
+      if (isCached) {
+        phaseColor = 'var(--green)'; phaseText = 'CACHED'; barColor = 'var(--green)'; barWidth = '100%';
+      } else if (isPulling) {
+        phaseColor = 'var(--yellow)'; phaseText = 'PULLING'; barColor = 'var(--yellow)'; barWidth = '50%';
+      } else if (isDegraded) {
+        phaseColor = 'var(--red)'; phaseText = 'FAILED'; barColor = 'var(--red)'; barWidth = '100%';
+      }
+      return `<div class="planet-img-row">
+        <span class="planet-img-name" title="${label}">${label}</span>
+        <div class="planet-img-bar"><div class="planet-img-bar-fill" style="width:${barWidth};background:${barColor}"></div></div>
+        <span class="planet-img-phase" style="color:${phaseColor}">${phaseText}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Keep planet modal updated
+  setInterval(() => {
+    const modal = document.getElementById('planet-modal');
+    if (modal.classList.contains('open') && modal.dataset.node) {
+      renderPlanetBody(modal.dataset.node);
+    }
+  }, 2000);
+
   window.addEventListener('resize', resize);
   resize();
   requestAnimationFrame(frame);
 
-  return { resize, renderNodeList };
+  return { resize, renderNodeList, invalidateCache };
 })();
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1159,6 +2245,7 @@ function applyData(data) {
   state.discoveryPolicies  = data.discoveryPolicies  || [];
   state.status             = data.status             || {};
 
+  tactical.invalidateCache();
   updateStats(state.status);
   tactical.renderNodeList();
   window._renderMatrix();
@@ -1183,6 +2270,7 @@ function initSSE() {
       if (loading.style.display !== 'none') {
         loading.style.display = 'none';
         document.getElementById('app').style.display = 'flex';
+        tactical.resize();
       }
     } catch(err) {
       console.error('[drop-ui] SSE parse error:', err);
@@ -1202,6 +2290,7 @@ async function poll() {
     if (loading.style.display !== 'none') {
       loading.style.display = 'none';
       document.getElementById('app').style.display = 'flex';
+      tactical.resize();
     }
   } catch(e) {
     console.error('[drop-ui] poll error:', e);
@@ -1209,12 +2298,118 @@ async function poll() {
   }
 }
 
-// Try SSE first, fall back to polling
-initSSE();
-// Also poll immediately as a fast-start fallback
-poll().then(() => { /* initial render done */ });
-// Keep polling as backup (SSE updates will override)
-setInterval(poll, 30000);
+// ── MOCK MODE: ?mock=30 in URL injects test data (default 30 nodes) ──
+const MOCK_MODE = location.search.includes('mock');
+
+if (!MOCK_MODE) {
+  // Try SSE first, fall back to polling
+  initSSE();
+  // Also poll immediately as a fast-start fallback
+  poll().then(() => { /* initial render done */ });
+  // Keep polling as backup (SSE updates will override)
+  setInterval(poll, 30000);
+} else {
+  (function runMock() {
+    const params = new URLSearchParams(location.search);
+    const NUM_NODES = parseInt(params.get('mock')) || 30;
+
+    const nodeNames = [];
+    for (let i = 0; i < NUM_NODES; i++) nodeNames.push(`worker-${String(i+1).padStart(2,'0')}`);
+    nodeNames.push('control-plane-01');
+
+    const nodes = nodeNames.map(name => ({
+      name, ready: Math.random() > 0.05,
+      labels: name.includes('control-plane') ? {'node-role.kubernetes.io/control-plane':''} : {},
+      arch: 'amd64', os: 'linux',
+    }));
+
+    const imagePool = [
+      'nginx', 'redis', 'postgres', 'alpine', 'busybox',
+      'node', 'python', 'golang', 'ubuntu', 'debian',
+      'mysql', 'mongo', 'rabbitmq', 'kafka', 'zookeeper',
+      'elasticsearch', 'kibana', 'grafana', 'prometheus', 'vault',
+    ];
+    const tags = ['latest', '1.25', '7.2', '3.19', '16-slim', '3.12', '1.22', '22.04'];
+    const workers = nodeNames.filter(n => !n.includes('control-plane'));
+
+    const cachedImages = imagePool.map((img, idx) => {
+      const tag = tags[idx % tags.length];
+      // Some ready, some pulling, one degraded
+      let phase, cachedNodes;
+      if (idx < 12) {
+        phase = 'Ready';
+        cachedNodes = [...workers];
+      } else if (idx < 18) {
+        phase = 'Pulling';
+        // Partially cached
+        cachedNodes = workers.slice(0, Math.floor(Math.random() * 15));
+      } else if (idx === 18) {
+        phase = 'Degraded';
+        cachedNodes = workers.slice(0, 5);
+      } else {
+        phase = 'Pending';
+        cachedNodes = [];
+      }
+      return {
+        name: `cached-${img}`, image: `docker.io/library/${img}`, tag,
+        phase, ready: phase === 'Ready' ? `${workers.length}/${workers.length}` : `${cachedNodes.length}/${workers.length}`,
+        nodesReady: cachedNodes.length, nodesTargeted: workers.length,
+        nodesPulling: phase === 'Pulling' ? workers.length - cachedNodes.length : 0,
+        cachedNodes, setName: idx < 10 ? 'infra-set' : idx < 15 ? 'app-set' : '',
+        age: `${Math.floor(Math.random()*48)+1}h`,
+      };
+    });
+
+    const mockData = {
+      nodes,
+      cachedImages,
+      cachedImageSets: [
+        { name: 'infra-set', phase: 'Ready', imagesManaged: 10, imagesReady: 10, age: '24h' },
+        { name: 'app-set', phase: 'Pulling', imagesManaged: 5, imagesReady: 2, age: '2h' },
+      ],
+      discoveryPolicies: [
+        { name: 'prod-registry', phase: 'Active', imageCount: 12, sourceCount: 2, maxImages: 50, syncInterval: '5m', lastSync: '2m', age: '7d', spec: { registries: [{ url: 'registry.example.com', repositories: ['app/*'] }] }, discoveredImages: imagePool.slice(0,8).map(i => ({ image: `registry.example.com/app/${i}:latest`, score: Math.floor(Math.random()*100), source: 'registry' })) },
+      ],
+      status: {
+        totalNodes: nodes.length, readyNodes: nodes.filter(n=>n.ready).length,
+        totalImages: cachedImages.length, readyImages: cachedImages.filter(i=>i.phase==='Ready').length,
+        pullingImages: cachedImages.filter(i=>i.phase==='Pulling').length,
+        pendingImages: cachedImages.filter(i=>i.phase==='Pending').length,
+        degradedImages: cachedImages.filter(i=>i.phase==='Degraded').length,
+        totalSets: 2, totalPolicies: 1,
+      },
+    };
+
+    // Apply immediately
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    tactical.resize();
+    applyData(mockData);
+    setConnected(true);
+
+    // Simulate pull progress every 3s
+    setInterval(() => {
+      cachedImages.forEach(img => {
+        if (img.phase === 'Pulling' && img.cachedNodes.length < workers.length) {
+          // Add 1-3 nodes
+          const remaining = workers.filter(n => !img.cachedNodes.includes(n));
+          const toAdd = remaining.slice(0, Math.ceil(Math.random() * 3));
+          toAdd.forEach(n => img.cachedNodes.push(n));
+          img.nodesReady = img.cachedNodes.length;
+          img.nodesPulling = workers.length - img.cachedNodes.length;
+          if (img.cachedNodes.length >= workers.length) {
+            img.phase = 'Ready';
+            img.nodesPulling = 0;
+          }
+        }
+      });
+      mockData.status.readyImages = cachedImages.filter(i=>i.phase==='Ready').length;
+      mockData.status.pullingImages = cachedImages.filter(i=>i.phase==='Pulling').length;
+      tactical.invalidateCache();
+      applyData(mockData);
+    }, 3000);
+  })();
+}
 </script>
 </body>
 </html>
