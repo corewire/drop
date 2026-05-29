@@ -107,8 +107,7 @@ score
 4200 | build ██████████████████████████
 2500 | test  ████████████████
  900 | lint  ██████
-      +------------------------------
-          lower score       higher score
+      (bar length indicates score)
 ```
 
 ### Production Patterns
