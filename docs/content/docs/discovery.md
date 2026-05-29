@@ -59,6 +59,24 @@ count(container_memory_working_set_bytes{
 }) by (image)
 ```
 
+### War Story Example: Top GitLab Runner Images (last 7 days)
+
+Hand-maintained image lists do not keep up in environments where automation (for example Renovate) ships new image versions every day. A practical pattern is to rank images by observed CI usage over a rolling window:
+
+```promql
+topk(30,
+  sum by (image) (
+    count_over_time(container_memory_working_set_bytes{
+      container!="",
+      container!="POD",
+      namespace="gitlab-runner"
+    }[7d])
+  )
+)
+```
+
+Use this when you want DiscoveryPolicy to continuously follow what your GitLab runner jobs really pulled in the last week.
+
 ### Production Patterns
 
 - Use `topX` to cap churn and focus on the highest-impact images

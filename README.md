@@ -32,7 +32,7 @@ When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thu
 
 ## Discovery in 60 seconds
 
-Drop Discovery is useful when image demand changes often and static image lists go stale.
+Drop Discovery is useful when image demand changes often and static image lists go stale. In fast-moving CI setups (for example with Renovate continuously landing new image versions), Prometheus-based discovery keeps your cache aligned with what jobs actually run.
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
@@ -47,9 +47,13 @@ spec:
       prometheus:
         endpoint: https://mimir.example.com
         query: |
-          count(container_memory_working_set_bytes{
-            container!="",container!="POD",namespace="build-stuff"
-          }) by (image)
+          topk(30,
+            sum by (image) (
+              count_over_time(container_memory_working_set_bytes{
+                container!="",container!="POD",namespace="gitlab-runner"
+              }[7d])
+            )
+          )
 ```
 
 Use it from a CachedImageSet:
