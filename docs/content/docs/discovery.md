@@ -13,6 +13,19 @@ llmsDescription: |
 
 The DiscoveryPolicy CRD enables automatic image discovery from external sources. When referenced by a CachedImageSet, discovered images are automatically materialized as CachedImage resources.
 
+## Why This Exists
+
+Discovery came from operational pain:
+
+- CI bursts created pull storms where many nodes pulled the same large images at once
+- Registry rate limits and transient outages amplified cold-start latency
+- Hand-maintained image lists became stale and missed newly hot images
+- Node rotation (e.g. Cluster API MachineDeployments rolling new nodes daily or weekly) means fresh nodes start with empty image caches — every rotation triggers a full re-pull of all active images
+
+This last point is especially painful in CI clusters: if your build nodes are managed by Cluster API and regularly replaced (scaling events, OS upgrades, spot instance recycling), every new node must pull the same large build images from scratch. Discovery combined with pre-caching ensures that the most relevant images are warmed immediately after a node joins, eliminating the cold-start penalty from node rotation.
+
+With DiscoveryPolicy, image candidates are continuously sourced from real usage signals (metrics) or registry data, then consumed by CachedImageSet.
+
 ## How It Works
 
 ```
@@ -23,7 +36,7 @@ CachedImageSet → reads discoveredImages → creates/deletes CachedImage childr
 
 1. The DiscoveryPolicy reconciler queries all configured sources at the specified interval
 2. Results are normalized to `{image, score}` pairs, merged, deduplicated, filtered, and sorted by score
-3. Top-X results are written to `status.discoveredImages`
+3. Top results (capped by `maxImages`) are written to `status.discoveredImages`
 4. The CachedImageSet reconciler watches DiscoveryPolicy status changes
 5. It diffs the desired images against existing CachedImage children
 6. New CachedImages are created; orphaned ones are deleted via ownerReference GC
@@ -33,6 +46,11 @@ CachedImageSet → reads discoveredImages → creates/deletes CachedImage childr
 ### Query Contract
 
 Your Prometheus query **must** return an `image` label. The metric value becomes the ranking score (higher = more important).
+
+In practice this means each result series should look like:
+
+- Labels include `image="<registry>/<repo>:<tag>"` (or equivalent image ref like `registry.example.com/team/app@sha256:...`)
+- Value is numeric and used for ranking
 
 **Example:** Find the 30 most-used images in a namespace:
 
@@ -44,6 +62,86 @@ count(container_memory_working_set_bytes{
 }) by (image)
 ```
 
+### War Story Example: Top GitLab Runner Images (last 7 days)
+
+Hand-maintained image lists do not keep up in environments where automation (for example Renovate) ships new image versions every day. A practical pattern is to rank images by observed CI usage over a rolling window.
+
+The `lookback` field tells Drop to use Prometheus `query_range` API over that time window and sum all returned values per image to produce a total usage score:
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: popular-build-images
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        lookback: 168h   # 7 days
+        step: 5m
+        query: |
+          topk(30,
+            sum by (image) (
+              container_memory_working_set_bytes{
+                container!="",container!="POD",namespace="gitlab-runner"
+              }
+            )
+          )
+```
+
+Use this when you want DiscoveryPolicy to continuously follow what your GitLab runner jobs really pulled in the last week.
+
+#### Field-by-field explanation
+
+- `lookback: 168h` — Drop uses `query_range` with start=now-7d, end=now, and sums all returned values per image to rank by total usage over the window.
+- `step: 5m` — resolution step for the range query (controls how many data points Prometheus returns).
+- `topk(30, ...)` — Prometheus-side pre-filter: return at most 30 highest-scoring images to Drop.
+- `sum by (image) (...)` — aggregate all matching series into one score per image label.
+- `container_memory_working_set_bytes{...}` — source metric used to observe running containers.
+- `container!=""` — ignore empty image labels.
+- `container!="POD"` — ignore sandbox/pause container noise.
+- `namespace="gitlab-runner"` — scope discovery to CI jobs in that namespace.
+
+#### How score is calculated
+
+For each unique `image` label, Drop uses the Prometheus query result value as the score.
+
+When `lookback` is not set (the default), Drop sends an instant query (`/api/v1/query`) and uses the returned value directly. When `lookback` is set (e.g. `lookback: 168h`), Drop uses a range query (`/api/v1/query_range`) over that window and **sums all returned values** to produce the score. This means images that appear more frequently over the window get a higher score.
+
+The example above uses `lookback: 168h` so Drop handles the 7-day windowing via the API — no need to embed `[7d]` in PromQL.
+
+If Prometheus returns:
+
+| image | value returned by query | meaning |
+|---|---:|---|
+| `registry.example.com/ci/build:1.0.3` | 4200 | seen most frequently in the 7-day window |
+| `registry.example.com/ci/test:2.4.1` | 2500 | medium usage |
+| `registry.example.com/ci/lint:1.8.0` | 900 | lower usage |
+
+Drop stores the returned values as `{image, score}` pairs in memory and then applies `spec.maxImages` as the final cap when writing `status.discoveredImages`.
+
+So the flow is:
+
+1. Prometheus query (with `topk`) limits what is returned to Drop.
+2. Drop then applies `spec.maxImages` (which can be the same value or lower) as the final list size.
+
+```
+score
+4200 | build ██████████████████████████
+2500 | test  ████████████████
+900  | lint  ██████
+      (bar length indicates score)
+```
+
+### Production Patterns
+
+- Use `maxImages` to cap churn and focus on the highest-impact images
+- Use `imageFilter` to exclude mirrors or registries you do not want to pre-cache
+- Start with one high-traffic namespace/team first, then expand source scope
+
 ### Full Example
 
 ```yaml
@@ -52,8 +150,8 @@ kind: DiscoveryPolicy
 metadata:
   name: popular-build-images
 spec:
-  interval: 1h
-  topX: 30
+  syncInterval: 1h
+  maxImages: 30
   imageFilter: "^(?!.*ecr\\..*amazonaws\\.com).*$"  # Exclude ECR images
   sources:
     - type: prometheus
@@ -90,8 +188,8 @@ kind: DiscoveryPolicy
 metadata:
   name: gitlab-helpers
 spec:
-  interval: 6h
-  topX: 10
+  syncInterval: 6h
+  maxImages: 10
   sources:
     - type: registry
       registry:
@@ -104,6 +202,28 @@ spec:
 ```
 
 This replaces the legacy bash script that curled the GitLab API and constructed image refs manually.
+
+### Additional Example: Stable App Tags from Private Registry
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: platform-apps
+spec:
+  syncInterval: 2h
+  maxImages: 20
+  imageFilter: "^registry\\.example\\.com/platform/.*$"
+  sources:
+    - type: registry
+      registry:
+        url: https://registry.example.com
+        repositories:
+          - platform/api
+          - platform/web
+        tagFilter: "^v\\d+\\.\\d+\\.\\d+$"
+        topX: 10
+```
 
 ## Error Handling
 

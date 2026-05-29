@@ -30,6 +30,53 @@ When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thu
 - **Paces pulls** to avoid saturating node bandwidth or registry rate limits
 - **Reports errors** using standard Kubernetes status patterns (`ErrImagePull`, `ConnectionRefused`, etc.)
 
+## Discovery in 60 seconds
+
+Drop Discovery is useful when image demand changes often and static image lists go stale. In fast-moving CI setups (for example with Renovate continuously landing new image versions), Prometheus-based discovery keeps your cache aligned with what jobs actually run. This is especially valuable when you rotate build nodes regularly (e.g. Cluster API MachineDeployments) — fresh nodes start with empty caches, and Discovery ensures the right images are pre-warmed immediately.
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: popular-build-images
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        lookback: 168h        # 7 days — uses query_range and sums values
+        step: 5m
+        query: |
+          topk(30,
+            sum by (image) (
+              container_memory_working_set_bytes{
+                container!="",container!="POD",namespace="gitlab-runner"
+              }
+            )
+          )
+```
+
+Field guide:
+
+- `syncInterval: 1h` → re-run discovery every hour.
+- `maxImages: 30` → final cap: Drop keeps up to 30 images in `status.discoveredImages`.
+- `lookback: 168h` → Drop queries Prometheus with `query_range` over the last 7 days and sums values per image to produce a usage score.
+- `step: 5m` → resolution step for the range query (default).
+- `namespace="gitlab-runner"` → only score images seen in CI runner jobs.
+- `topk(30, ...)` → query-side pre-filter in Prometheus before results are returned to Drop.
+
+Use it from a CachedImageSet:
+
+```yaml
+spec:
+  discoveryPolicyRef:
+    name: popular-build-images
+```
+
+See full discovery docs and examples: **[Discovery guide](https://breee.github.io/drop/docs/discovery/)**.
+
 ## Quick Start
 
 ```bash
