@@ -52,7 +52,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CachedImage is the Schema for the cachedimages API.
+        description: CachedImage ensures a single container image is pre-cached on
+          cluster nodes.
         properties:
           apiVersion:
             description: |-

@@ -39,7 +39,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DiscoveryPolicy is the Schema for the discoverypolicies API.
+        description: DiscoveryPolicy automatically discovers images from registries
+          or Prometheus metrics.
         properties:
           apiVersion:
             description: |-

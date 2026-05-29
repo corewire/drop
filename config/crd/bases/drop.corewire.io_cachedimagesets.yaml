@@ -39,7 +39,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CachedImageSet is the Schema for the cachedimagesets API.
+        description: CachedImageSet manages a group of images to cache, optionally
+          backed by a DiscoveryPolicy.
         properties:
           apiVersion:
             description: |-
