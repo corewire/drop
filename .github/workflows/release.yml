@@ -161,13 +161,23 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      - name: Package and push Helm chart
+      - name: Package and push Helm charts
         if: steps.changes.outputs.skip != 'true'
         run: |
           VERSION=${{ steps.version.outputs.version }}
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          # Sync CRDs from generated sources into chart templates
+          make sync-crds
+
+          # Package and push main operator chart
           helm package charts/drop --version "${VERSION#v}" --app-version "${VERSION#v}"
           helm push drop-*.tgz oci://ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/charts
+          rm -f drop-*.tgz
+
+          # Package and push CRDs chart
+          helm package charts/drop-crds --version "${VERSION#v}" --app-version "${VERSION#v}"
+          helm push drop-crds-*.tgz oci://ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/charts
 
       - name: Create GitHub Release
         if: steps.changes.outputs.skip != 'true'

@@ -39,3 +39,7 @@ docs/.hugo_build.lock
 # Generated docs-gen binary
 /gen-ai-docs
 .kubeconfig
+
+# Generated CRD chart templates (produced by make sync-crds in CI)
+charts/drop-crds/templates/drop.corewire.io_*.yaml
+charts/drop/templates/crds-drop.corewire.io_*.yaml
