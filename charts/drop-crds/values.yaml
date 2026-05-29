@@ -1,0 +1,5 @@
+# Default values for drop-crds.
+
+# Set to false to render the chart without actually creating CRDs
+# (useful for dry-run or templating).
+install: true

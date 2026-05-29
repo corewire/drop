@@ -1,0 +1,30 @@
+# ArgoCD Application — drop operator
+#
+# When using the separate drop-crds chart, disable CRD installation in the
+# operator chart by setting crds.install=false.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: drop
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    chart: drop
+    repoURL: oci://ghcr.io/breee/charts
+    targetRevision: 0.1.0
+    helm:
+      valuesObject:
+        crds:
+          install: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: drop-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -40,6 +40,10 @@ certManager:
     name: selfsigned-issuer
     kind: ClusterIssuer
 
+# CRD management. Set install to false when using the separate drop-crds chart.
+crds:
+  install: true
+
 nodeSelector: {}
 tolerations: []
 affinity: {}
