@@ -1,0 +1,28 @@
+# ArgoCD Application — drop CRDs (install first)
+#
+# Best practice: Install CRDs as a separate ArgoCD Application with
+# Replace=true sync option so that ArgoCD can manage CRD lifecycle
+# independently of the operator.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: drop-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    chart: drop-crds
+    repoURL: oci://ghcr.io/breee/charts
+    targetRevision: 0.1.0
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true
+      - Replace=true

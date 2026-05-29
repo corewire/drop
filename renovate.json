@@ -14,6 +14,31 @@
       "description": "Major updates require manual approval",
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "description": "Group drop chart and drop-crds chart version bumps together",
+      "matchFileNames": ["charts/drop/Chart.yaml", "charts/drop-crds/Chart.yaml"],
+      "groupName": "drop-charts"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update drop-crds chart version in ArgoCD examples",
+      "fileMatch": ["examples/argocd/.*\\.yaml$"],
+      "matchStrings": ["chart: drop-crds\\n\\s+repoURL: oci://ghcr\\.io/breee/charts\\n\\s+targetRevision: (?<currentValue>\\S+)"],
+      "depNameTemplate": "drop-crds",
+      "datasourceTemplate": "docker",
+      "packageNameTemplate": "ghcr.io/breee/charts/drop-crds"
+    },
+    {
+      "customType": "regex",
+      "description": "Update drop operator chart version in ArgoCD examples",
+      "fileMatch": ["examples/argocd/.*\\.yaml$"],
+      "matchStrings": ["chart: drop\\n\\s+repoURL: oci://ghcr\\.io/breee/charts\\n\\s+targetRevision: (?<currentValue>\\S+)"],
+      "depNameTemplate": "drop",
+      "datasourceTemplate": "docker",
+      "packageNameTemplate": "ghcr.io/breee/charts/drop"
     }
   ]
 }

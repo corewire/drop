@@ -57,8 +57,21 @@ generate: controller-gen ## Generate DeepCopy methods.
 manifests: controller-gen ## Generate CRD and RBAC manifests.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+.PHONY: sync-crds
+sync-crds: manifests ## Sync generated CRDs into Helm chart templates.
+	@echo "Syncing CRDs into charts/drop-crds/templates/ and charts/drop/templates/"
+	@for f in config/crd/bases/*.yaml; do \
+		base=$$(basename "$$f"); \
+		{ echo '{{- /* Generated from config/crd/bases — do not edit manually. Run make sync-crds */ -}}'; \
+		  echo '{{- if .Values.install }}'; cat "$$f"; echo '{{- end }}'; \
+		} > "charts/drop-crds/templates/$$base"; \
+		{ echo '{{- /* Generated from config/crd/bases — do not edit manually. Run make sync-crds */ -}}'; \
+		  echo '{{- if .Values.crds.install }}'; cat "$$f"; echo '{{- end }}'; \
+		} > "charts/drop/templates/crds-$$base"; \
+	done
+
 .PHONY: codegen
-codegen: generate manifests docs-gen ## Run all code generation (deepcopy + CRDs + docs).
+codegen: generate manifests sync-crds docs-gen ## Run all code generation (deepcopy + CRDs + docs).
 
 ##@ Testing
 

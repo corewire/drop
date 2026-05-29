@@ -1,0 +1,19 @@
+apiVersion: v2
+name: drop-crds
+description: CRDs for the drop operator (install separately for reliable upgrades)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.28.0-0"
+keywords:
+  - kubernetes
+  - operator
+  - image-caching
+  - pre-pull
+  - crds
+home: https://github.com/Breee/drop
+sources:
+  - https://github.com/Breee/drop
+maintainers:
+  - name: Breee
+    url: https://github.com/Breee

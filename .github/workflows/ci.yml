@@ -55,11 +55,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
       - uses: azure/setup-helm@v5
-      - name: Lint Helm chart
-        run: helm lint charts/drop
-      - name: Template Helm chart
-        run: helm template drop charts/drop
+      - name: Generate CRDs and sync into charts
+        run: make sync-crds
+      - name: Lint Helm charts
+        run: |
+          helm lint charts/drop
+          helm lint charts/drop-crds
+      - name: Template Helm charts
+        run: |
+          helm template drop charts/drop
+          helm template drop-crds charts/drop-crds
 
   docs-build:
     runs-on: ubuntu-latest
@@ -103,7 +112,7 @@ jobs:
       - name: Install CRDs
         run: |
           make controller-gen
-          make manifests
+          make sync-crds
           kubectl apply -f config/crd/bases/
       - name: Deploy E2E infrastructure (Prometheus + Registry)
         run: make e2e-infra
