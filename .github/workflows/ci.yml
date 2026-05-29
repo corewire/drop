@@ -121,6 +121,7 @@ jobs:
           helm install drop charts/drop \
             --namespace drop-system \
             --create-namespace \
+            --skip-crds \
             --set image.repository=controller \
             --set image.tag=ci \
             --set image.pullPolicy=Never \
