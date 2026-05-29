@@ -59,10 +59,10 @@ spec:
 Field guide:
 
 - `interval: 1h` → re-run discovery every hour.
-- `topX: 30` → keep the highest-ranked 30 images.
+- `topX: 30` → final cap: Drop keeps up to 30 images in `status.discoveredImages`.
 - `namespace="gitlab-runner"` → only score images seen in CI runner jobs.
 - `[7d]` in `count_over_time(...[7d])` → rank by 7-day usage.
-- `topk(30, ...)` → return only the highest scores from Prometheus.
+- `topk(30, ...)` → query-side pre-filter in Prometheus before results are returned to Drop.
 
 Use it from a CachedImageSet:
 

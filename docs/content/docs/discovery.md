@@ -106,7 +106,7 @@ Drop stores these as `{image, score}` pairs and then applies `topX` to keep the 
 score
 4200 | build ██████████████████████████
 2500 | test  ████████████████
- 900 | lint  ██████
+900  | lint  ██████
       (bar length indicates score)
 ```
 
