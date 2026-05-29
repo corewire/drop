@@ -77,6 +77,40 @@ topk(30,
 
 Use this when you want DiscoveryPolicy to continuously follow what your GitLab runner jobs really pulled in the last week.
 
+#### Field-by-field explanation
+
+- `topk(30, ...)` — keep only the 30 highest-scoring images.
+- `sum by (image) (...)` — aggregate all matching series into one score per image label.
+- `count_over_time(metric[7d])` — count samples seen for each image during the last 7 days.
+- `container_memory_working_set_bytes{...}` — source metric used to observe running containers.
+- `container!=""` — ignore empty image labels.
+- `container!="POD"` — ignore sandbox/pause container noise.
+- `namespace="gitlab-runner"` — scope discovery to CI jobs in that namespace.
+- `[7d]` — rolling 7-day window.
+
+#### How score is calculated
+
+For each unique `image` label, Drop uses the Prometheus query result value as the score.
+
+If Prometheus returns:
+
+| image | value returned by query | meaning |
+|---|---:|---|
+| `registry.example.com/ci/build:1.0.3` | 4200 | seen most frequently in the 7-day window |
+| `registry.example.com/ci/test:2.4.1` | 2500 | medium usage |
+| `registry.example.com/ci/lint:1.8.0` | 900 | lower usage |
+
+Drop stores these as `{image, score}` pairs and then applies `topX` to keep the highest scores.
+
+```
+score
+4200 | build ██████████████████████████
+2500 | test  ████████████████
+ 900 | lint  ██████
+      +------------------------------
+          lowest            highest
+```
+
 ### Production Patterns
 
 - Use `topX` to cap churn and focus on the highest-impact images
