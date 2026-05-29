@@ -46,12 +46,14 @@ spec:
     - type: prometheus
       prometheus:
         endpoint: https://mimir.example.com
+        lookback: 168h        # 7 days — uses query_range and sums values
+        step: 5m
         query: |
           topk(30,
             sum by (image) (
-              count_over_time(container_memory_working_set_bytes{
+              container_memory_working_set_bytes{
                 container!="",container!="POD",namespace="gitlab-runner"
-              }[7d])
+              }
             )
           )
 ```
@@ -60,8 +62,9 @@ Field guide:
 
 - `syncInterval: 1h` → re-run discovery every hour.
 - `maxImages: 30` → final cap: Drop keeps up to 30 images in `status.discoveredImages`.
+- `lookback: 168h` → Drop queries Prometheus with `query_range` over the last 7 days and sums values per image to produce a usage score.
+- `step: 5m` → resolution step for the range query (default).
 - `namespace="gitlab-runner"` → only score images seen in CI runner jobs.
-- `[7d]` in `count_over_time(...[7d])` → rank by 7-day usage.
 - `topk(30, ...)` → query-side pre-filter in Prometheus before results are returned to Drop.
 
 Use it from a CachedImageSet:
