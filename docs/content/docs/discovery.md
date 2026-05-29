@@ -20,6 +20,9 @@ Discovery came from operational pain:
 - CI bursts created pull storms where many nodes pulled the same large images at once
 - Registry rate limits and transient outages amplified cold-start latency
 - Hand-maintained image lists became stale and missed newly hot images
+- Node rotation (e.g. Cluster API MachineDeployments rolling new nodes daily or weekly) means fresh nodes start with empty image caches — every rotation triggers a full re-pull of all active images
+
+This last point is especially painful in CI clusters: if your build nodes are managed by Cluster API and regularly replaced (scaling events, OS upgrades, spot instance recycling), every new node must pull the same large build images from scratch. Discovery combined with pre-caching ensures that the most relevant images are warmed immediately after a node joins, eliminating the cold-start penalty from node rotation.
 
 With DiscoveryPolicy, image candidates are continuously sourced from real usage signals (metrics) or registry data, then consumed by CachedImageSet.
 
