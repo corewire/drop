@@ -122,6 +122,7 @@ jobs:
             --namespace drop-system \
             --create-namespace \
             --skip-crds \
+            --set crds.install=false \
             --set image.repository=controller \
             --set image.tag=ci \
             --set image.pullPolicy=Never \
