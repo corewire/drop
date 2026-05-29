@@ -60,6 +60,7 @@ manifests: controller-gen ## Generate CRD and RBAC manifests.
 .PHONY: sync-crds
 sync-crds: manifests ## Sync generated CRDs into Helm chart templates.
 	@echo "Syncing CRDs into charts/drop-crds/templates/ and charts/drop/templates/"
+	@mkdir -p charts/drop-crds/templates charts/drop/templates
 	@for f in config/crd/bases/*.yaml; do \
 		base=$$(basename "$$f"); \
 		{ echo '{{- /* Generated from config/crd/bases — do not edit manually. Run make sync-crds */ -}}'; \
