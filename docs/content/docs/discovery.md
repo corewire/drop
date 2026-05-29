@@ -46,7 +46,7 @@ Your Prometheus query **must** return an `image` label. The metric value becomes
 
 In practice this means each result series should look like:
 
-- Labels include `image="<registry>/<repo>:<tag>"` (or equivalent image ref)
+- Labels include `image="<registry>/<repo>:<tag>"` (or equivalent image ref like `registry.example.com/team/app@sha256:...` or `registry.example.com/team/app`)
 - Value is numeric and used for ranking
 
 **Example:** Find the 30 most-used images in a namespace:
