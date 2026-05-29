@@ -108,7 +108,7 @@ score
 2500 | test  ████████████████
  900 | lint  ██████
       +------------------------------
-          lowest            highest
+          lower score       higher score
 ```
 
 ### Production Patterns
