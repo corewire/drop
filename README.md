@@ -30,6 +30,38 @@ When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thu
 - **Paces pulls** to avoid saturating node bandwidth or registry rate limits
 - **Reports errors** using standard Kubernetes status patterns (`ErrImagePull`, `ConnectionRefused`, etc.)
 
+## Discovery in 60 seconds
+
+Drop Discovery is useful when image demand changes often and static image lists go stale.
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: popular-build-images
+spec:
+  interval: 1h
+  topX: 30
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        query: |
+          count(container_memory_working_set_bytes{
+            container!="",container!="POD",namespace="build-stuff"
+          }) by (image)
+```
+
+Use it from a CachedImageSet:
+
+```yaml
+spec:
+  discoveryPolicyRef:
+    name: popular-build-images
+```
+
+See full discovery docs and examples: **[Discovery guide](https://breee.github.io/drop/docs/discovery/)**.
+
 ## Quick Start
 
 ```bash
