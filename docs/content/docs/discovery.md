@@ -79,7 +79,7 @@ Use this when you want DiscoveryPolicy to continuously follow what your GitLab r
 
 #### Field-by-field explanation
 
-- `topk(30, ...)` — keep only the 30 highest-scoring images.
+- `topk(30, ...)` — Prometheus-side pre-filter: return at most 30 highest-scoring images to Drop.
 - `sum by (image) (...)` — aggregate all matching series into one score per image label.
 - `count_over_time(metric[7d])` — count samples seen for each image during the last 7 days.
 - `container_memory_working_set_bytes{...}` — source metric used to observe running containers.
@@ -100,7 +100,12 @@ If Prometheus returns:
 | `registry.example.com/ci/test:2.4.1` | 2500 | medium usage |
 | `registry.example.com/ci/lint:1.8.0` | 900 | lower usage |
 
-Drop stores these as `{image, score}` pairs and then applies `topX` to keep the highest scores.
+Drop stores the returned values as `{image, score}` pairs in memory and then applies DiscoveryPolicy `topX` as the final cap when writing `status.discoveredImages`.
+
+So the flow is:
+
+1. Prometheus query (with `topk`) limits what is returned to Drop.
+2. Drop then applies `spec.topX` (which can be the same value or lower) as the final list size.
 
 ```
 score
