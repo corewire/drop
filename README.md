@@ -40,8 +40,8 @@ kind: DiscoveryPolicy
 metadata:
   name: popular-build-images
 spec:
-  interval: 1h
-  topX: 30
+  syncInterval: 1h
+  maxImages: 30
   sources:
     - type: prometheus
       prometheus:
@@ -58,8 +58,8 @@ spec:
 
 Field guide:
 
-- `interval: 1h` → re-run discovery every hour.
-- `topX: 30` → final cap: Drop keeps up to 30 images in `status.discoveredImages`.
+- `syncInterval: 1h` → re-run discovery every hour.
+- `maxImages: 30` → final cap: Drop keeps up to 30 images in `status.discoveredImages`.
 - `namespace="gitlab-runner"` → only score images seen in CI runner jobs.
 - `[7d]` in `count_over_time(...[7d])` → rank by 7-day usage.
 - `topk(30, ...)` → query-side pre-filter in Prometheus before results are returned to Drop.

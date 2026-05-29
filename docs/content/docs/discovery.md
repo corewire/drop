@@ -33,7 +33,7 @@ CachedImageSet → reads discoveredImages → creates/deletes CachedImage childr
 
 1. The DiscoveryPolicy reconciler queries all configured sources at the specified interval
 2. Results are normalized to `{image, score}` pairs, merged, deduplicated, filtered, and sorted by score
-3. Top-X results are written to `status.discoveredImages`
+3. Top results (capped by `maxImages`) are written to `status.discoveredImages`
 4. The CachedImageSet reconciler watches DiscoveryPolicy status changes
 5. It diffs the desired images against existing CachedImage children
 6. New CachedImages are created; orphaned ones are deleted via ownerReference GC
@@ -92,6 +92,10 @@ Use this when you want DiscoveryPolicy to continuously follow what your GitLab r
 
 For each unique `image` label, Drop uses the Prometheus query result value as the score.
 
+When `lookback` is not set (the default), Drop sends an instant query and uses the returned value directly. When `lookback` is set (e.g. `lookback: 168h`), Drop uses a range query (`query_range`) and sums all returned values over the window to produce the score.
+
+The example above embeds the time window inside the PromQL query itself (`count_over_time(...[7d])`) and relies on an instant query, which is the simpler approach.
+
 If Prometheus returns:
 
 | image | value returned by query | meaning |
@@ -100,12 +104,12 @@ If Prometheus returns:
 | `registry.example.com/ci/test:2.4.1` | 2500 | medium usage |
 | `registry.example.com/ci/lint:1.8.0` | 900 | lower usage |
 
-Drop stores the returned values as `{image, score}` pairs in memory and then applies DiscoveryPolicy `topX` as the final cap when writing `status.discoveredImages`.
+Drop stores the returned values as `{image, score}` pairs in memory and then applies `spec.maxImages` as the final cap when writing `status.discoveredImages`.
 
 So the flow is:
 
 1. Prometheus query (with `topk`) limits what is returned to Drop.
-2. Drop then applies `spec.topX` (which can be the same value or lower) as the final list size.
+2. Drop then applies `spec.maxImages` (which can be the same value or lower) as the final list size.
 
 ```
 score
@@ -117,7 +121,7 @@ score
 
 ### Production Patterns
 
-- Use `topX` to cap churn and focus on the highest-impact images
+- Use `maxImages` to cap churn and focus on the highest-impact images
 - Use `imageFilter` to exclude mirrors or registries you do not want to pre-cache
 - Start with one high-traffic namespace/team first, then expand source scope
 
@@ -129,8 +133,8 @@ kind: DiscoveryPolicy
 metadata:
   name: popular-build-images
 spec:
-  interval: 1h
-  topX: 30
+  syncInterval: 1h
+  maxImages: 30
   imageFilter: "^(?!.*ecr\\..*amazonaws\\.com).*$"  # Exclude ECR images
   sources:
     - type: prometheus
@@ -167,8 +171,8 @@ kind: DiscoveryPolicy
 metadata:
   name: gitlab-helpers
 spec:
-  interval: 6h
-  topX: 10
+  syncInterval: 6h
+  maxImages: 10
   sources:
     - type: registry
       registry:
@@ -190,8 +194,8 @@ kind: DiscoveryPolicy
 metadata:
   name: platform-apps
 spec:
-  interval: 2h
-  topX: 20
+  syncInterval: 2h
+  maxImages: 20
   imageFilter: "^registry\\.example\\.com/platform/.*$"
   sources:
     - type: registry
