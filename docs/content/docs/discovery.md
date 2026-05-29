@@ -46,7 +46,7 @@ Your Prometheus query **must** return an `image` label. The metric value becomes
 
 In practice this means each result series should look like:
 
-- Labels include `image="<registry>/<repo>:<tag>"` (or equivalent image ref like `registry.example.com/team/app@sha256:...` or `registry.example.com/team/app`)
+- Labels include `image="<registry>/<repo>:<tag>"` (or equivalent image ref like `registry.example.com/team/app@sha256:...`)
 - Value is numeric and used for ranking
 
 **Example:** Find the 30 most-used images in a namespace:
@@ -63,7 +63,7 @@ count(container_memory_working_set_bytes{
 
 - Use `topX` to cap churn and focus on the highest-impact images
 - Use `imageFilter` to exclude mirrors or registries you do not want to pre-cache
-- Start with one noisy namespace/team first, then expand source scope
+- Start with one high-traffic namespace/team first, then expand source scope
 
 ### Full Example
 
