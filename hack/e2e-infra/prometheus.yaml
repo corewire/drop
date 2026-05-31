@@ -15,6 +15,7 @@ spec:
       labels:
         app: prometheus
     spec:
+      serviceAccountName: prometheus
       containers:
         - name: prometheus
           image: prom/prometheus:v2.53.0
@@ -61,3 +62,22 @@ spec:
     - port: 9090
       targetPort: 9090
       protocol: TCP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: e2e-infra
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-metrics-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: drop-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: e2e-infra

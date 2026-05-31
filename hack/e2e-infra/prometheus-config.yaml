@@ -12,7 +12,12 @@ data:
     scrape_configs:
       - job_name: drop-operator
         metrics_path: /metrics
-        scheme: http
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        authorization:
+          type: Bearer
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         static_configs:
           - targets: ['drop-metrics.drop-system.svc.cluster.local:8443']
 

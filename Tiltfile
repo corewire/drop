@@ -24,6 +24,14 @@ custom_build(
     ignore=['bin/'],
 )
 
+# --- cert-manager ---
+# Install cert-manager for metrics TLS certificates
+local('kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.2/cert-manager.yaml')
+local('kubectl wait --for=condition=Available --timeout=120s deployment/cert-manager -n cert-manager')
+local('kubectl wait --for=condition=Available --timeout=120s deployment/cert-manager-webhook -n cert-manager')
+# Self-signed ClusterIssuer for dev/test
+k8s_yaml('hack/e2e-infra/cert-manager-issuer.yaml')
+
 # Ensure drop-system namespace exists
 local('kubectl create namespace drop-system --dry-run=client -o yaml | kubectl apply -f -')
 
@@ -41,7 +49,10 @@ k8s_yaml(helm(
         'image.pullPolicy=IfNotPresent',
         'leaderElection.enabled=false',
         'metrics.enabled=true',
-        'metrics.secureServing=false',
+        'metrics.secureServing=true',
+        'certManager.enabled=true',
+        'certManager.issuerRef.name=selfsigned-issuer',
+        'certManager.issuerRef.kind=ClusterIssuer',
     ],
 ))
 
@@ -51,6 +62,9 @@ k8s_resource('drop', port_forwards=['8443:8443', '8081:8081'],
         'drop:serviceaccount',
         'drop:clusterrole',
         'drop:clusterrolebinding',
+        'drop-metrics-reader:clusterrole',
+        'drop-metrics-cert:certificate',
+        'selfsigned-issuer:clusterissuer',
         'cachedimages.drop.corewire.io:customresourcedefinition',
         'cachedimagesets.drop.corewire.io:customresourcedefinition',
         'discoverypolicies.drop.corewire.io:customresourcedefinition',
@@ -68,7 +82,7 @@ k8s_yaml('hack/e2e-infra/prometheus-config.yaml')
 k8s_yaml('hack/e2e-infra/prometheus.yaml')
 k8s_yaml('hack/e2e-infra/registry.yaml')
 
-k8s_resource('prometheus', objects=['prometheus-config:configmap'], port_forwards=['9090:9090'], labels=['infra'])
+k8s_resource('prometheus', objects=['prometheus-config:configmap', 'prometheus:serviceaccount', 'prometheus-metrics-reader:clusterrolebinding'], port_forwards=['9090:9090'], labels=['infra'])
 k8s_resource('registry', port_forwards=['5000:5000'], labels=['infra'])
 
 # Configure kind nodes to reach the in-cluster registry.
