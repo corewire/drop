@@ -122,6 +122,16 @@ local_resource(
     labels=['docs'],
 )
 
+# --- Drop Control Center UI (live reload) ---
+local_resource(
+    'drop-ui',
+    serve_cmd='go run ./cmd/ui --bind-address :8888',
+    deps=['cmd/ui', 'internal/ui'],
+    links=['http://localhost:8888/'],
+    labels=['ui'],
+    resource_deps=['drop'],
+)
+
 # --- Dev Sample Resources ---
 # Deploy sample CRs to exercise the operator
 k8s_yaml('hack/dev-samples.yaml')

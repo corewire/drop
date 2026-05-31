@@ -147,6 +147,46 @@ go build ./...     # compile
 tilt up
 ```
 
+## Drop Control Center UI
+
+A cyberpunk-themed tactical web UI for visualising the drop operator in real-time.
+
+### Views
+
+| View | Description |
+|------|-------------|
+| **TACTICAL** | Animated canvas radar showing nodes as stations, live "drop pod" ships flying from the central nexus to nodes during pulls, particle bursts on success |
+| **MATRIX** | Searchable & sortable table of all `CachedImage` resources with progress bars, cached-node chips, and phase filters |
+| **RECON** | Discovery policy inspector with YAML viewer, sync metadata, and a ranked list of auto-discovered images |
+
+### Run locally
+
+```bash
+make build-ui
+./bin/drop-ui --bind-address :8888
+# or directly:
+go run ./cmd/ui/ --bind-address :8888
+```
+
+Then open **http://localhost:8888** in your browser.
+
+### Deploy via Helm
+
+```bash
+helm install drop charts/drop -n drop-system --create-namespace \
+  --set ui.enabled=true \
+  --set ui.image.repository=ghcr.io/breee/drop-ui
+```
+
+To expose the UI with a `NodePort`:
+
+```bash
+helm upgrade drop charts/drop -n drop-system \
+  --set ui.enabled=true \
+  --set ui.service.type=NodePort \
+  --set ui.service.nodePort=30888
+```
+
 ## Docs
 
 Full documentation at **[breee.github.io/drop/](https://breee.github.io/drop/)** (GitHub Pages).

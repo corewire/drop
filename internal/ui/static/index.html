@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DROP // CONTROL CENTER</title>
+<style>
+:root {
+  --bg:       #080810;
+  --bg2:      #0d0d1a;
+  --bg3:      #111126;
+  --border:   #1e1e42;
+  --cyan:     #00d4ff;
+  --green:    #00ff41;
+  --pink:     #ff006e;
+  --yellow:   #ffaa00;
+  --red:      #ff3333;
+  --purple:   #9d00ff;
+  --text:     #c8c8f0;
+  --text2:    #6060a0;
+  --font:     'Courier New', Courier, monospace;
+  --glow-c:   0 0 8px #00d4ff88, 0 0 20px #00d4ff33;
+  --glow-g:   0 0 8px #00ff4188, 0 0 20px #00ff4133;
+  --glow-p:   0 0 8px #ff006e88, 0 0 20px #ff006e33;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;overflow:hidden}
+
+/* ── SCANLINES OVERLAY ───────────────────────────────────────────── */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);
+}
+
+/* ── LAYOUT ──────────────────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* ── HEADER ──────────────────────────────────────────────────────── */
+header{
+  flex-shrink:0;display:flex;align-items:center;gap:16px;
+  padding:8px 16px;border-bottom:1px solid var(--border);
+  background:var(--bg2);position:relative;overflow:hidden;
+}
+header::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(0,212,255,.04),transparent);
+  animation:hscroll 4s linear infinite;
+}
+@keyframes hscroll{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+.logo{
+  font-size:22px;font-weight:bold;letter-spacing:4px;
+  color:var(--cyan);text-shadow:var(--glow-c);
+  white-space:nowrap;
+}
+.logo span{color:var(--pink);text-shadow:var(--glow-p)}
+
+.status-bar{display:flex;gap:20px;flex:1;justify-content:center;flex-wrap:wrap}
+.stat{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:60px}
+.stat-val{font-size:18px;font-weight:bold;line-height:1}
+.stat-lbl{font-size:9px;color:var(--text2);letter-spacing:1px;text-transform:uppercase}
+.stat-val.cyan{color:var(--cyan);text-shadow:var(--glow-c)}
+.stat-val.green{color:var(--green);text-shadow:var(--glow-g)}
+.stat-val.yellow{color:var(--yellow)}
+.stat-val.red{color:var(--red)}
+.stat-val.pink{color:var(--pink);text-shadow:var(--glow-p)}
+
+.clock{color:var(--text2);font-size:11px;white-space:nowrap;text-align:right}
+.conn-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:var(--glow-g);display:inline-block;margin-right:4px;
+  animation:blink 1.5s ease-in-out infinite;
+}
+.conn-dot.off{background:var(--red);box-shadow:none;animation:none}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── NAV TABS ─────────────────────────────────────────────────────── */
+nav{
+  flex-shrink:0;display:flex;gap:0;
+  border-bottom:2px solid var(--border);background:var(--bg2);
+}
+.tab{
+  padding:8px 20px;cursor:pointer;border-right:1px solid var(--border);
+  color:var(--text2);letter-spacing:2px;font-size:11px;text-transform:uppercase;
+  transition:all .2s;position:relative;user-select:none;
+}
+.tab:hover{color:var(--cyan);background:rgba(0,212,255,.05)}
+.tab.active{
+  color:var(--cyan);background:rgba(0,212,255,.08);
+  border-bottom:2px solid var(--cyan);margin-bottom:-2px;
+  text-shadow:var(--glow-c);
+}
+.tab-icon{margin-right:6px}
+
+/* ── MAIN CONTENT ─────────────────────────────────────────────────── */
+main{flex:1;overflow:hidden;display:flex;position:relative}
+.view{position:absolute;inset:0;display:none;overflow:hidden}
+.view.active{display:flex}
+
+/* ── MATRIX VIEW (TABLE) ──────────────────────────────────────────── */
+#matrix{flex-direction:column;overflow:hidden}
+.matrix-toolbar{
+  flex-shrink:0;padding:8px 16px;border-bottom:1px solid var(--border);
+  display:flex;gap:12px;align-items:center;background:var(--bg2);
+}
+.search-box{
+  background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  padding:4px 10px;font-family:var(--font);font-size:12px;outline:none;
+  transition:border-color .2s;width:220px;
+}
+.search-box:focus{border-color:var(--cyan)}
+.search-box::placeholder{color:var(--text2)}
+.filter-btn{
+  background:transparent;border:1px solid var(--border);color:var(--text2);
+  padding:4px 10px;cursor:pointer;font-family:var(--font);font-size:11px;
+  transition:all .2s;letter-spacing:1px;
+}
+.filter-btn:hover,.filter-btn.active{
+  border-color:var(--cyan);color:var(--cyan);
+  background:rgba(0,212,255,.08);
+}
+.matrix-body{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse}
+th{
+  position:sticky;top:0;background:var(--bg2);
+  padding:8px 12px;text-align:left;font-size:10px;
+  letter-spacing:1px;text-transform:uppercase;color:var(--text2);
+  border-bottom:1px solid var(--border);cursor:pointer;user-select:none;
+  white-space:nowrap;
+}
+th:hover{color:var(--cyan)}
+th.sorted{color:var(--cyan)}
+th .sort-arrow{opacity:.5;margin-left:4px}
+td{
+  padding:7px 12px;border-bottom:1px solid rgba(30,30,66,.5);
+  vertical-align:middle;
+}
+tr:hover td{background:rgba(0,212,255,.03)}
+.img-ref{color:var(--text);font-size:12px}
+.img-ref .img-name{color:var(--cyan)}
+.img-ref .img-tag{color:var(--text2)}
+.phase-badge{
+  display:inline-block;padding:2px 8px;border-radius:2px;
+  font-size:10px;font-weight:bold;letter-spacing:.5px;
+}
+.phase-badge.Ready{background:rgba(0,255,65,.15);color:var(--green);border:1px solid rgba(0,255,65,.4)}
+.phase-badge.Pulling{background:rgba(255,170,0,.15);color:var(--yellow);border:1px solid rgba(255,170,0,.4)}
+.phase-badge.Pending{background:rgba(0,212,255,.15);color:var(--cyan);border:1px solid rgba(0,212,255,.4)}
+.phase-badge.Degraded{background:rgba(255,51,51,.15);color:var(--red);border:1px solid rgba(255,51,51,.4)}
+.progress-bar{
+  height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;
+  min-width:80px;margin-top:3px;
+}
+.progress-fill{height:100%;border-radius:2px;transition:width .5s}
+.progress-fill.ready{background:var(--green);box-shadow:0 0 4px var(--green)}
+.progress-fill.pulling{background:var(--yellow)}
+.progress-fill.degraded{background:var(--red)}
+.node-chips{display:flex;gap:3px;flex-wrap:wrap;max-width:300px}
+.node-chip{
+  font-size:9px;padding:1px 5px;border-radius:2px;
+  background:rgba(0,255,65,.1);color:var(--green);
+  border:1px solid rgba(0,255,65,.3);
+}
+.empty-row td{text-align:center;color:var(--text2);padding:40px;font-size:12px}
+
+/* ── RECON VIEW (DISCOVERY) ───────────────────────────────────────── */
+#recon{flex-direction:row;overflow:hidden}
+.policy-list{
+  width:280px;flex-shrink:0;border-right:1px solid var(--border);
+  overflow-y:auto;background:var(--bg2);
+}
+.policy-list-header{
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  font-size:10px;color:var(--text2);letter-spacing:2px;text-transform:uppercase;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.policy-item{
+  padding:10px 14px;border-bottom:1px solid rgba(30,30,66,.5);
+  cursor:pointer;transition:all .2s;
+}
+.policy-item:hover{background:rgba(0,212,255,.05)}
+.policy-item.selected{
+  background:rgba(0,212,255,.08);border-left:2px solid var(--cyan);
+}
+.policy-item-name{color:var(--text);font-size:12px;margin-bottom:4px}
+.policy-item-meta{display:flex;gap:8px;font-size:10px;color:var(--text2)}
+.policy-detail{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:0}
+.detail-section{
+  border-bottom:1px solid var(--border);padding:14px 16px;
+}
+.detail-section h4{
+  font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--cyan);margin-bottom:10px;
+}
+.yaml-viewer{
+  background:var(--bg3);border:1px solid var(--border);
+  padding:10px 12px;font-size:11px;line-height:1.6;overflow-x:auto;
+  white-space:pre;color:var(--text);max-height:300px;overflow-y:auto;
+}
+.yaml-key{color:var(--cyan)}
+.yaml-str{color:var(--green)}
+.yaml-num{color:var(--yellow)}
+.yaml-bool{color:var(--pink)}
+.discovered-grid{display:grid;grid-template-columns:1fr auto auto;gap:1px;background:var(--border)}
+.disc-row{
+  display:contents;
+}
+.disc-row>div{
+  background:var(--bg3);padding:5px 8px;font-size:11px;
+}
+.disc-row>div:first-child{color:var(--text)}
+.disc-row>div:nth-child(2){color:var(--text2);text-align:center}
+.disc-row>div:nth-child(3){color:var(--yellow);text-align:right}
+.disc-header>div{
+  background:var(--bg2);color:var(--text2);font-size:9px;
+  letter-spacing:1px;text-transform:uppercase;
+}
+.no-policy{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  color:var(--text2);font-size:12px;letter-spacing:2px;
+}
+
+/* ── SCROLLBARS ───────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text2)}
+
+/* ── TOOLTIP ──────────────────────────────────────────────────────── */
+#tooltip{
+  position:fixed;z-index:10000;pointer-events:none;
+  background:var(--bg2);border:1px solid var(--cyan);
+  padding:8px 12px;font-size:11px;color:var(--text);
+  box-shadow:var(--glow-c);display:none;max-width:280px;
+  line-height:1.5;
+}
+#tooltip.visible{display:block}
+
+/* ── LOADING OVERLAY ──────────────────────────────────────────────── */
+#loading{
+  position:fixed;inset:0;z-index:9998;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+#loading pre{
+  color:var(--green);font-size:12px;line-height:1.3;
+  text-shadow:var(--glow-g);animation:flicker 2s ease-in-out infinite;
+}
+@keyframes flicker{0%,100%{opacity:1}92%{opacity:1}95%{opacity:.4}97%{opacity:1}}
+.loading-msg{color:var(--cyan);font-size:12px;letter-spacing:2px;animation:blink 1s step-end infinite}
+</style>
+</head>
+<body>
+
+<div id="loading">
+<pre>
+  ██████╗ ██████╗  ██████╗ ██████╗
+  ██╔══██╗██╔══██╗██╔═══██╗██╔══██╗
+  ██║  ██║██████╔╝██║   ██║██████╔╝
+  ██║  ██║██╔══██╗██║   ██║██╔═══╝
+  ██████╔╝██║  ██║╚██████╔╝██║
+  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝
+
+  CONTROL CENTER // v0.1.0
+</pre>
+<div class="loading-msg">CONNECTING TO NEXUS…</div>
+</div>
+
+<div id="app" style="display:none">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">DROP<span>//</span>CC</div>
+
+  <div class="status-bar">
+    <div class="stat">
+      <div class="stat-val cyan" id="s-nodes">—</div>
+      <div class="stat-lbl">Nodes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val green" id="s-ready">—</div>
+      <div class="stat-lbl">Ready</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val yellow" id="s-pulling">—</div>
+      <div class="stat-lbl">Pulling</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val pink" id="s-total">—</div>
+      <div class="stat-lbl">Images</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val cyan" id="s-sets">—</div>
+      <div class="stat-lbl">Sets</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val purple" id="s-policies" style="color:var(--purple)">—</div>
+      <div class="stat-lbl">Policies</div>
+    </div>
+  </div>
+
+  <div class="clock">
+    <span class="conn-dot" id="conn-dot"></span>
+    <span id="clock-ts">--:--:--</span>
+  </div>
+</header>
+
+<!-- NAV -->
+<nav>
+  <div class="tab active" data-view="matrix"><span class="tab-icon">⊞</span>MATRIX</div>
+  <div class="tab" data-view="recon"><span class="tab-icon">◉</span>RECON</div>
+</nav>
+
+<!-- MAIN -->
+<main>
+
+  <!-- ── TACTICAL ── -->
+  <div class="view" id="tactical">
+    <canvas id="tac-canvas"></canvas>
+    <div class="tac-sidebar" id="tac-sidebar">
+      <h3>◈ NODES</h3>
+      <div id="node-list"></div>
+    </div>
+    <div class="tac-legend">
+      <div class="legend-row"><div class="legend-dot" style="background:var(--green)"></div> Ready</div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--yellow)"></div> Pulling</div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--red)"></div> Degraded</div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--text2)"></div> Offline</div>
+    </div>
+    <div class="event-feed" id="event-feed">
+      <h4>⚡ LIVE FEED</h4>
+      <div id="feed-items"></div>
+    </div>
+    <div class="zoom-controls" id="zoom-controls">
+      <button id="zoom-in" title="Zoom In">+</button>
+      <span class="zoom-label" id="zoom-label">100%</span>
+      <button id="zoom-out" title="Zoom Out">−</button>
+      <button id="zoom-reset" title="Reset">⟲</button>
+    </div>
+    <div class="planet-modal" id="planet-modal">
+      <div class="planet-modal-header">
+        <img class="planet-thumb" id="planet-thumb" src="/images/planet.png">
+        <span class="planet-title" id="planet-title">NODE</span>
+        <button class="planet-close" id="planet-close">✕</button>
+      </div>
+      <div class="planet-modal-body" id="planet-body"></div>
+    </div>
+  </div>
+
+  <!-- ── MATRIX ── -->
+  <div class="view active" id="matrix">
+    <div class="matrix-toolbar">
+      <input class="search-box" id="search" placeholder="⌕  filter images…" autocomplete="off">
+      <button class="filter-btn active" data-phase="">ALL</button>
+      <button class="filter-btn" data-phase="Ready">READY</button>
+      <button class="filter-btn" data-phase="Pulling">PULLING</button>
+      <button class="filter-btn" data-phase="Pending">PENDING</button>
+      <button class="filter-btn" data-phase="Degraded">DEGRADED</button>
+    </div>
+    <div class="matrix-body">
+      <table>
+        <thead>
+          <tr>
+            <th data-col="image">Image <span class="sort-arrow">↕</span></th>
+            <th data-col="phase">Status <span class="sort-arrow">↕</span></th>
+            <th data-col="nodesReady">Progress <span class="sort-arrow">↕</span></th>
+            <th data-col="cachedNodes">Cached Nodes</th>
+            <th data-col="setName">Set <span class="sort-arrow">↕</span></th>
+            <th data-col="age">Age <span class="sort-arrow">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="matrix-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── RECON ── -->
+  <div class="view" id="recon">
+    <div class="policy-list">
+      <div class="policy-list-header">
+        <span>◉ DISCOVERY POLICIES</span>
+        <span id="policy-count" style="color:var(--cyan)">0</span>
+      </div>
+      <div id="policy-list-items"></div>
+    </div>
+    <div class="policy-detail" id="policy-detail">
+      <div class="no-policy">SELECT A POLICY</div>
+    </div>
+  </div>
+
+  <!-- ── DEBUG ── -->
+  <div class="view" id="debug">
+    <div class="debug-panel">
+      <h2 style="color:var(--cyan);margin-bottom:12px;font-size:14px;letter-spacing:2px">⚙ SPRITE DEBUG</h2>
+
+      <!-- Controls -->
+      <div class="debug-controls">
+        <button id="dbg-prev">◀ Prev</button>
+        <button id="dbg-play">▶ Play</button>
+        <button id="dbg-next">Next ▶</button>
+        <label style="color:var(--text2);font-size:11px;margin-left:12px">Speed:
+          <input type="range" id="dbg-speed" min="1" max="30" value="8" style="width:80px;vertical-align:middle">
+          <span id="dbg-speed-val">8</span> fps
+        </label>
+        <span id="dbg-frame-info" style="margin-left:16px;color:var(--cyan);font-size:12px">Frame 0/36</span>
+      </div>
+
+      <!-- Frame preview -->
+      <div class="debug-preview">
+        <div class="debug-frame-box">
+          <canvas id="dbg-canvas" width="256" height="256"></canvas>
+          <div id="dbg-label" style="text-align:center;color:var(--text2);font-size:10px;margin-top:4px">Sheet: descent | Frame: 0</div>
+        </div>
+        <!-- CSS sprite method preview -->
+        <div class="debug-frame-box">
+          <div id="dbg-css-sprite" style="width:256px;height:256px;background-size:1024px 768px;background-repeat:no-repeat;border:1px solid var(--border)"></div>
+          <div style="text-align:center;color:var(--text2);font-size:10px;margin-top:4px">CSS background-position method</div>
+        </div>
+      </div>
+
+      <!-- Full sheets -->
+      <h3 style="color:var(--yellow);margin:16px 0 8px;font-size:11px;letter-spacing:1px">FULL SPRITE SHEETS</h3>
+      <div class="debug-sheets">
+        <div class="debug-sheet-item">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">Sheet 1: DESCENT (new1.png) — 4×3, 12 frames</div>
+          <img src="/images/drop-descent.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr)"></div>
+        </div>
+        <div class="debug-sheet-item">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">Sheet 2: LANDING (new2.png) — 4×3, 12 frames</div>
+          <img src="/images/drop-landing.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr)"></div>
+        </div>
+        <div class="debug-sheet-item">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">Sheet 3: DEPLOYED (new3.png) — 4×3, 12 frames</div>
+          <img src="/images/drop-deployed.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr)"></div>
+        </div>
+      </div>
+
+      <!-- Ground assets -->
+      <h3 style="color:var(--yellow);margin:16px 0 8px;font-size:11px;letter-spacing:1px">GROUND ASSETS</h3>
+
+      <!-- Ground animation controls -->
+      <div class="debug-controls">
+        <button id="gnd-prev">◀ Prev</button>
+        <button id="gnd-play">▶ Play</button>
+        <button id="gnd-next">Next ▶</button>
+        <label style="color:var(--text2);font-size:11px;margin-left:12px">Speed:
+          <input type="range" id="gnd-speed" min="1" max="30" value="8" style="width:80px;vertical-align:middle">
+          <span id="gnd-speed-val">8</span> fps
+        </label>
+        <select id="gnd-select" style="background:var(--bg3);border:1px solid var(--border);color:var(--cyan);padding:4px 8px;font-family:var(--font);font-size:11px;margin-left:12px">
+          <option value="0">ground1 (4×6, 24 frames)</option>
+          <option value="1">ground2 (5×6, 30 frames)</option>
+          <option value="2">ground3 (5×6, 30 frames)</option>
+        </select>
+        <span id="gnd-frame-info" style="margin-left:16px;color:var(--cyan);font-size:12px">Frame 0/24</span>
+      </div>
+
+      <!-- Ground frame preview -->
+      <div class="debug-preview">
+        <div class="debug-frame-box">
+          <canvas id="gnd-canvas" width="256" height="256"></canvas>
+          <div id="gnd-label" style="text-align:center;color:var(--text2);font-size:10px;margin-top:4px">ground1 | Frame 0</div>
+        </div>
+      </div>
+
+      <!-- Ground full sheets -->
+      <div class="debug-sheets">
+        <div class="debug-sheet-item" data-gnd-cols="4" data-gnd-rows="6">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">ground1.png — 4×6, 24 frames</div>
+          <img src="/images/ground1.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(6,1fr)"></div>
+        </div>
+        <div class="debug-sheet-item" data-gnd-cols="5" data-gnd-rows="6">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">ground2.png — 5×6, 30 frames</div>
+          <img src="/images/ground2.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr)"></div>
+        </div>
+        <div class="debug-sheet-item" data-gnd-cols="5" data-gnd-rows="6">
+          <div style="color:var(--text2);font-size:10px;margin-bottom:4px">ground3.png — 5×6, 30 frames</div>
+          <img src="/images/ground3.png" class="debug-sheet-img">
+          <div class="debug-sheet-grid" style="grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+'use strict';
+
+// ── STATE ──────────────────────────────────────────────────────────────
+const state = {
+  nodes: [],
+  cachedImages: [],
+  cachedImageSets: [],
+  discoveryPolicies: [],
+  status: {},
+  connected: false,
+  selectedPolicy: null,
+  matrixFilter: { phase: '', search: '', sortCol: 'image', sortDir: 1 },
+  selectedNode: null,
+};
+
+// ── UTIL ───────────────────────────────────────────────────────────────
+function shortName(name, max = 14) {
+  return name && name.length > max ? name.slice(0, max - 2) + '..' : (name || '');
+}
+function imgLabel(img) {
+  return img.tag ? `${img.image}:${img.tag}` : img.image + (img.digest ? `@${img.digest.slice(0,12)}` : '');
+}
+
+// ── CLOCK ──────────────────────────────────────────────────────────────
+function tick() {
+  document.getElementById('clock-ts').textContent = new Date().toLocaleTimeString();
+}
+setInterval(tick, 1000);
+tick();
+
+// ── TABS ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.view).classList.add('active');
+  });
+});
+
+// ── HEADER STATS ──────────────────────────────────────────────────────
+function updateStats(s) {
+  document.getElementById('s-nodes').textContent   = s.totalNodes   ?? '—';
+  document.getElementById('s-ready').textContent   = s.readyImages  ?? '—';
+  document.getElementById('s-pulling').textContent = s.pullingImages ?? '—';
+  document.getElementById('s-total').textContent   = s.totalImages  ?? '—';
+  document.getElementById('s-sets').textContent    = s.totalSets    ?? '—';
+  document.getElementById('s-policies').textContent = s.totalPolicies ?? '—';
+}
+
+// ── TOOLTIP ────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+function showTooltip(e, html) {
+  tooltip.innerHTML = html;
+  tooltip.classList.add('visible');
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + 290 > window.innerWidth)  x = e.clientX - 300;
+  if (y + 200 > window.innerHeight) y = e.clientY - 160;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+function hideTooltip() { tooltip.classList.remove('visible'); }
+document.addEventListener('mousemove', e => { if (tooltip.classList.contains('visible')) moveTooltip(e); });
+
+// ═══════════════════════════════════════════════════════════════════════
+// ── MATRIX VIEW ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  const f = state.matrixFilter;
+  let tbody;
+
+  function pct(img) {
+    if (!img.nodesTargeted) return 0;
+    return Math.round((img.nodesReady / img.nodesTargeted) * 100);
+  }
+
+  function renderTable() {
+    tbody = document.getElementById('matrix-body');
+    const search = f.search.toLowerCase();
+    let rows = state.cachedImages.filter(img => {
+      if (f.phase && img.phase !== f.phase) return false;
+      if (search) {
+        const q = imgLabel(img).toLowerCase();
+        return q.includes(search) || (img.setName||'').toLowerCase().includes(search);
+      }
+      return true;
+    });
+
+    rows.sort((a, b) => {
+      let va = a[f.sortCol] ?? '';
+      let vb = b[f.sortCol] ?? '';
+      if (f.sortCol === 'image') { va = imgLabel(a); vb = imgLabel(b); }
+      if (va < vb) return -f.sortDir;
+      if (va > vb) return f.sortDir;
+      return 0;
+    });
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">◈ NO IMAGES MATCH CURRENT FILTER</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(img => {
+      const label = imgLabel(img);
+      const p = pct(img);
+      const barColor = img.phase === 'Ready' ? 'ready' : img.phase === 'Pulling' ? 'pulling' : 'degraded';
+      const chips = (img.cachedNodes||[]).slice(0,6).map(n =>
+        `<span class="node-chip">${shortName(n,14)}</span>`).join('');
+      const more = (img.cachedNodes||[]).length > 6 ? `<span class="node-chip">+${(img.cachedNodes||[]).length-6}</span>` : '';
+      return `<tr>
+        <td><div class="img-ref">
+          <span class="img-name">${img.image.split('/').pop()}</span>
+          ${img.tag ? `<span class="img-tag">:${img.tag}</span>` : ''}
+          <div style="font-size:9px;color:var(--text2);margin-top:2px">${img.image}</div>
+        </div></td>
+        <td><span class="phase-badge ${img.phase||'Pending'}">${img.phase||'Pending'}</span></td>
+        <td>
+          <span style="font-size:11px">${img.nodesReady}/${img.nodesTargeted}</span>
+          <div class="progress-bar"><div class="progress-fill ${barColor}" style="width:${p}%"></div></div>
+        </td>
+        <td><div class="node-chips">${chips}${more}</div></td>
+        <td style="color:var(--text2);font-size:11px">${img.setName||'—'}</td>
+        <td style="color:var(--text2);font-size:11px">${img.age||'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('search').addEventListener('input', e => {
+    f.search = e.target.value;
+    renderTable();
+  });
+
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      f.phase = btn.dataset.phase;
+      renderTable();
+    });
+  });
+
+  document.querySelectorAll('th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      if (f.sortCol === th.dataset.col) { f.sortDir *= -1; }
+      else { f.sortCol = th.dataset.col; f.sortDir = 1; }
+      document.querySelectorAll('th[data-col]').forEach(t => {
+        t.classList.toggle('sorted', t.dataset.col === f.sortCol);
+        const arr = t.querySelector('.sort-arrow');
+        if (arr) arr.textContent = t.dataset.col === f.sortCol ? (f.sortDir > 0 ? '↓' : '↑') : '↕';
+      });
+      renderTable();
+    });
+  });
+
+  window._renderMatrix = renderTable;
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// ── RECON VIEW ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  function yamlify(obj, indent) {
+    indent = indent || 0;
+    const pad = '  '.repeat(indent);
+    let out = '';
+    if (Array.isArray(obj)) {
+      obj.forEach(item => {
+        if (typeof item === 'object' && item !== null) {
+          out += `${pad}-\n${yamlify(item, indent + 1)}`;
+        } else {
+          out += `${pad}- <span class="yaml-str">${JSON.stringify(item)}</span>\n`;
+        }
+      });
+    } else if (typeof obj === 'object' && obj !== null) {
+      Object.entries(obj).forEach(([k, v]) => {
+        if (v === null || v === undefined) return;
+        if (typeof v === 'object') {
+          out += `${pad}<span class="yaml-key">${k}</span>:\n${yamlify(v, indent + 1)}`;
+        } else if (typeof v === 'boolean') {
+          out += `${pad}<span class="yaml-key">${k}</span>: <span class="yaml-bool">${v}</span>\n`;
+        } else if (typeof v === 'number') {
+          out += `${pad}<span class="yaml-key">${k}</span>: <span class="yaml-num">${v}</span>\n`;
+        } else {
+          out += `${pad}<span class="yaml-key">${k}</span>: <span class="yaml-str">${String(v)}</span>\n`;
+        }
+      });
+    } else {
+      out += `${pad}<span class="yaml-str">${JSON.stringify(obj)}</span>\n`;
+    }
+    return out;
+  }
+
+  function renderPolicyList() {
+    const list = document.getElementById('policy-list-items');
+    document.getElementById('policy-count').textContent = state.discoveryPolicies.length;
+    list.innerHTML = '';
+
+    if (!state.discoveryPolicies.length) {
+      list.innerHTML = '<div style="padding:16px;color:var(--text2);font-size:11px">No discovery policies found.</div>';
+      return;
+    }
+
+    state.discoveryPolicies.forEach(dp => {
+      const div = document.createElement('div');
+      div.className = 'policy-item' + (state.selectedPolicy === dp.name ? ' selected' : '');
+      div.innerHTML = `
+        <div class="policy-item-name">${dp.name}</div>
+        <div class="policy-item-meta">
+          <span style="color:var(--cyan)">${dp.imageCount} images</span>
+          <span>${dp.sourceCount} sources</span>
+          <span style="color:var(--text2)">${dp.lastSync ? dp.lastSync + ' ago' : 'never synced'}</span>
+        </div>`;
+      div.addEventListener('click', () => {
+        state.selectedPolicy = dp.name;
+        renderPolicyList();
+        renderPolicyDetail(dp);
+      });
+      list.appendChild(div);
+    });
+  }
+
+  function renderPolicyDetail(dp) {
+    const detail = document.getElementById('policy-detail');
+    const discoveredRows = (dp.discoveredImages || []).map(img => `
+      <div class="disc-row">
+        <div>${img.image}</div>
+        <div>${img.source}</div>
+        <div>${img.score}</div>
+      </div>`).join('');
+
+    detail.innerHTML = `
+      <div class="detail-section">
+        <h4>◉ ${dp.name}</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:11px">
+          <div>Status: <span style="color:var(--cyan)">${dp.phase||'—'}</span></div>
+          <div>Images: <span style="color:var(--green)">${dp.imageCount}</span> / max ${dp.maxImages}</div>
+          <div>Sources: <span style="color:var(--cyan)">${dp.sourceCount}</span></div>
+          <div>Sync: <span style="color:var(--text2)">${dp.syncInterval||'—'}</span></div>
+          <div>Last Sync: <span style="color:var(--text2)">${dp.lastSync ? dp.lastSync + ' ago' : '—'}</span></div>
+          <div>Age: <span style="color:var(--text2)">${dp.age||'—'}</span></div>
+        </div>
+      </div>
+      <div class="detail-section" style="flex:0 0 auto">
+        <h4>⊞ SPEC</h4>
+        <div class="yaml-viewer">${yamlify(dp.spec)}</div>
+      </div>
+      ${dp.discoveredImages && dp.discoveredImages.length ? `
+      <div class="detail-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+        <h4>◈ DISCOVERED IMAGES (${dp.discoveredImages.length})</h4>
+        <div style="flex:1;overflow-y:auto">
+          <div class="discovered-grid">
+            <div class="disc-row disc-header">
+              <div>Image</div><div>Source</div><div>Score</div>
+            </div>
+            ${discoveredRows}
+          </div>
+        </div>
+      </div>` : '<div class="detail-section"><div style="color:var(--text2);font-size:11px">No discovered images yet.</div></div>'}`;
+  }
+
+  window._renderRecon = () => {
+    renderPolicyList();
+    if (state.selectedPolicy) {
+      const dp = state.discoveryPolicies.find(p => p.name === state.selectedPolicy);
+      if (dp) renderPolicyDetail(dp);
+      else document.getElementById('policy-detail').innerHTML = '<div class="no-policy">SELECT A POLICY</div>';
+    }
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// ── DATA / SSE ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+function applyData(data) {
+  state.nodes              = data.nodes              || [];
+  state.cachedImages       = data.cachedImages       || [];
+  state.cachedImageSets    = data.cachedImageSets    || [];
+  state.discoveryPolicies  = data.discoveryPolicies  || [];
+  state.status             = data.status             || {};
+  updateStats(state.status);
+  window._renderMatrix();
+  window._renderRecon();
+}
+
+function setConnected(ok) {
+  state.connected = ok;
+  const dot = document.getElementById('conn-dot');
+  dot.classList.toggle('off', !ok);
+}
+
+function initSSE() {
+  const es = new EventSource('/events');
+  es.onopen    = () => setConnected(true);
+  es.onerror   = () => { setConnected(false); setTimeout(initSSE, 5000); es.close(); };
+  es.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      applyData(data);
+      const loading = document.getElementById('loading');
+      if (loading.style.display !== 'none') {
+        loading.style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+      }
+    } catch(err) {
+      console.error('[drop-ui] SSE parse error:', err);
+    }
+  };
+}
+
+// Fallback poll when SSE not available
+async function poll() {
+  try {
+    const r = await fetch('/api/v1/all');
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+    applyData(data);
+    setConnected(true);
+    const loading = document.getElementById('loading');
+    if (loading.style.display !== 'none') {
+      loading.style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+    }
+  } catch(e) {
+    console.error('[drop-ui] poll error:', e);
+    setConnected(false);
+  }
+}
+
+// ── MOCK MODE: ?mock=30 in URL injects test data (default 30 nodes) ──
+const MOCK_MODE = location.search.includes('mock');
+
+if (!MOCK_MODE) {
+  // Try SSE first, fall back to polling
+  initSSE();
+  // Also poll immediately as a fast-start fallback
+  poll().then(() => { /* initial render done */ });
+  // Keep polling as backup (SSE updates will override)
+  setInterval(poll, 30000);
+} else {
+  (function runMock() {
+    const params = new URLSearchParams(location.search);
+    const NUM_NODES = parseInt(params.get('mock')) || 30;
+
+    const nodeNames = [];
+    for (let i = 0; i < NUM_NODES; i++) nodeNames.push(`worker-${String(i+1).padStart(2,'0')}`);
+    nodeNames.push('control-plane-01');
+
+    const nodes = nodeNames.map(name => ({
+      name, ready: Math.random() > 0.05,
+      labels: name.includes('control-plane') ? {'node-role.kubernetes.io/control-plane':''} : {},
+      arch: 'amd64', os: 'linux',
+    }));
+
+    const imagePool = [
+      'nginx', 'redis', 'postgres', 'alpine', 'busybox',
+      'node', 'python', 'golang', 'ubuntu', 'debian',
+      'mysql', 'mongo', 'rabbitmq', 'kafka', 'zookeeper',
+      'elasticsearch', 'kibana', 'grafana', 'prometheus', 'vault',
+    ];
+    const tags = ['latest', '1.25', '7.2', '3.19', '16-slim', '3.12', '1.22', '22.04'];
+    const workers = nodeNames.filter(n => !n.includes('control-plane'));
+
+    const cachedImages = imagePool.map((img, idx) => {
+      const tag = tags[idx % tags.length];
+      // Some ready, some pulling, one degraded
+      let phase, cachedNodes;
+      if (idx < 12) {
+        phase = 'Ready';
+        cachedNodes = [...workers];
+      } else if (idx < 18) {
+        phase = 'Pulling';
+        // Partially cached
+        cachedNodes = workers.slice(0, Math.floor(Math.random() * 15));
+      } else if (idx === 18) {
+        phase = 'Degraded';
+        cachedNodes = workers.slice(0, 5);
+      } else {
+        phase = 'Pending';
+        cachedNodes = [];
+      }
+      return {
+        name: `cached-${img}`, image: `docker.io/library/${img}`, tag,
+        phase, ready: phase === 'Ready' ? `${workers.length}/${workers.length}` : `${cachedNodes.length}/${workers.length}`,
+        nodesReady: cachedNodes.length, nodesTargeted: workers.length,
+        nodesPulling: phase === 'Pulling' ? workers.length - cachedNodes.length : 0,
+        cachedNodes, setName: idx < 10 ? 'infra-set' : idx < 15 ? 'app-set' : '',
+        age: `${Math.floor(Math.random()*48)+1}h`,
+      };
+    });
+
+    const mockData = {
+      nodes,
+      cachedImages,
+      cachedImageSets: [
+        { name: 'infra-set', phase: 'Ready', imagesManaged: 10, imagesReady: 10, age: '24h' },
+        { name: 'app-set', phase: 'Pulling', imagesManaged: 5, imagesReady: 2, age: '2h' },
+      ],
+      discoveryPolicies: [
+        { name: 'prod-registry', phase: 'Active', imageCount: 12, sourceCount: 2, maxImages: 50, syncInterval: '5m', lastSync: '2m', age: '7d', spec: { registries: [{ url: 'registry.example.com', repositories: ['app/*'] }] }, discoveredImages: imagePool.slice(0,8).map(i => ({ image: `registry.example.com/app/${i}:latest`, score: Math.floor(Math.random()*100), source: 'registry' })) },
+      ],
+      status: {
+        totalNodes: nodes.length, readyNodes: nodes.filter(n=>n.ready).length,
+        totalImages: cachedImages.length, readyImages: cachedImages.filter(i=>i.phase==='Ready').length,
+        pullingImages: cachedImages.filter(i=>i.phase==='Pulling').length,
+        pendingImages: cachedImages.filter(i=>i.phase==='Pending').length,
+        degradedImages: cachedImages.filter(i=>i.phase==='Degraded').length,
+        totalSets: 2, totalPolicies: 1,
+      },
+    };
+
+    // Apply immediately
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    applyData(mockData);
+    setConnected(true);
+
+    // Simulate pull progress every 3s
+    setInterval(() => {
+      cachedImages.forEach(img => {
+        if (img.phase === 'Pulling' && img.cachedNodes.length < workers.length) {
+          // Add 1-3 nodes
+          const remaining = workers.filter(n => !img.cachedNodes.includes(n));
+          const toAdd = remaining.slice(0, Math.ceil(Math.random() * 3));
+          toAdd.forEach(n => img.cachedNodes.push(n));
+          img.nodesReady = img.cachedNodes.length;
+          img.nodesPulling = workers.length - img.cachedNodes.length;
+          if (img.cachedNodes.length >= workers.length) {
+            img.phase = 'Ready';
+            img.nodesPulling = 0;
+          }
+        }
+      });
+      mockData.status.readyImages = cachedImages.filter(i=>i.phase==='Ready').length;
+      mockData.status.pullingImages = cachedImages.filter(i=>i.phase==='Pulling').length;
+      applyData(mockData);
+    }, 3000);
+  })();
+}
+</script>
+</body>
+</html>
