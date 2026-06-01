@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.24
 
 # Build the manager binary
 FROM docker.io/golang:1.26 AS builder
