@@ -45,7 +45,7 @@ crds:
         json: imagePullSecrets
         type: '[]corev1.LocalObjectReference'
         required: false
-        doc: 'ImagePullSecrets are references to Secrets in the operator namespace for pulling from private registries. The Secret must contain a .dockerconfigjson key. Example: [{name: "ghcr-creds"}, {name: "ecr-creds"}]'
+        doc: 'ImagePullSecrets are references to Secrets in the namespace where Drop creates pull Pods. The default namespace is "drop-system" unless the controller is started with a different --pod-namespace. The Secret must contain a .dockerconfigjson key. Example: [{name: "ghcr-creds"}, {name: "ecr-creds"}]'
       - name: NodeSelector
         json: nodeSelector
         type: map[string]string
@@ -175,7 +175,7 @@ crds:
         json: imagePullSecrets
         type: '[]corev1.LocalObjectReference'
         required: false
-        doc: 'ImagePullSecrets for private registries. Propagated to all child CachedImages. Example: [{name: "ghcr-creds"}]'
+        doc: 'ImagePullSecrets for private registries. Propagated to all child CachedImages. Secrets must exist in the namespace where Drop creates pull Pods (default: "drop-system"). Example: [{name: "ghcr-creds"}]'
       - name: NodeSelector
         json: nodeSelector
         type: map[string]string
@@ -405,7 +405,7 @@ helperTypes:
         json: secretRef
         type: '*corev1.LocalObjectReference'
         required: false
-        doc: 'SecretRef references a Secret in the operator namespace for auth/TLS. Supported Secret keys: token, username, password, ca.crt. Example: {name: "prometheus-creds"}'
+        doc: 'SecretRef references a Secret in the namespace where Drop creates pull Pods. The default namespace is "drop-system" unless the controller is started with a different --pod-namespace. Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>. Example: {name: "prometheus-creds"}'
   - name: ImageEntry
     doc: ImageEntry defines a single image to include in a set.
     fields:
@@ -478,7 +478,7 @@ helperTypes:
         json: topX
         type: int32
         required: false
-        doc: 'TopX limits the number of tags kept per repository, sorted by creation date (newest first). Example: 3 (keep the 3 most recent matching tags per repo)'
+        doc: 'TopX limits the number of tags kept per repository after tagFilter is applied. The registry API does not provide creation timestamps here; Drop keeps the last N tags returned by the registry. Example: 3 (keep the last 3 matching tags returned per repo)'
       - name: ImageTemplate
         json: imageTemplate
         type: string

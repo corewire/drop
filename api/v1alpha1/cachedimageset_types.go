@@ -34,6 +34,7 @@ type CachedImageSetSpec struct {
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	// ImagePullSecrets for private registries. Propagated to all child CachedImages.
+	// Secrets must exist in the namespace where Drop creates pull Pods (default: "drop-system").
 	// Example: [{name: "ghcr-creds"}]
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`

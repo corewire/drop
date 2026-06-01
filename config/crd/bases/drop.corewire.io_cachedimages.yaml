@@ -76,27 +76,35 @@ spec:
             description: CachedImageSpec defines the desired state of CachedImage.
             properties:
               digest:
-                description: Digest to pull (immutable reference). Mutually exclusive
-                  with Tag.
+                description: |-
+                  Digest to pull as an immutable reference. Mutually exclusive with Tag.
+                  Use this for reproducible deployments where the exact image layer matters.
+                  Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
                 type: string
               image:
-                description: Image is the fully qualified image reference (registry/repository).
+                description: |-
+                  Image is the fully qualified image reference without tag or digest.
+                  Example: "docker.io/library/nginx", "registry.example.com/team/app"
                 minLength: 1
                 type: string
               imagePullPolicy:
                 default: Always
                 description: |-
-                  ImagePullPolicy controls when kubelet pulls the image.
-                  Defaults to Always (checks upstream digest, only downloads if changed).
-                  Set to IfNotPresent to skip the registry check when the tag already exists locally.
+                  ImagePullPolicy controls when kubelet pulls the image on each node.
+                  - Always (default): check the registry for a newer digest even if the tag exists locally.
+                  - IfNotPresent: skip the registry check when the tag already exists on the node.
+                  - Never: never pull (only useful for pre-loaded images).
                 enum:
                 - Always
                 - IfNotPresent
                 - Never
                 type: string
               imagePullSecrets:
-                description: ImagePullSecrets are references to secrets for pulling
-                  from private registries.
+                description: |-
+                  ImagePullSecrets are references to Secrets in the namespace where Drop creates pull Pods.
+                  The default namespace is "drop-system" unless the controller is started with a different --pod-namespace.
+                  The Secret must contain a .dockerconfigjson key.
+                  Example: [{name: "ghcr-creds"}, {name: "ecr-creds"}]
                 items:
                   description: |-
                     LocalObjectReference contains enough information to let you locate the
@@ -117,11 +125,16 @@ spec:
               nodeSelector:
                 additionalProperties:
                   type: string
-                description: NodeSelector restricts which nodes to cache the image
-                  on.
+                description: |-
+                  NodeSelector restricts which nodes to cache the image on.
+                  Only nodes matching ALL key-value pairs will be targeted.
+                  Example: {"node-role.kubernetes.io/build": "true"}
                 type: object
               policyRef:
-                description: PolicyRef references a PullPolicy for pacing controls.
+                description: |-
+                  PolicyRef references a PullPolicy resource that controls pacing (concurrency, backoff, delays).
+                  If unset, the operator uses built-in defaults (1 concurrent node, 10s delay, 30s initial backoff).
+                  Example: {name: "conservative"}
                 properties:
                   name:
                     description: Name of the PullPolicy resource.
@@ -131,15 +144,21 @@ spec:
                 - name
                 type: object
               priority:
-                description: Priority is a pull ordering hint (lower values pulled
-                  first).
+                description: |-
+                  Priority is a pull ordering hint. Lower values are pulled first.
+                  Images with the same priority are pulled in alphabetical order.
+                  Default: 0 (no priority). Example: 10 (low priority), -10 (high priority)
                 format: int32
                 type: integer
               tag:
-                description: Tag to pull. Mutually exclusive with Digest.
+                description: |-
+                  Tag to pull. Mutually exclusive with Digest.
+                  Example: "1.25-alpine", "v2.4.1", "latest"
                 type: string
               tolerations:
-                description: Tolerations allow targeting tainted nodes.
+                description: |-
+                  Tolerations allow the pull pod to be scheduled on tainted nodes.
+                  Example: [{key: "node-role.kubernetes.io/build", operator: "Exists", effect: "NoSchedule"}]
                 items:
                   description: |-
                     The pod this Toleration is attached to tolerates any taint that matches

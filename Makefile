@@ -140,7 +140,7 @@ docs-gen: ## Regenerate AI agent docs (llms.txt, instructions, etc.) from source
 
 .PHONY: docs-gen-check
 docs-gen-check: docs-gen ## Verify generated AI docs are up to date.
-	@git diff --exit-code knowledge.yaml llms.txt llms-full.txt .github/copilot-instructions.md .cursorrules AGENTS.md docs/doc-generation.md docs/content/docs/reference/_generated_*.md docs/content/docs/_generated_examples.md || \
+	@git diff --exit-code knowledge.yaml llms.txt llms-full.txt docs/static/llms-full.txt .github/copilot-instructions.md .cursorrules AGENTS.md docs/content/docs/reference/_generated_*.md || \
 		(echo "ERROR: generated docs are out of date — run 'make docs-gen'" && exit 1)
 
 .PHONY: tools

@@ -35,7 +35,8 @@ type CachedImageSpec struct {
 	// +kubebuilder:default=Always
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	// ImagePullSecrets are references to Secrets in the operator namespace for pulling from private registries.
+	// ImagePullSecrets are references to Secrets in the namespace where Drop creates pull Pods.
+	// The default namespace is "drop-system" unless the controller is started with a different --pod-namespace.
 	// The Secret must contain a .dockerconfigjson key.
 	// Example: [{name: "ghcr-creds"}, {name: "ecr-creds"}]
 	// +optional

@@ -54,44 +54,62 @@ spec:
           metadata:
             type: object
           spec:
-            description: PullPolicySpec defines pacing and behavior configuration
-              for image pulls.
+            description: |-
+              PullPolicySpec defines pacing and behavior configuration for image pulls.
+              A PullPolicy is referenced by CachedImage or CachedImageSet via policyRef.
             properties:
               failureBackoff:
-                description: FailureBackoff configures retry delays on pull failures.
+                description: |-
+                  FailureBackoff configures exponential retry delays when a pull fails.
+                  If unset, defaults to initial=30s, max=5m.
                 properties:
                   initial:
                     default: 30s
-                    description: Initial delay before first retry.
+                    description: |-
+                      Initial delay before the first retry attempt after a failure.
+                      Default: "30s". Example: "1m"
                     type: string
                   max:
                     default: 5m
-                    description: Max delay cap for exponential backoff.
+                    description: |-
+                      Max is the upper bound on backoff delay. Retries will never wait longer than this.
+                      Default: "5m". Example: "10m"
                     type: string
                 type: object
               maxConcurrentNodes:
                 default: 1
-                description: MaxConcurrentNodes is the max nodes pulling simultaneously
-                  for this policy.
+                description: |-
+                  MaxConcurrentNodes is the maximum number of nodes pulling simultaneously for images
+                  that reference this policy. Increase for large clusters; keep low for bandwidth-constrained nodes.
+                  Default: 1. Example: 3 (pull on up to 3 nodes at once)
                 format: int32
                 minimum: 1
                 type: integer
               minDelayBetweenPulls:
                 default: 10s
-                description: MinDelayBetweenPulls is the minimum time between starting
-                  pulls on different nodes.
+                description: |-
+                  MinDelayBetweenPulls is the minimum wait time between starting a pull on one node and
+                  starting the next pull on another node. Prevents burst traffic to the registry.
+                  Default: "10s". Example: "30s", "1m"
                 type: string
               nodeSelector:
                 additionalProperties:
                   type: string
-                description: NodeSelector scopes this policy to a specific node pool.
+                description: |-
+                  NodeSelector scopes this policy to a specific node pool.
+                  Only relevant when the same PullPolicy should only pace pulls on a subset of nodes.
+                  Example: {"node-role.kubernetes.io/build": "true"}
                 type: object
               repullInterval:
-                description: RepullInterval is how often to re-pull cached images.
-                  Zero or unset means never re-pull.
+                description: |-
+                  RepullInterval defines how often to re-pull already-cached images to pick up digest changes.
+                  Unset or zero means never re-pull (rely on imagePullPolicy=Always on the CachedImage instead).
+                  Example: "24h" (re-pull daily), "6h"
                 type: string
               tolerations:
-                description: Tolerations match tainted nodes in the pool.
+                description: |-
+                  Tolerations allow the pull pods created under this policy to schedule on tainted nodes.
+                  Example: [{key: "dedicated", value: "ci", effect: "NoSchedule"}]
                 items:
                   description: |-
                     The pod this Toleration is attached to tolerates any taint that matches

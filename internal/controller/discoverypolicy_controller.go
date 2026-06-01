@@ -38,7 +38,8 @@ import (
 // DiscoveryPolicyReconciler reconciles a DiscoveryPolicy object
 type DiscoveryPolicyReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme          *runtime.Scheme
+	SecretNamespace string
 }
 
 const (
@@ -272,10 +273,13 @@ func (r *DiscoveryPolicyReconciler) buildHTTPClient(ctx context.Context, secretR
 	}
 
 	secret := &corev1.Secret{}
-	// Secrets are namespaced; use kube-system for operator secrets
-	key := types.NamespacedName{Name: secretRef.Name, Namespace: "kube-system"}
+	secretNamespace := r.SecretNamespace
+	if secretNamespace == "" {
+		secretNamespace = "drop-system"
+	}
+	key := types.NamespacedName{Name: secretRef.Name, Namespace: secretNamespace}
 	if err := r.Get(ctx, key, secret); err != nil {
-		return nil, fmt.Errorf("fetching secret %s: %w", secretRef.Name, err)
+		return nil, fmt.Errorf("fetching secret %s/%s: %w", secretNamespace, secretRef.Name, err)
 	}
 
 	transport := &authTransport{

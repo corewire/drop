@@ -38,7 +38,9 @@ See full discovery docs and examples: **[Discovery guide](https://breee.github.i
 
 ## Examples
 
-### Cache a single image on build nodes
+Each section is one use case. Apply the whole block for that use case.
+
+### Use case: cache one public image on build nodes
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
@@ -51,7 +53,6 @@ spec:
   # Tag to pull (mutually exclusive with digest)
   tag: "1.22-bookworm"
   # Always (default): check registry for newer digest even if tag exists locally
-  # IfNotPresent: skip registry check when already cached
   imagePullPolicy: Always
   # Only cache on nodes with this label
   nodeSelector:
@@ -61,81 +62,91 @@ spec:
     - key: "node-role.kubernetes.io/build"
       operator: "Exists"
       effect: "NoSchedule"
-  # Reference a PullPolicy for pacing (optional)
-  policyRef:
-    name: conservative
 ```
 
-### Cache a private image with registry credentials
-
-```yaml
-apiVersion: drop.corewire.io/v1alpha1
-kind: CachedImage
-metadata:
-  name: internal-builder
-spec:
-  image: registry.example.com/ci/builder
-  tag: "v3.1.0"
-  # Secrets must exist in the operator namespace and contain .dockerconfigjson
-  imagePullSecrets:
-    - name: ecr-creds
-  nodeSelector:
-    node-role.kubernetes.io/build: "true"
-```
-
-### PullPolicy — control pacing and retries
+### Use case: pace a fixed CI toolchain cache
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
-  name: conservative
+  name: ci-cache-conservative
 spec:
   # Pull on at most 2 nodes simultaneously (default: 1)
   maxConcurrentNodes: 2
   # Wait at least 30s between starting pulls on different nodes (default: 10s)
   minDelayBetweenPulls: 30s
-  # Retry backoff on failure
   failureBackoff:
-    initial: 1m    # first retry after 1 minute (default: 30s)
-    max: 10m       # cap backoff at 10 minutes (default: 5m)
-  # Re-pull every 24h to pick up digest changes behind mutable tags
-  repullInterval: 24h
-```
-
-### CachedImageSet — static list of images
-
-```yaml
+    initial: 1m
+    max: 10m
+---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
   name: ci-tools
 spec:
-  # All settings below are propagated to every child CachedImage
+  # Apply the pacing policy above to every child CachedImage
   policyRef:
-    name: conservative
+    name: ci-cache-conservative
   imagePullPolicy: IfNotPresent
-  imagePullSecrets:
-    - name: ghcr-creds
-  nodeSelector:
-    node-role.kubernetes.io/build: "true"
-  tolerations:
-    - key: "node-role.kubernetes.io/build"
-      operator: "Exists"
-      effect: "NoSchedule"
   # Static list — each entry becomes a child CachedImage
   images:
     - image: docker.io/library/golang
       tag: "1.22-bookworm"
     - image: docker.io/library/node
       tag: "20-alpine"
-    - image: registry.example.com/ci/builder
-      tag: "v3.1.0"
+    - image: docker.io/library/alpine
+      tag: "3.19"
 ```
 
-### DiscoveryPolicy — find images from Prometheus
+### Use case: cache private registry images
 
 ```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  # Drop reads imagePullSecrets from the namespace where it creates pull pods
+  name: private-registry-pull
+  namespace: drop-system
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: |
+    {
+      "auths": {
+        "registry.example.com": {
+          "username": "REPLACE_ME",
+          "password": "REPLACE_ME"
+        }
+      }
+    }
+---
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: private-ci-images
+spec:
+  imagePullSecrets:
+    - name: private-registry-pull
+  images:
+    - image: registry.example.com/ci/builder
+      tag: "v3.1.0"
+    - image: registry.example.com/ci/test-runner
+      tag: "v2.8.4"
+```
+
+### Use case: discover and cache GitLab runner images from Prometheus
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  # Remove this Secret and source.secretRef if Prometheus does not require auth
+  name: prometheus-creds
+  namespace: drop-system
+type: Opaque
+stringData:
+  token: REPLACE_WITH_PROMETHEUS_TOKEN
+---
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
@@ -166,14 +177,38 @@ spec:
               namespace="gitlab-runner", pod=~"runner-.*"
             }
           ) by (image)
-      # Optional: Secret with keys (token, username, password, ca.crt)
+      # Optional: Secret in the Drop pod namespace (default: drop-system)
+      # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
         name: prometheus-creds
+---
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: auto-cached-ci-images
+spec:
+  # Dynamically managed image list from the DiscoveryPolicy above
+  discoveryPolicyRef:
+    name: popular-build-images
+  # Can also add static images alongside discovered ones
+  images:
+    - image: docker.io/library/alpine
+      tag: "3.19"
 ```
 
-### DiscoveryPolicy — find images from an OCI registry
+### Use case: discover and cache application tags from a registry
 
 ```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: registry-api-creds
+  namespace: drop-system
+type: Opaque
+stringData:
+  username: REPLACE_WITH_REGISTRY_USERNAME
+  password: REPLACE_WITH_REGISTRY_PASSWORD
+---
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
@@ -193,36 +228,20 @@ spec:
           - team/worker
         # Only discover semver tags (regex on tag name)
         tagFilter: "^v[0-9]+\\."
-        # Keep only the 3 most recent tags per repo
+        # Keep only the last 3 matching tags returned by the registry
         topX: 3
-      # Optional: Secret with registry auth
+      # Optional: Secret in the Drop pod namespace (default: drop-system)
+      # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
-        name: registry-creds
-```
-
-### CachedImageSet with DiscoveryPolicy — full end-to-end
-
-```yaml
+        name: registry-api-creds
+---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
 metadata:
-  name: auto-cached-ci-images
+  name: registry-discovered-apps
 spec:
-  # Dynamically managed image list from the DiscoveryPolicy above
   discoveryPolicyRef:
-    name: popular-build-images
-  # Can also add static images alongside discovered ones
-  images:
-    - image: docker.io/library/alpine
-      tag: "3.19"
-  policyRef:
-    name: conservative
-  nodeSelector:
-    node-role.kubernetes.io/build: "true"
-  tolerations:
-    - key: "node-role.kubernetes.io/build"
-      operator: "Exists"
-      effect: "NoSchedule"
+    name: latest-app-tags
 ```
 
 ## Quick Start

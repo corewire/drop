@@ -63,72 +63,96 @@ spec:
             description: DiscoveryPolicySpec defines the desired state of DiscoveryPolicy.
             properties:
               imageFilter:
-                description: ImageFilter is a regex to filter discovered images.
+                description: |-
+                  ImageFilter is a regex applied to discovered image references. Only matching images are kept.
+                  Example: "registry.example.com/team/.*" (only keep images from that registry path)
                 type: string
               maxImages:
                 default: 50
-                description: MaxImages caps the number of discovered images.
+                description: |-
+                  MaxImages caps the total number of images stored in status.discoveredImages.
+                  Images are ranked by score; lowest-scoring images are dropped when the cap is exceeded.
+                  Default: 50. Example: 30, 100
                 format: int32
                 minimum: 1
                 type: integer
               sources:
-                description: Sources is the list of discovery backends to query.
+                description: |-
+                  Sources is the list of discovery backends to query. At least one source is required.
+                  Multiple sources are merged and ranked together before maxImages is applied.
                 items:
                   description: DiscoverySource defines a single discovery backend.
                   properties:
                     prometheus:
-                      description: Prometheus config (when type=prometheus).
+                      description: Prometheus contains the configuration when type=prometheus.
                       properties:
                         endpoint:
-                          description: Endpoint is the Prometheus API URL.
+                          description: |-
+                            Endpoint is the Prometheus-compatible API URL (Prometheus, Thanos, Mimir, VictoriaMetrics).
+                            Example: "http://prometheus.monitoring.svc:9090", "https://mimir.example.com"
                           minLength: 1
                           type: string
                         lookback:
                           description: |-
-                            Lookback is the time window to aggregate over (e.g. "7d", "24h").
-                            When set, uses query_range and sums values to rank by total usage.
-                            When unset, uses an instant query (point-in-time).
+                            Lookback is the time window for aggregation. When set, the operator uses query_range
+                            (start=now-lookback, end=now) and sums all returned values per image to produce a score.
+                            When unset, uses an instant query (/api/v1/query) and the point-in-time value is the score.
+                            Example: "168h" (7 days), "24h", "72h"
                           type: string
                         query:
-                          description: Query is the PromQL query that must return
-                            an 'image' label.
+                          description: |-
+                            Query is the PromQL expression. It MUST return results with an "image" label —
+                            that label value is used as the discovered image reference.
+                            The query result value is used as the ranking score (higher = more relevant).
+                            Example: count(container_memory_working_set_bytes{container!="",container!="POD",namespace="gitlab-runner"}) by (image)
                           minLength: 1
                           type: string
                         step:
                           default: 5m
-                          description: Step is the query resolution step for range
-                            queries.
+                          description: |-
+                            Step is the resolution step for range queries (only used when lookback is set).
+                            Smaller steps = more data points = more accurate sums but higher Prometheus load.
+                            Default: "5m". Example: "1m", "15m"
                           type: string
                       required:
                       - endpoint
                       - query
                       type: object
                     registry:
-                      description: Registry config (when type=registry).
+                      description: Registry contains the configuration when type=registry.
                       properties:
                         imageTemplate:
                           description: |-
-                            ImageTemplate is a Go text/template for constructing the full image reference.
-                            Available variables: .Registry, .Repository, .Tag
+                            ImageTemplate is a Go text/template for constructing the full image reference from discovered tags.
+                            Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}}
+                            Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}"
+                            Example: "{{.Registry}}/{{.Repository}}@{{.Tag}}" (if tags are actually digests)
                           type: string
                         repositories:
-                          description: Repositories is the list of repositories to
-                            query.
+                          description: |-
+                            Repositories is the list of repository paths to list tags from.
+                            Example: ["team/app", "team/worker", "infra/tools"]
                           items:
                             type: string
                           minItems: 1
                           type: array
                         tagFilter:
-                          description: TagFilter is a regex to filter tags.
+                          description: |-
+                            TagFilter is a regex applied to tag names. Only matching tags are discovered.
+                            Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds)
                           type: string
                         topX:
-                          description: TopX limits the number of tags to fetch per
-                            repository.
+                          description: |-
+                            TopX limits the number of tags kept per repository after tagFilter is applied.
+                            The registry API does not provide creation timestamps here; Drop keeps the last N tags returned by the registry.
+                            Example: 3 (keep the last 3 matching tags returned per repo)
                           format: int32
                           minimum: 1
                           type: integer
                         url:
-                          description: URL is the registry base URL.
+                          description: |-
+                            URL is the registry base URL (without repository path).
+                            Example: "https://registry.example.com", "https://ghcr.io"
                           minLength: 1
                           type: string
                       required:
@@ -136,8 +160,11 @@ spec:
                       - url
                       type: object
                     secretRef:
-                      description: SecretRef references a Secret for auth/TLS for
-                        this source.
+                      description: |-
+                        SecretRef references a Secret in the namespace where Drop creates pull Pods.
+                        The default namespace is "drop-system" unless the controller is started with a different --pod-namespace.
+                        Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>.
+                        Example: {name: "prometheus-creds"}
                       properties:
                         name:
                           default: ""
@@ -151,7 +178,8 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type:
-                      description: Type identifies the backend.
+                      description: Type identifies the discovery backend. Must be
+                        "prometheus" or "registry".
                       enum:
                       - prometheus
                       - registry
@@ -163,7 +191,9 @@ spec:
                 type: array
               syncInterval:
                 default: 30m
-                description: SyncInterval is how often to re-query sources.
+                description: |-
+                  SyncInterval is how often the operator re-queries all sources and updates status.discoveredImages.
+                  Default: "30m". Example: "1h", "15m"
                 type: string
             required:
             - sources

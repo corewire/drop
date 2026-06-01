@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -76,6 +77,40 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 			// Discovery will fail to connect to prometheus, but should not panic
 			// The reconciler handles errors gracefully
 			_ = err
+		})
+
+		It("uses the configured secret namespace for discovery source credentials", func() {
+			const namespaceName = "custom-drop-system"
+			const secretName = "prometheus-creds"
+
+			namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+			err := k8sClient.Create(ctx, namespace)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: namespaceName,
+				},
+				Data: map[string][]byte{
+					"token": []byte("test-token"),
+				},
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			controllerReconciler := &DiscoveryPolicyReconciler{
+				Client:          k8sClient,
+				Scheme:          k8sClient.Scheme(),
+				SecretNamespace: namespaceName,
+			}
+
+			_, err = controllerReconciler.buildHTTPClient(ctx, &corev1.LocalObjectReference{Name: secretName})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
 		})
 	})
 })

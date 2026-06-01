@@ -45,8 +45,9 @@ type DiscoverySource struct {
 	// Registry contains the configuration when type=registry.
 	// +optional
 	Registry *RegistrySource `json:"registry,omitempty"`
-	// SecretRef references a Secret in the operator namespace for auth/TLS.
-	// Supported Secret keys: token, username, password, ca.crt.
+	// SecretRef references a Secret in the namespace where Drop creates pull Pods.
+	// The default namespace is "drop-system" unless the controller is started with a different --pod-namespace.
+	// Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>.
 	// Example: {name: "prometheus-creds"}
 	// +optional
 	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
@@ -92,8 +93,9 @@ type RegistrySource struct {
 	// Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds)
 	// +optional
 	TagFilter string `json:"tagFilter,omitempty"`
-	// TopX limits the number of tags kept per repository, sorted by creation date (newest first).
-	// Example: 3 (keep the 3 most recent matching tags per repo)
+	// TopX limits the number of tags kept per repository after tagFilter is applied.
+	// The registry API does not provide creation timestamps here; Drop keeps the last N tags returned by the registry.
+	// Example: 3 (keep the last 3 matching tags returned per repo)
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	TopX int32 `json:"topX,omitempty"`

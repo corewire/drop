@@ -41,7 +41,7 @@ CachedImage ensures a single container image is pre-cached on cluster nodes.
 | `tag` | `string` | No | — | Tag to pull. Mutually exclusive with Digest. Example: "1.25-alpine", "v2.4.1", "latest" |
 | `digest` | `string` | No | — | Digest to pull as an immutable reference. Mutually exclusive with Tag. Use this for reproducible deployments where the exact image layer matters. Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" |
 | `imagePullPolicy` | `corev1.PullPolicy` | No | Always | ImagePullPolicy controls when kubelet pulls the image on each node. - Always (default): check the registry for a newer digest even if the tag exists locally. - IfNotPresent: skip the registry check when the tag already exists on the node. - Never: never pull (only useful for pre-loaded images). (`Always` &#124; `IfNotPresent` &#124; `Never`) |
-| `imagePullSecrets` | `[]corev1.LocalObjectReference` | No | — | ImagePullSecrets are references to Secrets in the operator namespace for pulling from private registries. The Secret must contain a .dockerconfigjson key. Example: [{name: "ghcr-creds"}, {name: "ecr-creds"}] |
+| `imagePullSecrets` | `[]corev1.LocalObjectReference` | No | — | ImagePullSecrets are references to Secrets in the namespace where Drop creates pull Pods. The default namespace is "drop-system" unless the controller is started with a different --pod-namespace. The Secret must contain a .dockerconfigjson key. Example: [{name: "ghcr-creds"}, {name: "ecr-creds"}] |
 | `nodeSelector` | `map[string]string` | No | — | NodeSelector restricts which nodes to cache the image on. Only nodes matching ALL key-value pairs will be targeted. Example: {"node-role.kubernetes.io/build": "true"} |
 | `tolerations` | `[]corev1.Toleration` | No | — | Tolerations allow the pull pod to be scheduled on tainted nodes. Example: [{key: "node-role.kubernetes.io/build", operator: "Exists", effect: "NoSchedule"}] |
 | `priority` | `*int32` | No | — | Priority is a pull ordering hint. Lower values are pulled first. Images with the same priority are pulled in alphabetical order. Default: 0 (no priority). Example: 10 (low priority), -10 (high priority) |
@@ -79,7 +79,7 @@ CachedImageSet manages a group of images to cache, optionally backed by a Discov
 | `policyRef` | `*PolicyReference` | No | — | PolicyRef references a PullPolicy for pacing controls. Propagated to all child CachedImages. Example: {name: "conservative"} |
 | `discoveryPolicyRef` | `*DiscoveryPolicyReference` | No | — | DiscoveryPolicyRef references a DiscoveryPolicy that provides a dynamic image list. When set, the operator reads status.discoveredImages from the referenced DiscoveryPolicy and creates/deletes child CachedImages accordingly. Can be combined with static images. Example: {name: "popular-build-images"} |
 | `imagePullPolicy` | `corev1.PullPolicy` | No | Always | ImagePullPolicy controls when kubelet pulls images. Propagated to all child CachedImages. Default: "Always". See CachedImage.spec.imagePullPolicy for details. (`Always` &#124; `IfNotPresent` &#124; `Never`) |
-| `imagePullSecrets` | `[]corev1.LocalObjectReference` | No | — | ImagePullSecrets for private registries. Propagated to all child CachedImages. Example: [{name: "ghcr-creds"}] |
+| `imagePullSecrets` | `[]corev1.LocalObjectReference` | No | — | ImagePullSecrets for private registries. Propagated to all child CachedImages. Secrets must exist in the namespace where Drop creates pull Pods (default: "drop-system"). Example: [{name: "ghcr-creds"}] |
 | `nodeSelector` | `map[string]string` | No | — | NodeSelector restricts which nodes to cache images on. Propagated to all child CachedImages. Example: {"node-role.kubernetes.io/build": "true"} |
 | `tolerations` | `[]corev1.Toleration` | No | — | Tolerations for tainted nodes. Propagated to all child CachedImages. Example: [{key: "node-role.kubernetes.io/build", operator: "Exists", effect: "NoSchedule"}] |
 | `images` | `[]ImageEntry` | No | — | Images is a static list of images to cache. Each entry creates one child CachedImage. Can be used alone or combined with discoveryPolicyRef (both lists are merged). |
@@ -179,7 +179,7 @@ DiscoverySource defines a single discovery backend.
 | `type` | `string` | Yes | — | Type identifies the discovery backend. Must be "prometheus" or "registry". |
 | `prometheus` | `*PrometheusSource` | No | — | Prometheus contains the configuration when type=prometheus. |
 | `registry` | `*RegistrySource` | No | — | Registry contains the configuration when type=registry. |
-| `secretRef` | `*corev1.LocalObjectReference` | No | — | SecretRef references a Secret in the operator namespace for auth/TLS. Supported Secret keys: token, username, password, ca.crt. Example: {name: "prometheus-creds"} |
+| `secretRef` | `*corev1.LocalObjectReference` | No | — | SecretRef references a Secret in the namespace where Drop creates pull Pods. The default namespace is "drop-system" unless the controller is started with a different --pod-namespace. Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>. Example: {name: "prometheus-creds"} |
 
 ### ImageEntry
 
@@ -219,6 +219,6 @@ RegistrySource defines OCI registry tag listing configuration for image discover
 | `url` | `string` | Yes | — | URL is the registry base URL (without repository path). Example: "https://registry.example.com", "https://ghcr.io" |
 | `repositories` | `[]string` | Yes | — | Repositories is the list of repository paths to list tags from. Example: ["team/app", "team/worker", "infra/tools"] |
 | `tagFilter` | `string` | No | — | TagFilter is a regex applied to tag names. Only matching tags are discovered. Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds) |
-| `topX` | `int32` | No | — | TopX limits the number of tags kept per repository, sorted by creation date (newest first). Example: 3 (keep the 3 most recent matching tags per repo) |
+| `topX` | `int32` | No | — | TopX limits the number of tags kept per repository after tagFilter is applied. The registry API does not provide creation timestamps here; Drop keeps the last N tags returned by the registry. Example: 3 (keep the last 3 matching tags returned per repo) |
 | `imageTemplate` | `string` | No | — | ImageTemplate is a Go text/template for constructing the full image reference from discovered tags. Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}} Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}" Example: "{{.Registry}}/{{.Repository}}@{{.Tag}}" (if tags are actually digests) |
 

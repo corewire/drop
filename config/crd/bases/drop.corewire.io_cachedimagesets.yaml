@@ -60,11 +60,18 @@ spec:
           metadata:
             type: object
           spec:
-            description: CachedImageSetSpec defines the desired state of CachedImageSet.
+            description: |-
+              CachedImageSetSpec defines the desired state of CachedImageSet.
+              A CachedImageSet creates and manages child CachedImage resources automatically.
+              All spec fields (nodeSelector, tolerations, imagePullPolicy, imagePullSecrets, policyRef)
+              are propagated to every child CachedImage.
             properties:
               discoveryPolicyRef:
-                description: DiscoveryPolicyRef references a DiscoveryPolicy for dynamic
-                  image lists.
+                description: |-
+                  DiscoveryPolicyRef references a DiscoveryPolicy that provides a dynamic image list.
+                  When set, the operator reads status.discoveredImages from the referenced DiscoveryPolicy
+                  and creates/deletes child CachedImages accordingly. Can be combined with static images.
+                  Example: {name: "popular-build-images"}
                 properties:
                   name:
                     description: Name of the DiscoveryPolicy resource.
@@ -75,16 +82,19 @@ spec:
                 type: object
               imagePullPolicy:
                 default: Always
-                description: ImagePullPolicy controls when kubelet pulls the image
-                  (propagated to children).
+                description: |-
+                  ImagePullPolicy controls when kubelet pulls images. Propagated to all child CachedImages.
+                  Default: "Always". See CachedImage.spec.imagePullPolicy for details.
                 enum:
                 - Always
                 - IfNotPresent
                 - Never
                 type: string
               imagePullSecrets:
-                description: ImagePullSecrets are references to secrets for pulling
-                  from private registries (propagated to children).
+                description: |-
+                  ImagePullSecrets for private registries. Propagated to all child CachedImages.
+                  Secrets must exist in the namespace where Drop creates pull Pods (default: "drop-system").
+                  Example: [{name: "ghcr-creds"}]
                 items:
                   description: |-
                     LocalObjectReference contains enough information to let you locate the
@@ -103,19 +113,27 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
               images:
-                description: Images is a static list of images to cache.
+                description: |-
+                  Images is a static list of images to cache. Each entry creates one child CachedImage.
+                  Can be used alone or combined with discoveryPolicyRef (both lists are merged).
                 items:
                   description: ImageEntry defines a single image to include in a set.
                   properties:
                     digest:
-                      description: Digest to pull.
+                      description: |-
+                        Digest to pull as an immutable reference. Mutually exclusive with Tag.
+                        Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
                       type: string
                     image:
-                      description: Image is the fully qualified image reference (registry/repository).
+                      description: |-
+                        Image is the fully qualified image reference without tag or digest.
+                        Example: "docker.io/library/nginx", "registry.example.com/team/app"
                       minLength: 1
                       type: string
                     tag:
-                      description: Tag to pull.
+                      description: |-
+                        Tag to pull. Mutually exclusive with Digest.
+                        Example: "1.25-alpine", "v2.4.1"
                       type: string
                   required:
                   - image
@@ -124,11 +142,14 @@ spec:
               nodeSelector:
                 additionalProperties:
                   type: string
-                description: NodeSelector restricts which nodes to cache images on
-                  (propagated to children).
+                description: |-
+                  NodeSelector restricts which nodes to cache images on. Propagated to all child CachedImages.
+                  Example: {"node-role.kubernetes.io/build": "true"}
                 type: object
               policyRef:
-                description: PolicyRef references a PullPolicy for pacing controls.
+                description: |-
+                  PolicyRef references a PullPolicy for pacing controls. Propagated to all child CachedImages.
+                  Example: {name: "conservative"}
                 properties:
                   name:
                     description: Name of the PullPolicy resource.
@@ -138,8 +159,9 @@ spec:
                 - name
                 type: object
               tolerations:
-                description: Tolerations allow targeting tainted nodes (propagated
-                  to children).
+                description: |-
+                  Tolerations for tainted nodes. Propagated to all child CachedImages.
+                  Example: [{key: "node-role.kubernetes.io/build", operator: "Exists", effect: "NoSchedule"}]
                 items:
                   description: |-
                     The pod this Toleration is attached to tolerates any taint that matches
