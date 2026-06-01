@@ -53,6 +53,7 @@ k8s_yaml(helm(
         'certManager.enabled=true',
         'certManager.issuerRef.name=selfsigned-issuer',
         'certManager.issuerRef.kind=ClusterIssuer',
+        'crds.install=false',
     ],
 ))
 
