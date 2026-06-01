@@ -37,15 +37,15 @@ CachedImage ensures a single container image is pre-cached on cluster nodes.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `image` | `string` | Yes | — | Image is the fully qualified image reference (registry/repository). |
-| `tag` | `string` | No | — | Tag to pull. Mutually exclusive with Digest. |
-| `digest` | `string` | No | — | Digest to pull (immutable reference). Mutually exclusive with Tag. |
-| `imagePullPolicy` | `corev1.PullPolicy` | No | Always | ImagePullPolicy controls when kubelet pulls the image. Defaults to Always (checks upstream digest, only downloads if changed). Set to IfNotPresent to skip the registry check when the tag already exists locally. (`Always` &#124; `IfNotPresent` &#124; `Never`) |
-| `imagePullSecrets` | `[]corev1.LocalObjectReference` | No | — | ImagePullSecrets are references to secrets for pulling from private registries. |
-| `nodeSelector` | `map[string]string` | No | — | NodeSelector restricts which nodes to cache the image on. |
-| `tolerations` | `[]corev1.Toleration` | No | — | Tolerations allow targeting tainted nodes. |
-| `priority` | `*int32` | No | — | Priority is a pull ordering hint (lower values pulled first). |
-| `policyRef` | `*PolicyReference` | No | — | PolicyRef references a PullPolicy for pacing controls. |
+| `image` | `string` | Yes | — | Image is the fully qualified image reference without tag or digest. Example: "docker.io/library/nginx", "registry.example.com/team/app" |
+| `tag` | `string` | No | — | Tag to pull. Mutually exclusive with Digest. Example: "1.25-alpine", "v2.4.1", "latest" |
+| `digest` | `string` | No | — | Digest to pull as an immutable reference. Mutually exclusive with Tag. Use this for reproducible deployments where the exact image layer matters. Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" |
+| `imagePullPolicy` | `corev1.PullPolicy` | No | Always | ImagePullPolicy controls when kubelet pulls the image on each node. - Always (default): check the registry for a newer digest even if the tag exists locally. - IfNotPresent: skip the registry check when the tag already exists on the node. - Never: never pull (only useful for pre-loaded images). (`Always` &#124; `IfNotPresent` &#124; `Never`) |
+| `imagePullSecrets` | `[]corev1.LocalObjectReference` | No | — | ImagePullSecrets are references to Secrets in the operator namespace for pulling from private registries. The Secret must contain a .dockerconfigjson key. Example: [{name: "ghcr-creds"}, {name: "ecr-creds"}] |
+| `nodeSelector` | `map[string]string` | No | — | NodeSelector restricts which nodes to cache the image on. Only nodes matching ALL key-value pairs will be targeted. Example: {"node-role.kubernetes.io/build": "true"} |
+| `tolerations` | `[]corev1.Toleration` | No | — | Tolerations allow the pull pod to be scheduled on tainted nodes. Example: [{key: "node-role.kubernetes.io/build", operator: "Exists", effect: "NoSchedule"}] |
+| `priority` | `*int32` | No | — | Priority is a pull ordering hint. Lower values are pulled first. Images with the same priority are pulled in alphabetical order. Default: 0 (no priority). Example: 10 (low priority), -10 (high priority) |
+| `policyRef` | `*PolicyReference` | No | — | PolicyRef references a PullPolicy resource that controls pacing (concurrency, backoff, delays). If unset, the operator uses built-in defaults (1 concurrent node, 10s delay, 30s initial backoff). Example: {name: "conservative"} |
 
 ### Status
 
@@ -76,13 +76,13 @@ CachedImageSet manages a group of images to cache, optionally backed by a Discov
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `policyRef` | `*PolicyReference` | No | — | PolicyRef references a PullPolicy for pacing controls. |
-| `discoveryPolicyRef` | `*DiscoveryPolicyReference` | No | — | DiscoveryPolicyRef references a DiscoveryPolicy for dynamic image lists. |
-| `imagePullPolicy` | `corev1.PullPolicy` | No | Always | ImagePullPolicy controls when kubelet pulls the image (propagated to children). (`Always` &#124; `IfNotPresent` &#124; `Never`) |
-| `imagePullSecrets` | `[]corev1.LocalObjectReference` | No | — | ImagePullSecrets are references to secrets for pulling from private registries (propagated to children). |
-| `nodeSelector` | `map[string]string` | No | — | NodeSelector restricts which nodes to cache images on (propagated to children). |
-| `tolerations` | `[]corev1.Toleration` | No | — | Tolerations allow targeting tainted nodes (propagated to children). |
-| `images` | `[]ImageEntry` | No | — | Images is a static list of images to cache. |
+| `policyRef` | `*PolicyReference` | No | — | PolicyRef references a PullPolicy for pacing controls. Propagated to all child CachedImages. Example: {name: "conservative"} |
+| `discoveryPolicyRef` | `*DiscoveryPolicyReference` | No | — | DiscoveryPolicyRef references a DiscoveryPolicy that provides a dynamic image list. When set, the operator reads status.discoveredImages from the referenced DiscoveryPolicy and creates/deletes child CachedImages accordingly. Can be combined with static images. Example: {name: "popular-build-images"} |
+| `imagePullPolicy` | `corev1.PullPolicy` | No | Always | ImagePullPolicy controls when kubelet pulls images. Propagated to all child CachedImages. Default: "Always". See CachedImage.spec.imagePullPolicy for details. (`Always` &#124; `IfNotPresent` &#124; `Never`) |
+| `imagePullSecrets` | `[]corev1.LocalObjectReference` | No | — | ImagePullSecrets for private registries. Propagated to all child CachedImages. Example: [{name: "ghcr-creds"}] |
+| `nodeSelector` | `map[string]string` | No | — | NodeSelector restricts which nodes to cache images on. Propagated to all child CachedImages. Example: {"node-role.kubernetes.io/build": "true"} |
+| `tolerations` | `[]corev1.Toleration` | No | — | Tolerations for tainted nodes. Propagated to all child CachedImages. Example: [{key: "node-role.kubernetes.io/build", operator: "Exists", effect: "NoSchedule"}] |
+| `images` | `[]ImageEntry` | No | — | Images is a static list of images to cache. Each entry creates one child CachedImage. Can be used alone or combined with discoveryPolicyRef (both lists are merged). |
 
 ### Status
 
@@ -106,10 +106,10 @@ DiscoveryPolicy automatically discovers images from registries or Prometheus met
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `sources` | `[]DiscoverySource` | Yes | — | Sources is the list of discovery backends to query. |
-| `imageFilter` | `string` | No | — | ImageFilter is a regex to filter discovered images. |
-| `syncInterval` | `metav1.Duration` | No | 30m | SyncInterval is how often to re-query sources. |
-| `maxImages` | `int32` | No | 50 | MaxImages caps the number of discovered images. |
+| `sources` | `[]DiscoverySource` | Yes | — | Sources is the list of discovery backends to query. At least one source is required. Multiple sources are merged and ranked together before maxImages is applied. |
+| `imageFilter` | `string` | No | — | ImageFilter is a regex applied to discovered image references. Only matching images are kept. Example: "registry.example.com/team/.*" (only keep images from that registry path) |
+| `syncInterval` | `metav1.Duration` | No | 30m | SyncInterval is how often the operator re-queries all sources and updates status.discoveredImages. Default: "30m". Example: "1h", "15m" |
+| `maxImages` | `int32` | No | 50 | MaxImages caps the total number of images stored in status.discoveredImages. Images are ranked by score; lowest-scoring images are dropped when the cap is exceeded. Default: 50. Example: 30, 100 |
 
 ### Status
 
@@ -131,12 +131,12 @@ PullPolicy controls the pacing and retry behavior for image pulls across cluster
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `maxConcurrentNodes` | `int32` | No | 1 | MaxConcurrentNodes is the max nodes pulling simultaneously for this policy. |
-| `minDelayBetweenPulls` | `metav1.Duration` | No | 10s | MinDelayBetweenPulls is the minimum time between starting pulls on different nodes. |
-| `failureBackoff` | `*BackoffConfig` | No | — | FailureBackoff configures retry delays on pull failures. |
-| `repullInterval` | `*metav1.Duration` | No | — | RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull. |
-| `nodeSelector` | `map[string]string` | No | — | NodeSelector scopes this policy to a specific node pool. |
-| `tolerations` | `[]corev1.Toleration` | No | — | Tolerations match tainted nodes in the pool. |
+| `maxConcurrentNodes` | `int32` | No | 1 | MaxConcurrentNodes is the maximum number of nodes pulling simultaneously for images that reference this policy. Increase for large clusters; keep low for bandwidth-constrained nodes. Default: 1. Example: 3 (pull on up to 3 nodes at once) |
+| `minDelayBetweenPulls` | `metav1.Duration` | No | 10s | MinDelayBetweenPulls is the minimum wait time between starting a pull on one node and starting the next pull on another node. Prevents burst traffic to the registry. Default: "10s". Example: "30s", "1m" |
+| `failureBackoff` | `*BackoffConfig` | No | — | FailureBackoff configures exponential retry delays when a pull fails. If unset, defaults to initial=30s, max=5m. |
+| `repullInterval` | `*metav1.Duration` | No | — | RepullInterval defines how often to re-pull already-cached images to pick up digest changes. Unset or zero means never re-pull (rely on imagePullPolicy=Always on the CachedImage instead). Example: "24h" (re-pull daily), "6h" |
+| `nodeSelector` | `map[string]string` | No | — | NodeSelector scopes this policy to a specific node pool. Only relevant when the same PullPolicy should only pace pulls on a subset of nodes. Example: {"node-role.kubernetes.io/build": "true"} |
+| `tolerations` | `[]corev1.Toleration` | No | — | Tolerations allow the pull pods created under this policy to schedule on tainted nodes. Example: [{key: "dedicated", value: "ci", effect: "NoSchedule"}] |
 
 ---
 
@@ -145,12 +145,12 @@ PullPolicy controls the pacing and retry behavior for image pulls across cluster
 
 ### BackoffConfig
 
-BackoffConfig defines retry backoff behavior.
+BackoffConfig defines exponential retry backoff behavior for failed pulls.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `initial` | `metav1.Duration` | No | 30s | Initial delay before first retry. |
-| `max` | `metav1.Duration` | No | 5m | Max delay cap for exponential backoff. |
+| `initial` | `metav1.Duration` | No | 30s | Initial delay before the first retry attempt after a failure. Default: "30s". Example: "1m" |
+| `max` | `metav1.Duration` | No | 5m | Max is the upper bound on backoff delay. Retries will never wait longer than this. Default: "5m". Example: "10m" |
 
 ### DiscoveredImage
 
@@ -176,10 +176,10 @@ DiscoverySource defines a single discovery backend.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `type` | `string` | Yes | — | Type identifies the backend. |
-| `prometheus` | `*PrometheusSource` | No | — | Prometheus config (when type=prometheus). |
-| `registry` | `*RegistrySource` | No | — | Registry config (when type=registry). |
-| `secretRef` | `*corev1.LocalObjectReference` | No | — | SecretRef references a Secret for auth/TLS for this source. |
+| `type` | `string` | Yes | — | Type identifies the discovery backend. Must be "prometheus" or "registry". |
+| `prometheus` | `*PrometheusSource` | No | — | Prometheus contains the configuration when type=prometheus. |
+| `registry` | `*RegistrySource` | No | — | Registry contains the configuration when type=registry. |
+| `secretRef` | `*corev1.LocalObjectReference` | No | — | SecretRef references a Secret in the operator namespace for auth/TLS. Supported Secret keys: token, username, password, ca.crt. Example: {name: "prometheus-creds"} |
 
 ### ImageEntry
 
@@ -187,9 +187,9 @@ ImageEntry defines a single image to include in a set.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `image` | `string` | Yes | — | Image is the fully qualified image reference (registry/repository). |
-| `tag` | `string` | No | — | Tag to pull. |
-| `digest` | `string` | No | — | Digest to pull. |
+| `image` | `string` | Yes | — | Image is the fully qualified image reference without tag or digest. Example: "docker.io/library/nginx", "registry.example.com/team/app" |
+| `tag` | `string` | No | — | Tag to pull. Mutually exclusive with Digest. Example: "1.25-alpine", "v2.4.1" |
+| `digest` | `string` | No | — | Digest to pull as an immutable reference. Mutually exclusive with Tag. Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" |
 
 ### PolicyReference
 
@@ -201,24 +201,24 @@ PolicyReference is a reference to a PullPolicy resource.
 
 ### PrometheusSource
 
-PrometheusSource defines Prometheus query configuration.
+PrometheusSource defines Prometheus query configuration for image discovery.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `endpoint` | `string` | Yes | — | Endpoint is the Prometheus API URL. |
-| `query` | `string` | Yes | — | Query is the PromQL query that must return an 'image' label. |
-| `lookback` | `*metav1.Duration` | No | — | Lookback is the time window to aggregate over (e.g. "7d", "24h"). When set, uses query_range and sums values to rank by total usage. When unset, uses an instant query (point-in-time). |
-| `step` | `string` | No | 5m | Step is the query resolution step for range queries. |
+| `endpoint` | `string` | Yes | — | Endpoint is the Prometheus-compatible API URL (Prometheus, Thanos, Mimir, VictoriaMetrics). Example: "http://prometheus.monitoring.svc:9090", "https://mimir.example.com" |
+| `query` | `string` | Yes | — | Query is the PromQL expression. It MUST return results with an "image" label — that label value is used as the discovered image reference. The query result value is used as the ranking score (higher = more relevant). Example: count(container_memory_working_set_bytes{container!="",container!="POD",namespace="gitlab-runner"}) by (image) |
+| `lookback` | `*metav1.Duration` | No | — | Lookback is the time window for aggregation. When set, the operator uses query_range (start=now-lookback, end=now) and sums all returned values per image to produce a score. When unset, uses an instant query (/api/v1/query) and the point-in-time value is the score. Example: "168h" (7 days), "24h", "72h" |
+| `step` | `string` | No | 5m | Step is the resolution step for range queries (only used when lookback is set). Smaller steps = more data points = more accurate sums but higher Prometheus load. Default: "5m". Example: "1m", "15m" |
 
 ### RegistrySource
 
-RegistrySource defines OCI registry tag listing configuration.
+RegistrySource defines OCI registry tag listing configuration for image discovery.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `url` | `string` | Yes | — | URL is the registry base URL. |
-| `repositories` | `[]string` | Yes | — | Repositories is the list of repositories to query. |
-| `tagFilter` | `string` | No | — | TagFilter is a regex to filter tags. |
-| `topX` | `int32` | No | — | TopX limits the number of tags to fetch per repository. |
-| `imageTemplate` | `string` | No | — | ImageTemplate is a Go text/template for constructing the full image reference. Available variables: .Registry, .Repository, .Tag |
+| `url` | `string` | Yes | — | URL is the registry base URL (without repository path). Example: "https://registry.example.com", "https://ghcr.io" |
+| `repositories` | `[]string` | Yes | — | Repositories is the list of repository paths to list tags from. Example: ["team/app", "team/worker", "infra/tools"] |
+| `tagFilter` | `string` | No | — | TagFilter is a regex applied to tag names. Only matching tags are discovered. Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds) |
+| `topX` | `int32` | No | — | TopX limits the number of tags kept per repository, sorted by creation date (newest first). Example: 3 (keep the 3 most recent matching tags per repo) |
+| `imageTemplate` | `string` | No | — | ImageTemplate is a Go text/template for constructing the full image reference from discovered tags. Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}} Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}" Example: "{{.Registry}}/{{.Repository}}@{{.Tag}}" (if tags are actually digests) |
 

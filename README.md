@@ -34,47 +34,196 @@ When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thu
 
 Drop Discovery is useful when image demand changes often and static image lists go stale. In fast-moving CI setups (for example with Renovate continuously landing new image versions), Prometheus-based discovery keeps your cache aligned with what jobs actually run. This is especially valuable when you rotate build nodes regularly (e.g. Cluster API MachineDeployments) — fresh nodes start with empty caches, and Discovery ensures the right images are pre-warmed immediately.
 
+See full discovery docs and examples: **[Discovery guide](https://breee.github.io/drop/docs/discovery/)**.
+
+## Examples
+
+### Cache a single image on build nodes
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: golang-ci
+spec:
+  # Full image reference without tag
+  image: docker.io/library/golang
+  # Tag to pull (mutually exclusive with digest)
+  tag: "1.22-bookworm"
+  # Always (default): check registry for newer digest even if tag exists locally
+  # IfNotPresent: skip registry check when already cached
+  imagePullPolicy: Always
+  # Only cache on nodes with this label
+  nodeSelector:
+    node-role.kubernetes.io/build: "true"
+  # Allow scheduling pull pods on tainted build nodes
+  tolerations:
+    - key: "node-role.kubernetes.io/build"
+      operator: "Exists"
+      effect: "NoSchedule"
+  # Reference a PullPolicy for pacing (optional)
+  policyRef:
+    name: conservative
+```
+
+### Cache a private image with registry credentials
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: internal-builder
+spec:
+  image: registry.example.com/ci/builder
+  tag: "v3.1.0"
+  # Secrets must exist in the operator namespace and contain .dockerconfigjson
+  imagePullSecrets:
+    - name: ecr-creds
+  nodeSelector:
+    node-role.kubernetes.io/build: "true"
+```
+
+### PullPolicy — control pacing and retries
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: PullPolicy
+metadata:
+  name: conservative
+spec:
+  # Pull on at most 2 nodes simultaneously (default: 1)
+  maxConcurrentNodes: 2
+  # Wait at least 30s between starting pulls on different nodes (default: 10s)
+  minDelayBetweenPulls: 30s
+  # Retry backoff on failure
+  failureBackoff:
+    initial: 1m    # first retry after 1 minute (default: 30s)
+    max: 10m       # cap backoff at 10 minutes (default: 5m)
+  # Re-pull every 24h to pick up digest changes behind mutable tags
+  repullInterval: 24h
+```
+
+### CachedImageSet — static list of images
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: ci-tools
+spec:
+  # All settings below are propagated to every child CachedImage
+  policyRef:
+    name: conservative
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: ghcr-creds
+  nodeSelector:
+    node-role.kubernetes.io/build: "true"
+  tolerations:
+    - key: "node-role.kubernetes.io/build"
+      operator: "Exists"
+      effect: "NoSchedule"
+  # Static list — each entry becomes a child CachedImage
+  images:
+    - image: docker.io/library/golang
+      tag: "1.22-bookworm"
+    - image: docker.io/library/node
+      tag: "20-alpine"
+    - image: registry.example.com/ci/builder
+      tag: "v3.1.0"
+```
+
+### DiscoveryPolicy — find images from Prometheus
+
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: popular-build-images
 spec:
+  # Re-query Prometheus every hour (default: 30m)
   syncInterval: 1h
+  # Keep at most 30 discovered images (default: 50)
   maxImages: 30
+  # Only keep images matching this regex (optional)
+  imageFilter: "registry.example.com/.*"
   sources:
     - type: prometheus
       prometheus:
+        # Any Prometheus-compatible API (Prometheus, Thanos, Mimir, VictoriaMetrics)
         endpoint: https://mimir.example.com
-        lookback: 168h        # 7 days — uses query_range and sums values
+        # Aggregate over the last 7 days (uses query_range, sums values per image)
+        # Omit for a point-in-time instant query instead
+        lookback: 168h
+        # Resolution step for range queries (default: 5m)
         step: 5m
+        # PromQL query — MUST return results with an "image" label.
+        # The result value becomes the ranking score (higher = cached first).
         query: |
           count(
             container_memory_working_set_bytes{
-              container!="",container!="POD",
-              namespace="gitlab-runner",pod=~"runner-.*"
+              container!="", container!="POD",
+              namespace="gitlab-runner", pod=~"runner-.*"
             }
           ) by (image)
+      # Optional: Secret with keys (token, username, password, ca.crt)
+      secretRef:
+        name: prometheus-creds
 ```
 
-Field guide:
-
-- `syncInterval: 1h` → re-run discovery every hour.
-- `maxImages: 30` → final cap: Drop keeps up to 30 images in `status.discoveredImages`.
-- `lookback: 168h` → Drop queries Prometheus with `query_range` over the last 7 days and sums values per image to produce a usage score.
-- `step: 5m` → resolution step for the range query (default).
-- `namespace="gitlab-runner"` → only score images seen in CI runner jobs.
-- `count(...) by (image)` → counts the number of running containers per image to rank by popularity.
-
-Use it from a CachedImageSet:
+### DiscoveryPolicy — find images from an OCI registry
 
 ```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: latest-app-tags
 spec:
-  discoveryPolicyRef:
-    name: popular-build-images
+  syncInterval: 15m
+  maxImages: 10
+  sources:
+    - type: registry
+      registry:
+        # Registry base URL
+        url: https://registry.example.com
+        # Repositories to list tags from
+        repositories:
+          - team/frontend
+          - team/backend
+          - team/worker
+        # Only discover semver tags (regex on tag name)
+        tagFilter: "^v[0-9]+\\."
+        # Keep only the 3 most recent tags per repo
+        topX: 3
+      # Optional: Secret with registry auth
+      secretRef:
+        name: registry-creds
 ```
 
-See full discovery docs and examples: **[Discovery guide](https://breee.github.io/drop/docs/discovery/)**.
+### CachedImageSet with DiscoveryPolicy — full end-to-end
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: auto-cached-ci-images
+spec:
+  # Dynamically managed image list from the DiscoveryPolicy above
+  discoveryPolicyRef:
+    name: popular-build-images
+  # Can also add static images alongside discovered ones
+  images:
+    - image: docker.io/library/alpine
+      tag: "3.19"
+  policyRef:
+    name: conservative
+  nodeSelector:
+    node-role.kubernetes.io/build: "true"
+  tolerations:
+    - key: "node-role.kubernetes.io/build"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
 
 ## Quick Start
 

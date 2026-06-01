@@ -13,34 +13,47 @@ import (
 )
 
 // PullPolicySpec defines pacing and behavior configuration for image pulls.
+// A PullPolicy is referenced by CachedImage or CachedImageSet via policyRef.
 type PullPolicySpec struct {
-	// MaxConcurrentNodes is the max nodes pulling simultaneously for this policy.
+	// MaxConcurrentNodes is the maximum number of nodes pulling simultaneously for images
+	// that reference this policy. Increase for large clusters; keep low for bandwidth-constrained nodes.
+	// Default: 1. Example: 3 (pull on up to 3 nodes at once)
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=1
 	MaxConcurrentNodes int32 `json:"maxConcurrentNodes,omitempty"`
-	// MinDelayBetweenPulls is the minimum time between starting pulls on different nodes.
+	// MinDelayBetweenPulls is the minimum wait time between starting a pull on one node and
+	// starting the next pull on another node. Prevents burst traffic to the registry.
+	// Default: "10s". Example: "30s", "1m"
 	// +kubebuilder:default="10s"
 	MinDelayBetweenPulls metav1.Duration `json:"minDelayBetweenPulls,omitempty"`
-	// FailureBackoff configures retry delays on pull failures.
+	// FailureBackoff configures exponential retry delays when a pull fails.
+	// If unset, defaults to initial=30s, max=5m.
 	// +optional
 	FailureBackoff *BackoffConfig `json:"failureBackoff,omitempty"`
-	// RepullInterval is how often to re-pull cached images. Zero or unset means never re-pull.
+	// RepullInterval defines how often to re-pull already-cached images to pick up digest changes.
+	// Unset or zero means never re-pull (rely on imagePullPolicy=Always on the CachedImage instead).
+	// Example: "24h" (re-pull daily), "6h"
 	// +optional
 	RepullInterval *metav1.Duration `json:"repullInterval,omitempty"`
 	// NodeSelector scopes this policy to a specific node pool.
+	// Only relevant when the same PullPolicy should only pace pulls on a subset of nodes.
+	// Example: {"node-role.kubernetes.io/build": "true"}
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Tolerations match tainted nodes in the pool.
+	// Tolerations allow the pull pods created under this policy to schedule on tainted nodes.
+	// Example: [{key: "dedicated", value: "ci", effect: "NoSchedule"}]
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
-// BackoffConfig defines retry backoff behavior.
+// BackoffConfig defines exponential retry backoff behavior for failed pulls.
 type BackoffConfig struct {
-	// Initial delay before first retry.
+	// Initial delay before the first retry attempt after a failure.
+	// Default: "30s". Example: "1m"
 	// +kubebuilder:default="30s"
 	Initial metav1.Duration `json:"initial,omitempty"`
-	// Max delay cap for exponential backoff.
+	// Max is the upper bound on backoff delay. Retries will never wait longer than this.
+	// Default: "5m". Example: "10m"
 	// +kubebuilder:default="5m"
 	Max metav1.Duration `json:"max,omitempty"`
 }

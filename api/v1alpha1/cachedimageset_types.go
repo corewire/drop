@@ -13,41 +13,56 @@ import (
 )
 
 // CachedImageSetSpec defines the desired state of CachedImageSet.
+// A CachedImageSet creates and manages child CachedImage resources automatically.
+// All spec fields (nodeSelector, tolerations, imagePullPolicy, imagePullSecrets, policyRef)
+// are propagated to every child CachedImage.
 type CachedImageSetSpec struct {
-	// PolicyRef references a PullPolicy for pacing controls.
+	// PolicyRef references a PullPolicy for pacing controls. Propagated to all child CachedImages.
+	// Example: {name: "conservative"}
 	// +optional
 	PolicyRef *PolicyReference `json:"policyRef,omitempty"`
-	// DiscoveryPolicyRef references a DiscoveryPolicy for dynamic image lists.
+	// DiscoveryPolicyRef references a DiscoveryPolicy that provides a dynamic image list.
+	// When set, the operator reads status.discoveredImages from the referenced DiscoveryPolicy
+	// and creates/deletes child CachedImages accordingly. Can be combined with static images.
+	// Example: {name: "popular-build-images"}
 	// +optional
 	DiscoveryPolicyRef *DiscoveryPolicyReference `json:"discoveryPolicyRef,omitempty"`
-	// ImagePullPolicy controls when kubelet pulls the image (propagated to children).
+	// ImagePullPolicy controls when kubelet pulls images. Propagated to all child CachedImages.
+	// Default: "Always". See CachedImage.spec.imagePullPolicy for details.
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
 	// +kubebuilder:default=Always
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	// ImagePullSecrets are references to secrets for pulling from private registries (propagated to children).
+	// ImagePullSecrets for private registries. Propagated to all child CachedImages.
+	// Example: [{name: "ghcr-creds"}]
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	// NodeSelector restricts which nodes to cache images on (propagated to children).
+	// NodeSelector restricts which nodes to cache images on. Propagated to all child CachedImages.
+	// Example: {"node-role.kubernetes.io/build": "true"}
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Tolerations allow targeting tainted nodes (propagated to children).
+	// Tolerations for tainted nodes. Propagated to all child CachedImages.
+	// Example: [{key: "node-role.kubernetes.io/build", operator: "Exists", effect: "NoSchedule"}]
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// Images is a static list of images to cache.
+	// Images is a static list of images to cache. Each entry creates one child CachedImage.
+	// Can be used alone or combined with discoveryPolicyRef (both lists are merged).
 	// +optional
 	Images []ImageEntry `json:"images,omitempty"`
 }
 
 // ImageEntry defines a single image to include in a set.
 type ImageEntry struct {
-	// Image is the fully qualified image reference (registry/repository).
+	// Image is the fully qualified image reference without tag or digest.
+	// Example: "docker.io/library/nginx", "registry.example.com/team/app"
 	// +kubebuilder:validation:MinLength=1
 	Image string `json:"image"`
-	// Tag to pull.
+	// Tag to pull. Mutually exclusive with Digest.
+	// Example: "1.25-alpine", "v2.4.1"
 	// +optional
 	Tag string `json:"tag,omitempty"`
-	// Digest to pull.
+	// Digest to pull as an immutable reference. Mutually exclusive with Tag.
+	// Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
 	// +optional
 	Digest string `json:"digest,omitempty"`
 }

@@ -14,16 +14,21 @@ import (
 
 // DiscoveryPolicySpec defines the desired state of DiscoveryPolicy.
 type DiscoveryPolicySpec struct {
-	// Sources is the list of discovery backends to query.
+	// Sources is the list of discovery backends to query. At least one source is required.
+	// Multiple sources are merged and ranked together before maxImages is applied.
 	// +kubebuilder:validation:MinItems=1
 	Sources []DiscoverySource `json:"sources"`
-	// ImageFilter is a regex to filter discovered images.
+	// ImageFilter is a regex applied to discovered image references. Only matching images are kept.
+	// Example: "registry.example.com/team/.*" (only keep images from that registry path)
 	// +optional
 	ImageFilter string `json:"imageFilter,omitempty"`
-	// SyncInterval is how often to re-query sources.
+	// SyncInterval is how often the operator re-queries all sources and updates status.discoveredImages.
+	// Default: "30m". Example: "1h", "15m"
 	// +kubebuilder:default="30m"
 	SyncInterval metav1.Duration `json:"syncInterval,omitempty"`
-	// MaxImages caps the number of discovered images.
+	// MaxImages caps the total number of images stored in status.discoveredImages.
+	// Images are ranked by score; lowest-scoring images are dropped when the cap is exceeded.
+	// Default: 50. Example: 30, 100
 	// +kubebuilder:default=50
 	// +kubebuilder:validation:Minimum=1
 	MaxImages int32 `json:"maxImages,omitempty"`
@@ -31,56 +36,71 @@ type DiscoveryPolicySpec struct {
 
 // DiscoverySource defines a single discovery backend.
 type DiscoverySource struct {
-	// Type identifies the backend.
+	// Type identifies the discovery backend. Must be "prometheus" or "registry".
 	// +kubebuilder:validation:Enum=prometheus;registry
 	Type string `json:"type"`
-	// Prometheus config (when type=prometheus).
+	// Prometheus contains the configuration when type=prometheus.
 	// +optional
 	Prometheus *PrometheusSource `json:"prometheus,omitempty"`
-	// Registry config (when type=registry).
+	// Registry contains the configuration when type=registry.
 	// +optional
 	Registry *RegistrySource `json:"registry,omitempty"`
-	// SecretRef references a Secret for auth/TLS for this source.
+	// SecretRef references a Secret in the operator namespace for auth/TLS.
+	// Supported Secret keys: token, username, password, ca.crt.
+	// Example: {name: "prometheus-creds"}
 	// +optional
 	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
-// PrometheusSource defines Prometheus query configuration.
+// PrometheusSource defines Prometheus query configuration for image discovery.
 type PrometheusSource struct {
-	// Endpoint is the Prometheus API URL.
+	// Endpoint is the Prometheus-compatible API URL (Prometheus, Thanos, Mimir, VictoriaMetrics).
+	// Example: "http://prometheus.monitoring.svc:9090", "https://mimir.example.com"
 	// +kubebuilder:validation:MinLength=1
 	Endpoint string `json:"endpoint"`
-	// Query is the PromQL query that must return an 'image' label.
+	// Query is the PromQL expression. It MUST return results with an "image" label —
+	// that label value is used as the discovered image reference.
+	// The query result value is used as the ranking score (higher = more relevant).
+	// Example: count(container_memory_working_set_bytes{container!="",container!="POD",namespace="gitlab-runner"}) by (image)
 	// +kubebuilder:validation:MinLength=1
 	Query string `json:"query"`
-	// Lookback is the time window to aggregate over (e.g. "7d", "24h").
-	// When set, uses query_range and sums values to rank by total usage.
-	// When unset, uses an instant query (point-in-time).
+	// Lookback is the time window for aggregation. When set, the operator uses query_range
+	// (start=now-lookback, end=now) and sums all returned values per image to produce a score.
+	// When unset, uses an instant query (/api/v1/query) and the point-in-time value is the score.
+	// Example: "168h" (7 days), "24h", "72h"
 	// +optional
 	Lookback *metav1.Duration `json:"lookback,omitempty"`
-	// Step is the query resolution step for range queries.
+	// Step is the resolution step for range queries (only used when lookback is set).
+	// Smaller steps = more data points = more accurate sums but higher Prometheus load.
+	// Default: "5m". Example: "1m", "15m"
 	// +kubebuilder:default="5m"
 	// +optional
 	Step string `json:"step,omitempty"`
 }
 
-// RegistrySource defines OCI registry tag listing configuration.
+// RegistrySource defines OCI registry tag listing configuration for image discovery.
 type RegistrySource struct {
-	// URL is the registry base URL.
+	// URL is the registry base URL (without repository path).
+	// Example: "https://registry.example.com", "https://ghcr.io"
 	// +kubebuilder:validation:MinLength=1
 	URL string `json:"url"`
-	// Repositories is the list of repositories to query.
+	// Repositories is the list of repository paths to list tags from.
+	// Example: ["team/app", "team/worker", "infra/tools"]
 	// +kubebuilder:validation:MinItems=1
 	Repositories []string `json:"repositories"`
-	// TagFilter is a regex to filter tags.
+	// TagFilter is a regex applied to tag names. Only matching tags are discovered.
+	// Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds)
 	// +optional
 	TagFilter string `json:"tagFilter,omitempty"`
-	// TopX limits the number of tags to fetch per repository.
+	// TopX limits the number of tags kept per repository, sorted by creation date (newest first).
+	// Example: 3 (keep the 3 most recent matching tags per repo)
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	TopX int32 `json:"topX,omitempty"`
-	// ImageTemplate is a Go text/template for constructing the full image reference.
-	// Available variables: .Registry, .Repository, .Tag
+	// ImageTemplate is a Go text/template for constructing the full image reference from discovered tags.
+	// Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}}
+	// Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}"
+	// Example: "{{.Registry}}/{{.Repository}}@{{.Tag}}" (if tags are actually digests)
 	// +optional
 	ImageTemplate string `json:"imageTemplate,omitempty"`
 }

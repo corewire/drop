@@ -14,35 +14,49 @@ import (
 
 // CachedImageSpec defines the desired state of CachedImage.
 type CachedImageSpec struct {
-	// Image is the fully qualified image reference (registry/repository).
+	// Image is the fully qualified image reference without tag or digest.
+	// Example: "docker.io/library/nginx", "registry.example.com/team/app"
 	// +kubebuilder:validation:MinLength=1
 	Image string `json:"image"`
 	// Tag to pull. Mutually exclusive with Digest.
+	// Example: "1.25-alpine", "v2.4.1", "latest"
 	// +optional
 	Tag string `json:"tag,omitempty"`
-	// Digest to pull (immutable reference). Mutually exclusive with Tag.
+	// Digest to pull as an immutable reference. Mutually exclusive with Tag.
+	// Use this for reproducible deployments where the exact image layer matters.
+	// Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
 	// +optional
 	Digest string `json:"digest,omitempty"`
-	// ImagePullPolicy controls when kubelet pulls the image.
-	// Defaults to Always (checks upstream digest, only downloads if changed).
-	// Set to IfNotPresent to skip the registry check when the tag already exists locally.
+	// ImagePullPolicy controls when kubelet pulls the image on each node.
+	// - Always (default): check the registry for a newer digest even if the tag exists locally.
+	// - IfNotPresent: skip the registry check when the tag already exists on the node.
+	// - Never: never pull (only useful for pre-loaded images).
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
 	// +kubebuilder:default=Always
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	// ImagePullSecrets are references to secrets for pulling from private registries.
+	// ImagePullSecrets are references to Secrets in the operator namespace for pulling from private registries.
+	// The Secret must contain a .dockerconfigjson key.
+	// Example: [{name: "ghcr-creds"}, {name: "ecr-creds"}]
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// NodeSelector restricts which nodes to cache the image on.
+	// Only nodes matching ALL key-value pairs will be targeted.
+	// Example: {"node-role.kubernetes.io/build": "true"}
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Tolerations allow targeting tainted nodes.
+	// Tolerations allow the pull pod to be scheduled on tainted nodes.
+	// Example: [{key: "node-role.kubernetes.io/build", operator: "Exists", effect: "NoSchedule"}]
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// Priority is a pull ordering hint (lower values pulled first).
+	// Priority is a pull ordering hint. Lower values are pulled first.
+	// Images with the same priority are pulled in alphabetical order.
+	// Default: 0 (no priority). Example: 10 (low priority), -10 (high priority)
 	// +optional
 	Priority *int32 `json:"priority,omitempty"`
-	// PolicyRef references a PullPolicy for pacing controls.
+	// PolicyRef references a PullPolicy resource that controls pacing (concurrency, backoff, delays).
+	// If unset, the operator uses built-in defaults (1 concurrent node, 10s delay, 30s initial backoff).
+	// Example: {name: "conservative"}
 	// +optional
 	PolicyRef *PolicyReference `json:"policyRef,omitempty"`
 }
