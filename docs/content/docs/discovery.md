@@ -83,13 +83,12 @@ spec:
         lookback: 168h   # 7 days
         step: 5m
         query: |
-          topk(30,
-            sum by (image) (
-              container_memory_working_set_bytes{
-                container!="",container!="POD",namespace="gitlab-runner"
-              }
-            )
-          )
+          count(
+            container_memory_working_set_bytes{
+              container!="",container!="POD",
+              namespace="gitlab-runner",pod=~"runner-.*"
+            }
+          ) by (image)
 ```
 
 Use this when you want DiscoveryPolicy to continuously follow what your GitLab runner jobs really pulled in the last week.
@@ -98,12 +97,12 @@ Use this when you want DiscoveryPolicy to continuously follow what your GitLab r
 
 - `lookback: 168h` — Drop uses `query_range` with start=now-7d, end=now, and sums all returned values per image to rank by total usage over the window.
 - `step: 5m` — resolution step for the range query (controls how many data points Prometheus returns).
-- `topk(30, ...)` — Prometheus-side pre-filter: return at most 30 highest-scoring images to Drop.
-- `sum by (image) (...)` — aggregate all matching series into one score per image label.
+- `count(...) by (image)` — counts the number of running containers per image to rank by popularity.
 - `container_memory_working_set_bytes{...}` — source metric used to observe running containers.
 - `container!=""` — ignore empty image labels.
 - `container!="POD"` — ignore sandbox/pause container noise.
 - `namespace="gitlab-runner"` — scope discovery to CI jobs in that namespace.
+- `pod=~"runner-.*"` — further scope to runner pods only.
 
 #### How score is calculated
 
@@ -125,8 +124,8 @@ Drop stores the returned values as `{image, score}` pairs in memory and then app
 
 So the flow is:
 
-1. Prometheus query (with `topk`) limits what is returned to Drop.
-2. Drop then applies `spec.maxImages` (which can be the same value or lower) as the final list size.
+1. Prometheus query returns per-image counts to Drop.
+2. Drop ranks by score and applies `spec.maxImages` as the final list size.
 
 ```
 score

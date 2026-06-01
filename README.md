@@ -49,13 +49,12 @@ spec:
         lookback: 168h        # 7 days — uses query_range and sums values
         step: 5m
         query: |
-          topk(30,
-            sum by (image) (
-              container_memory_working_set_bytes{
-                container!="",container!="POD",namespace="gitlab-runner"
-              }
-            )
-          )
+          count(
+            container_memory_working_set_bytes{
+              container!="",container!="POD",
+              namespace="gitlab-runner",pod=~"runner-.*"
+            }
+          ) by (image)
 ```
 
 Field guide:
@@ -65,7 +64,7 @@ Field guide:
 - `lookback: 168h` → Drop queries Prometheus with `query_range` over the last 7 days and sums values per image to produce a usage score.
 - `step: 5m` → resolution step for the range query (default).
 - `namespace="gitlab-runner"` → only score images seen in CI runner jobs.
-- `topk(30, ...)` → query-side pre-filter in Prometheus before results are returned to Drop.
+- `count(...) by (image)` → counts the number of running containers per image to rank by popularity.
 
 Use it from a CachedImageSet:
 
