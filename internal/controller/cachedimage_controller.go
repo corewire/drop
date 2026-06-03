@@ -21,9 +21,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
@@ -776,10 +779,34 @@ func (r *CachedImageReconciler) cleanupOrphanPods(ctx context.Context, cachedIma
 	return nil
 }
 
+func (r *CachedImageReconciler) mapNodeToCachedImages(ctx context.Context, _ client.Object) []reconcile.Request {
+	ciList := &dropv1alpha1.CachedImageList{}
+	if err := r.List(ctx, ciList); err != nil {
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(ciList.Items))
+	for i := range ciList.Items {
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: ciList.Items[i].Name}})
+	}
+	return requests
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *CachedImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dropv1alpha1.CachedImage{}).
+		// Watch nodes so scale-out/scale-in events trigger reconciliation immediately.
+		Watches(
+			&corev1.Node{},
+			handler.EnqueueRequestsFromMapFunc(r.mapNodeToCachedImages),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(event.CreateEvent) bool { return true },
+				DeleteFunc: func(event.DeleteEvent) bool { return true },
+				UpdateFunc: func(event.UpdateEvent) bool { return false },
+				GenericFunc: func(event.GenericEvent) bool { return false },
+			}),
+		).
 		// Watch drop pods and map them back to the owning CachedImage via label.
 		// We can't use Owns() because CachedImage is cluster-scoped and pods are namespaced.
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(
