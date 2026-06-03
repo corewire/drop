@@ -9,3 +9,15 @@ hack/
 test/
 .github/
 *.md
+
+# Not used by the container build context
+.git/
+charts/
+config/
+examples/
+cover.out
+knowledge.yaml
+llms*.txt
+renovate.json
+Tiltfile
+PROJECT
