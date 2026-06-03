@@ -357,4 +357,4 @@ tilt up
 
 ## Docs
 
-Full documentation at **[breee.github.io/drop/](https://breee.github.io/drop/)** (GitHub Pages).
+Full documentation at **[corewire.github.io/drop/](https://corewire.github.io/drop/)** (GitHub Pages).
