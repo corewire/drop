@@ -36,6 +36,47 @@ Drop Discovery is useful when image demand changes often and static image lists 
 
 See full discovery docs and examples: **[Discovery guide](https://breee.github.io/drop/docs/discovery/)**.
 
+## Quickstart
+
+Fetch the latest release, install it, then cache one image on your build nodes.
+
+```bash
+VERSION="$(curl -fsSL https://api.github.com/repos/corewire/drop/releases/latest | jq -r '.tag_name | sub("^v"; "")')"
+
+# Install CRDs first so upgrades stay predictable
+helm install drop-crds oci://ghcr.io/corewire/charts/drop-crds \
+  --version "$VERSION"
+
+# Install the operator
+helm install drop oci://ghcr.io/corewire/charts/drop \
+  --version "$VERSION" \
+  --namespace drop-system \
+  --create-namespace \
+  --set crds.install=false
+
+# Create one cached image
+kubectl apply -f - <<'EOF'
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: alpine-3-20
+spec:
+  image: docker.io/library/alpine
+  tag: "3.20"
+EOF
+
+# Watch the cache object
+kubectl get cachedimage alpine-3-20 -w
+
+# Check the pull Pod on the node(s)
+kubectl get pods -l drop.corewire.io/cachedimage=alpine-3-20 -o wide
+
+# Cleanup
+kubectl delete cachedimage alpine-3-20
+helm uninstall drop -n drop-system
+helm uninstall drop-crds -n drop-system
+```
+
 ## Examples
 
 Each section is one use case. Apply the whole block for that use case.
