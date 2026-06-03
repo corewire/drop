@@ -25,7 +25,7 @@ llmsDescription: |
 ### Enable ServiceMonitor
 
 ```bash
-helm install drop oci://ghcr.io/breee/charts/drop \
+helm install drop oci://ghcr.io/corewire/charts/drop \
   --set serviceMonitor.enabled=true
 ```
 

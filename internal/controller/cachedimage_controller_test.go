@@ -17,8 +17,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
-	"github.com/Breee/drop/internal/pacing"
+	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
+	"github.com/corewire/drop/internal/pacing"
 )
 
 var _ = Describe("CachedImage Controller", func() {

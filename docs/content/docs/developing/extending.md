@@ -84,7 +84,7 @@ import (
     "sigs.k8s.io/controller-runtime/pkg/client"
     "sigs.k8s.io/controller-runtime/pkg/log"
 
-    dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
+    dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
 )
 
 type MyCRDReconciler struct {

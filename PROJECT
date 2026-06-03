@@ -6,7 +6,7 @@ domain: corewire.io
 layout:
 - go.kubebuilder.io/v4
 projectName: drop
-repo: github.com/Breee/drop
+repo: github.com/corewire/drop
 resources:
 - api:
     crdVersion: v1
@@ -15,7 +15,7 @@ resources:
   domain: corewire.io
   group: drop
   kind: CachedImage
-  path: github.com/Breee/drop/api/v1alpha1
+  path: github.com/corewire/drop/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -24,7 +24,7 @@ resources:
   domain: corewire.io
   group: drop
   kind: CachedImageSet
-  path: github.com/Breee/drop/api/v1alpha1
+  path: github.com/corewire/drop/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -32,7 +32,7 @@ resources:
   domain: corewire.io
   group: drop
   kind: PullPolicy
-  path: github.com/Breee/drop/api/v1alpha1
+  path: github.com/corewire/drop/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -41,6 +41,6 @@ resources:
   domain: corewire.io
   group: drop
   kind: DiscoveryPolicy
-  path: github.com/Breee/drop/api/v1alpha1
+  path: github.com/corewire/drop/api/v1alpha1
   version: v1alpha1
 version: "3"

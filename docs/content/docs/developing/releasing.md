@@ -21,7 +21,7 @@ That's it. The CI pipeline handles the rest.
 1. **Lint** — golangci-lint
 2. **Unit tests** — `make test` (envtest)
 3. **E2E tests** — Chainsaw on kind
-4. **Build multi-arch image** — `linux/amd64` + `linux/arm64` → `ghcr.io/breee/drop:<tag>`
+4. **Build multi-arch image** — `linux/amd64` + `linux/arm64` → `ghcr.io/corewire/drop:<tag>`
 5. **Package Helm chart** — push to OCI registry
 6. **GitHub Release** — auto-generated release notes
 

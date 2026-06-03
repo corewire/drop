@@ -32,10 +32,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
-	"github.com/Breee/drop/internal/controller"
-	_ "github.com/Breee/drop/internal/metrics" // Register custom metrics
-	"github.com/Breee/drop/internal/pacing"
+	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
+	"github.com/corewire/drop/internal/controller"
+	_ "github.com/corewire/drop/internal/metrics" // Register custom metrics
+	"github.com/corewire/drop/internal/pacing"
 	// +kubebuilder:scaffold:imports
 )
 

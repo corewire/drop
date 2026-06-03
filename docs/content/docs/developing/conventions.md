@@ -56,8 +56,8 @@ import (
     "sigs.k8s.io/controller-runtime/pkg/client"
 
     // project
-    dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
-    "github.com/Breee/drop/internal/pacing"
+    dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
+    "github.com/corewire/drop/internal/pacing"
 )
 ```
 

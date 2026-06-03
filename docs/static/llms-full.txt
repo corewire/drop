@@ -4,7 +4,7 @@
 
 - **Name**: drop
 - **Language**: Go 1.26.0
-- **Module**: github.com/Breee/drop
+- **Module**: github.com/corewire/drop
 - **API Group**: drop.corewire.io/v1alpha1
 - **Scope**: All CRDs cluster-scoped
 - **License**: MIT

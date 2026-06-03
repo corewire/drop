@@ -14,7 +14,7 @@ spec:
   project: default
   source:
     chart: drop-crds
-    repoURL: oci://ghcr.io/breee/charts
+    repoURL: oci://ghcr.io/corewire/charts
     targetRevision: 0.1.0
   destination:
     server: https://kubernetes.default.svc

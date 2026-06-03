@@ -7,7 +7,7 @@ project:
   description: Kubernetes operator that pre-caches container images on cluster nodes
   apiGroup: drop.corewire.io/v1alpha1
   goVersion: 1.26.0
-  module: github.com/Breee/drop
+  module: github.com/corewire/drop
   license: MIT
 crds:
   - kind: CachedImage

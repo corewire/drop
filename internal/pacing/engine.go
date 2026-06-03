@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	v1alpha1 "github.com/Breee/drop/api/v1alpha1"
-	"github.com/Breee/drop/internal/podbuilder"
+	v1alpha1 "github.com/corewire/drop/api/v1alpha1"
+	"github.com/corewire/drop/internal/podbuilder"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

@@ -26,19 +26,19 @@
       "customType": "regex",
       "description": "Update drop-crds chart version in ArgoCD examples",
       "fileMatch": ["examples/argocd/.*\\.yaml$"],
-      "matchStrings": ["chart: drop-crds\\n\\s+repoURL: oci://ghcr\\.io/breee/charts\\n\\s+targetRevision: (?<currentValue>\\S+)"],
+      "matchStrings": ["chart: drop-crds\\n\\s+repoURL: oci://ghcr\\.io/corewire/charts\\n\\s+targetRevision: (?<currentValue>\\S+)"],
       "depNameTemplate": "drop-crds",
       "datasourceTemplate": "docker",
-      "packageNameTemplate": "ghcr.io/breee/charts/drop-crds"
+      "packageNameTemplate": "ghcr.io/corewire/charts/drop-crds"
     },
     {
       "customType": "regex",
       "description": "Update drop operator chart version in ArgoCD examples",
       "fileMatch": ["examples/argocd/.*\\.yaml$"],
-      "matchStrings": ["chart: drop\\n\\s+repoURL: oci://ghcr\\.io/breee/charts\\n\\s+targetRevision: (?<currentValue>\\S+)"],
+      "matchStrings": ["chart: drop\\n\\s+repoURL: oci://ghcr\\.io/corewire/charts\\n\\s+targetRevision: (?<currentValue>\\S+)"],
       "depNameTemplate": "drop",
       "datasourceTemplate": "docker",
-      "packageNameTemplate": "ghcr.io/breee/charts/drop"
+      "packageNameTemplate": "ghcr.io/corewire/charts/drop"
     }
   ]
 }

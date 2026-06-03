@@ -6,7 +6,7 @@ aliases:
 description: Install the drop operator.
 llmsDescription: |
   Installation guide for the drop operator. Prerequisites: Kubernetes 1.28+,
-  Helm 3.12+. Install via Helm chart from ghcr.io/breee/charts/drop.
+  Helm 3.12+. Install via Helm chart from ghcr.io/corewire/charts/drop.
   Optional: cert-manager for secure metrics, ServiceMonitor for Prometheus.
   CRDs can be installed separately via the drop-crds chart for reliable upgrades.
 ---
@@ -20,7 +20,7 @@ llmsDescription: |
 ## Helm Install
 
 ```bash
-helm install drop oci://ghcr.io/breee/charts/drop \
+helm install drop oci://ghcr.io/corewire/charts/drop \
   --namespace drop-system \
   --create-namespace
 ```
@@ -28,7 +28,7 @@ helm install drop oci://ghcr.io/breee/charts/drop \
 ### With Prometheus ServiceMonitor
 
 ```bash
-helm install drop oci://ghcr.io/breee/charts/drop \
+helm install drop oci://ghcr.io/corewire/charts/drop \
   --namespace drop-system \
   --create-namespace \
   --set serviceMonitor.enabled=true \
@@ -42,10 +42,10 @@ management, install CRDs separately using the **drop-crds** chart:
 
 ```bash
 # Install CRDs independently
-helm install drop-crds oci://ghcr.io/breee/charts/drop-crds
+helm install drop-crds oci://ghcr.io/corewire/charts/drop-crds
 
 # Install the operator with CRD installation disabled
-helm install drop oci://ghcr.io/breee/charts/drop \
+helm install drop oci://ghcr.io/corewire/charts/drop \
   --namespace drop-system \
   --create-namespace \
   --set crds.install=false
@@ -54,14 +54,14 @@ helm install drop oci://ghcr.io/breee/charts/drop \
 To upgrade CRDs later:
 
 ```bash
-helm upgrade drop-crds oci://ghcr.io/breee/charts/drop-crds
+helm upgrade drop-crds oci://ghcr.io/corewire/charts/drop-crds
 ```
 
 ### ArgoCD
 
 When using ArgoCD, deploy CRDs and the operator as separate Applications so
 that CRD updates are applied independently. See
-[`examples/argocd/`](https://github.com/Breee/drop/tree/main/examples/argocd)
+[`examples/argocd/`](https://github.com/corewire/drop/tree/main/examples/argocd)
 for ready-to-use Application manifests.
 
 Key points for ArgoCD CRD management:
@@ -82,10 +82,10 @@ your own `renovate.json` to keep chart references up to date:
     {
       "customType": "regex",
       "fileMatch": ["argocd/.*\\.yaml$"],
-      "matchStrings": ["chart: drop-crds\\n\\s+repoURL: oci://ghcr\\.io/breee/charts\\n\\s+targetRevision: (?<currentValue>\\S+)"],
+      "matchStrings": ["chart: drop-crds\\n\\s+repoURL: oci://ghcr\\.io/corewire/charts\\n\\s+targetRevision: (?<currentValue>\\S+)"],
       "depNameTemplate": "drop-crds",
       "datasourceTemplate": "docker",
-      "packageNameTemplate": "ghcr.io/breee/charts/drop-crds"
+      "packageNameTemplate": "ghcr.io/corewire/charts/drop-crds"
     }
   ]
 }

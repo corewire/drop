@@ -87,7 +87,7 @@ func readFileStr(path string) string {
 func parseGoMod(path string) (goVersion, module string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "1.23", "github.com/Breee/drop"
+		return "1.23", "github.com/corewire/drop"
 	}
 	goVersion = "1.23"
 	for _, line := range strings.Split(string(data), "\n") {

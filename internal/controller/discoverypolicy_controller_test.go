@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
 )
 
 var _ = Describe("DiscoveryPolicy Controller", func() {

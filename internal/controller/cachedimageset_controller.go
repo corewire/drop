@@ -23,7 +23,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
 )
 
 const labelImageSet = "drop.corewire.io/imageset"

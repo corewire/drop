@@ -76,7 +76,7 @@ Every page gets a machine-readable summary in frontmatter:
 ```yaml
 llmsDescription: |
   Installation guide for drop. Prerequisites: K8s 1.28+, Helm 3.12+.
-  Install via: helm install drop oci://ghcr.io/breee/charts/drop
+  Install via: helm install drop oci://ghcr.io/corewire/charts/drop
 ```
 
 This feeds Hextra's llms.txt generation and gives agents per-page context without reading the full body.

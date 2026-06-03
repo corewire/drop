@@ -11,7 +11,7 @@
 ## Project
 
 Kubernetes operator (Go 1.26.0, Kubebuilder, controller-runtime).
-Module: github.com/Breee/drop
+Module: github.com/corewire/drop
 API group: drop.corewire.io/v1alpha1. All CRDs cluster-scoped.
 
 ## CRDs → Controllers

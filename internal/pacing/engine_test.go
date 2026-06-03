@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	v1alpha1 "github.com/Breee/drop/api/v1alpha1"
-	"github.com/Breee/drop/internal/podbuilder"
+	v1alpha1 "github.com/corewire/drop/api/v1alpha1"
+	"github.com/corewire/drop/internal/podbuilder"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

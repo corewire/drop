@@ -11,9 +11,9 @@ keywords:
   - image-caching
   - pre-pull
   - crds
-home: https://github.com/Breee/drop
+home: https://github.com/corewire/drop
 sources:
-  - https://github.com/Breee/drop
+  - https://github.com/corewire/drop
 maintainers:
-  - name: Breee
-    url: https://github.com/Breee
+  - name: corewire
+    url: https://github.com/corewire

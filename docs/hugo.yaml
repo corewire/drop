@@ -1,4 +1,4 @@
-baseURL: "https://breee.github.io/drop/"
+baseURL: "https://corewire.github.io/drop/"
 title: Drop
 defaultContentLanguage: en
 enableGitInfo: true
@@ -30,7 +30,7 @@ menu:
       params:
         type: search
     - name: GitHub
-      url: https://github.com/Breee/drop
+      url: https://github.com/corewire/drop
       weight: 4
       params:
         icon: github
@@ -64,4 +64,4 @@ params:
       defaultOpen: true
   editURL:
     enable: true
-    base: https://github.com/Breee/drop/edit/main/docs/content
+    base: https://github.com/corewire/drop/edit/main/docs/content

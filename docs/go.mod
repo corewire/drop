@@ -1,4 +1,4 @@
-module github.com/Breee/drop/docs
+module github.com/corewire/drop/docs
 
 go 1.26.0
 

@@ -30,9 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
-	"github.com/Breee/drop/internal/discovery"
-	dropmetrics "github.com/Breee/drop/internal/metrics"
+	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
+	"github.com/corewire/drop/internal/discovery"
+	dropmetrics "github.com/corewire/drop/internal/metrics"
 )
 
 // DiscoveryPolicyReconciler reconciles a DiscoveryPolicy object

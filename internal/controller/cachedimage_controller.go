@@ -26,10 +26,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dropv1alpha1 "github.com/Breee/drop/api/v1alpha1"
-	dropmetrics "github.com/Breee/drop/internal/metrics"
-	"github.com/Breee/drop/internal/pacing"
-	"github.com/Breee/drop/internal/podbuilder"
+	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
+	dropmetrics "github.com/corewire/drop/internal/metrics"
+	"github.com/corewire/drop/internal/pacing"
+	"github.com/corewire/drop/internal/podbuilder"
 )
 
 const (

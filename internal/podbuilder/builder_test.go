@@ -3,7 +3,7 @@ package podbuilder
 import (
 	"testing"
 
-	v1alpha1 "github.com/Breee/drop/api/v1alpha1"
+	v1alpha1 "github.com/corewire/drop/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
