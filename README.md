@@ -34,7 +34,7 @@ When many CI jobs or workloads start simultaneously, Kubernetes nodes face a thu
 
 Drop Discovery is useful when image demand changes often and static image lists go stale. In fast-moving CI setups (for example with Renovate continuously landing new image versions), Prometheus-based discovery keeps your cache aligned with what jobs actually run. This is especially valuable when you rotate build nodes regularly (e.g. Cluster API MachineDeployments) — fresh nodes start with empty caches, and Discovery ensures the right images are pre-warmed immediately.
 
-See full discovery docs and examples: **[Discovery guide](https://breee.github.io/drop/docs/discovery/)**.
+See full discovery docs and examples: **[Discovery guide](https://corewire.github.io/drop/docs/discovery/)**.
 
 ## Quickstart
 
