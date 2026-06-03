@@ -801,9 +801,9 @@ func (r *CachedImageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.mapNodeToCachedImages),
 			builder.WithPredicates(predicate.Funcs{
-				CreateFunc: func(event.CreateEvent) bool { return true },
-				DeleteFunc: func(event.DeleteEvent) bool { return true },
-				UpdateFunc: func(event.UpdateEvent) bool { return false },
+				CreateFunc:  func(event.CreateEvent) bool { return true },
+				DeleteFunc:  func(event.DeleteEvent) bool { return true },
+				UpdateFunc:  func(event.UpdateEvent) bool { return false },
 				GenericFunc: func(event.GenericEvent) bool { return false },
 			}),
 		).
