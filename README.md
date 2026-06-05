@@ -120,7 +120,8 @@ spec:
       prometheus:
         # Any Prometheus-compatible API (Prometheus, Thanos, Mimir, VictoriaMetrics)
         endpoint: https://mimir.example.com
-        # Aggregate over the last 7 days using query_range; sums values per image
+        # Aggregate over the last 7 days using query_range; counts container
+        # instances per image across the window to produce a usage score
         lookback: 168h
         # Resolution step for range queries (default: 5m)
         step: 5m
