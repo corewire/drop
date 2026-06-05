@@ -81,6 +81,111 @@ helm uninstall drop-crds -n drop-system
 
 Each section is one use case. Apply the whole block for that use case.
 
+### Use case: discover and pre-warm images on build nodes (including unready nodes)
+
+This is the most common production pattern: automatically discover images from
+Prometheus, pace the pulls safely, and cache them on build nodes — including
+nodes that are not yet Ready (e.g. freshly provisioned Cluster API machines).
+
+```yaml
+# --- 1. PullPolicy: controls pacing and safety for image pulls ---
+apiVersion: drop.corewire.io/v1alpha1
+kind: PullPolicy
+metadata:
+  name: build-pool-safe
+spec:
+  # Pull on at most 2 nodes at the same time (default: 1)
+  maxConcurrentNodes: 2
+  # Wait at least 20s between starting pulls on different nodes (default: 10s)
+  minDelayBetweenPulls: 20s
+  # Exponential backoff on pull failures
+  failureBackoff:
+    initial: 30s
+    max: 5m
+---
+# --- 2. DiscoveryPolicy: finds images from Prometheus metrics ---
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: ci-image-discovery
+spec:
+  # Re-query Prometheus every hour
+  syncInterval: 1h
+  # Keep at most 20 discovered images
+  maxImages: 20
+  # Only keep images from your internal registry (regex filter, optional)
+  imageFilter: "registry.example.com/.*"
+  sources:
+    - type: prometheus
+      prometheus:
+        # Any Prometheus-compatible API (Prometheus, Thanos, Mimir, VictoriaMetrics)
+        endpoint: https://mimir.example.com
+        # Aggregate over the last 7 days using query_range; counts container
+        # instances per image across the window to produce a usage score
+        lookback: 168h
+        # Resolution step for range queries (default: 5m)
+        step: 5m
+        # PromQL query — MUST return results with an "image" label.
+        # The result value becomes the ranking score (higher = cached first).
+        query: |
+          count(
+            container_memory_working_set_bytes{
+              container!="", container!="POD",
+              namespace="gitlab-runner", pod=~"runner-.*"
+            }
+          ) by (image)
+      # Optional: Secret in the Drop pod namespace (default: drop-system)
+      # Supported keys: token, username, password, ca.crt, tls.crt, tls.key
+      secretRef:
+        name: prometheus-creds
+---
+# --- 3. CachedImageSet: ties discovery + policy together, targets nodes ---
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: ci-build-images
+spec:
+  # Reference the PullPolicy for pacing
+  policyRef:
+    name: build-pool-safe
+  # Reference the DiscoveryPolicy for automatic image list
+  discoveryPolicyRef:
+    name: ci-image-discovery
+  # Only pull if the image is not already present on the node
+  imagePullPolicy: IfNotPresent
+  # Only target nodes with this label
+  nodeSelector:
+    node-role.kubernetes.io/build: "true"
+  # Tolerations allow pull pods to be scheduled on tainted nodes.
+  # This is critical for:
+  #   - Build nodes tainted to repel regular workloads
+  #   - Nodes that are NotReady (e.g. freshly joined nodes still initializing)
+  tolerations:
+    # Tolerate the build-node taint so pull pods land on build nodes
+    - key: "node-role.kubernetes.io/build"
+      operator: "Exists"
+      effect: "NoSchedule"
+    # Tolerate NotReady nodes — allows pre-warming images on nodes that just
+    # joined the cluster and are not yet fully Ready (common with Cluster API
+    # node rotation, spot instance replacements, or scale-up events)
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoSchedule"
+    # Tolerate unreachable nodes (network partition or kubelet restart)
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
+
+> **Scheduling on unready nodes:** Kubernetes taints nodes with
+> `node.kubernetes.io/not-ready:NoSchedule` when they are not yet Ready. By
+> adding this toleration, Drop's pull pods can be scheduled on nodes as soon as
+> they join the cluster — before the node is marked Ready. This lets you
+> pre-warm images during the node initialization window so workloads start
+> instantly once the node becomes Ready. The same pattern applies to the
+> `node.kubernetes.io/unreachable` taint for nodes experiencing transient
+> network issues.
+
 ### Use case: cache one public image on build nodes
 
 ```yaml
