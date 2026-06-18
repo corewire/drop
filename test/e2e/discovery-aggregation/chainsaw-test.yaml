@@ -45,7 +45,8 @@ spec:
             timeout: 30s
             content: |
               # Verify aggregation outputs are populated.
-              # Score relationships can vary with sample count and values in the lookback window.
+              # Score relationships can vary with the number of data points and values
+              # returned by Prometheus in the lookback window.
               SUM_SCORE=$(kubectl get discoverypolicy e2e-agg-sum -o jsonpath='{.status.discoveredImages[0].score}')
               AVG_SCORE=$(kubectl get discoverypolicy e2e-agg-avg -o jsonpath='{.status.discoveredImages[0].score}')
               COUNT_SCORE=$(kubectl get discoverypolicy e2e-agg-count -o jsonpath='{.status.discoveredImages[0].score}')
