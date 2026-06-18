@@ -1,0 +1,12 @@
+# Assert avg aggregation: policy is Ready, both images discovered.
+# sum() by (image) returns alpine=600, busybox=500 at each step.
+# aggregationMethod=avg averages the data-point values over the lookback window.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-avg
+status:
+  (conditions[?type == 'Ready']):
+    - status: "True"
+      reason: Synced
+  imageCount: 2

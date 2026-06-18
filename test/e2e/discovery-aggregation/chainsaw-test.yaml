@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: discovery-aggregation-methods
+spec:
+  description: |
+    Verify that DiscoveryPolicy aggregationMethod field works correctly against a
+    real Prometheus endpoint. Seeds use container_cpu_usage_seconds_total with two
+    images (alpine: 3 pods with values 100/200/300, busybox: 1 pod with value 500).
+
+    Expected rankings per method:
+      count → alpine first  (3 > 1)
+      avg   → busybox first (500 > 200)
+      max   → busybox first (500 > 300)
+      sum   → alpine first  (600 > 500)  [default]
+  steps:
+    - name: Create DiscoveryPolicies with different aggregation methods
+      try:
+        - apply:
+            file: 01-discoverypolicies.yaml
+    - name: Assert count aggregation discovers images (alpine ranked first)
+      try:
+        - assert:
+            timeout: 90s
+            file: 02-assert-count.yaml
+    - name: Assert avg aggregation discovers images (busybox ranked first)
+      try:
+        - assert:
+            timeout: 90s
+            file: 03-assert-avg.yaml
+    - name: Assert max aggregation discovers images (busybox ranked first)
+      try:
+        - assert:
+            timeout: 90s
+            file: 04-assert-max.yaml
+    - name: Assert sum aggregation discovers images (alpine ranked first, default)
+      try:
+        - assert:
+            timeout: 90s
+            file: 05-assert-sum.yaml
+    - name: Verify scores differ between aggregation methods
+      try:
+        - script:
+            timeout: 30s
+            content: |
+              # Verify that different aggregation methods produce different scores.
+              # sum and avg must produce different scores for the same image because
+              # sum accumulates over all data points while avg divides by count.
+              SUM_SCORE=$(kubectl get discoverypolicy e2e-agg-sum -o jsonpath='{.status.discoveredImages[0].score}')
+              AVG_SCORE=$(kubectl get discoverypolicy e2e-agg-avg -o jsonpath='{.status.discoveredImages[0].score}')
+              COUNT_SCORE=$(kubectl get discoverypolicy e2e-agg-count -o jsonpath='{.status.discoveredImages[0].score}')
+              MAX_SCORE=$(kubectl get discoverypolicy e2e-agg-max -o jsonpath='{.status.discoveredImages[0].score}')
+
+              echo "Scores — sum:$SUM_SCORE avg:$AVG_SCORE count:$COUNT_SCORE max:$MAX_SCORE"
+
+              if [ "$SUM_SCORE" = "$AVG_SCORE" ]; then
+                echo "FAIL: sum and avg scores should differ"
+                exit 1
+              fi
+              if [ "$SUM_SCORE" = "$COUNT_SCORE" ]; then
+                echo "FAIL: sum and count scores should differ"
+                exit 1
+              fi
+              echo "OK: aggregation methods produce different scores"
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-agg-count
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-agg-avg
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-agg-max
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-agg-sum

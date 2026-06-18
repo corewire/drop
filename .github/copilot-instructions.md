@@ -34,6 +34,7 @@ make docs-gen      # regenerate AI docs from source
 - Pod builder is a pure function in internal/podbuilder/ (no k8s client)
 - Pacing logic lives exclusively in internal/pacing/
 - Don't manually edit generated files — run make docs-gen
+- Documentation must never contain unverified information — verify all examples against a real cluster before merging
 
 ## Testing Patterns
 

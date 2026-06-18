@@ -543,6 +543,9 @@ conventions:
   - rule: Don't manually edit generated files — run make docs-gen
     scope:
       - code
+  - rule: Documentation must never contain unverified information — verify all examples against a real cluster before merging
+    scope:
+      - code
 errors:
   - reason: Cached
     controller: CachedImage
@@ -770,6 +773,7 @@ samples: |
           query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
           lookback: 24h
           step: 5m
+          aggregationMethod: sum
     syncInterval: 30s
     maxImages: 10
   ---

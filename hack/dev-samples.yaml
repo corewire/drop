@@ -83,6 +83,7 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
         lookback: 24h
         step: 5m
+        aggregationMethod: sum
   syncInterval: 30s
   maxImages: 10
 ---
