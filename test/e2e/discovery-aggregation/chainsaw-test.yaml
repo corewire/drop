@@ -45,7 +45,8 @@ spec:
             timeout: 30s
             content: |
               # Verify aggregation outputs are populated and detect obvious mismatches.
-              # sum and avg can be equal when only one sample falls in the lookback window.
+              # sum and avg can be equal when only one sample falls in the lookback window,
+              # but sum and count should still differ.
               SUM_SCORE=$(kubectl get discoverypolicy e2e-agg-sum -o jsonpath='{.status.discoveredImages[0].score}')
               AVG_SCORE=$(kubectl get discoverypolicy e2e-agg-avg -o jsonpath='{.status.discoveredImages[0].score}')
               COUNT_SCORE=$(kubectl get discoverypolicy e2e-agg-count -o jsonpath='{.status.discoveredImages[0].score}')
