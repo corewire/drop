@@ -156,6 +156,7 @@ func aggregateRangeValues(values [][]interface{}, method string) int64 {
 	var total float64
 	var max float64
 	var count int64
+	maxSet := false
 
 	for _, pair := range values {
 		if len(pair) < 2 {
@@ -171,8 +172,9 @@ func aggregateRangeValues(values [][]interface{}, method string) int64 {
 		}
 		total += v
 		count++
-		if v > max {
+		if !maxSet || v > max {
 			max = v
+			maxSet = true
 		}
 	}
 
