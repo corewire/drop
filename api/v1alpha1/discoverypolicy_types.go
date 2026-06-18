@@ -53,6 +53,27 @@ type DiscoverySource struct {
 	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
+// AggregationMethod defines how range query values are aggregated into a score.
+// +kubebuilder:validation:Enum=sum;count;avg;max
+type AggregationMethod string
+
+const (
+	// AggregationSum adds all data-point values over the lookback window.
+	// Use when the query returns a gauge/counter and the total magnitude matters
+	// (e.g., total memory usage across the window).
+	AggregationSum AggregationMethod = "sum"
+	// AggregationCount counts the number of non-zero data points over the lookback window.
+	// Use when you want to rank by how frequently an image appears
+	// (e.g., number of sample intervals where the image was running).
+	AggregationCount AggregationMethod = "count"
+	// AggregationAvg computes the arithmetic mean of all data-point values.
+	// Use when you want the average magnitude regardless of how many samples exist.
+	AggregationAvg AggregationMethod = "avg"
+	// AggregationMax takes the highest single data-point value.
+	// Use when peak usage is more relevant than cumulative usage.
+	AggregationMax AggregationMethod = "max"
+)
+
 // PrometheusSource defines Prometheus query configuration for image discovery.
 type PrometheusSource struct {
 	// Endpoint is the Prometheus-compatible API URL (Prometheus, Thanos, Mimir, VictoriaMetrics).
@@ -66,13 +87,20 @@ type PrometheusSource struct {
 	// +kubebuilder:validation:MinLength=1
 	Query string `json:"query"`
 	// Lookback is the time window for aggregation. When set, the operator uses query_range
-	// (start=now-lookback, end=now) and sums all returned values per image to produce a score.
+	// (start=now-lookback, end=now) and aggregates all returned values per image to produce a score.
+	// The aggregation function is controlled by the aggregationMethod field.
 	// When unset, uses an instant query (/api/v1/query) and the point-in-time value is the score.
 	// Example: "168h" (7 days), "24h", "72h"
 	// +optional
 	Lookback *metav1.Duration `json:"lookback,omitempty"`
+	// AggregationMethod controls how data points from a range query are combined into a single score.
+	// Only used when lookback is set. Ignored for instant queries.
+	// Default: "sum". Options: "sum", "count", "avg", "max"
+	// +kubebuilder:default="sum"
+	// +optional
+	AggregationMethod AggregationMethod `json:"aggregationMethod,omitempty"`
 	// Step is the resolution step for range queries (only used when lookback is set).
-	// Smaller steps = more data points = more accurate sums but higher Prometheus load.
+	// Smaller steps = more data points = more accurate aggregation but higher Prometheus load.
 	// Default: "5m". Example: "1m", "15m"
 	// +kubebuilder:default="5m"
 	// +optional

@@ -449,13 +449,19 @@ helperTypes:
         json: lookback
         type: '*metav1.Duration'
         required: false
-        doc: 'Lookback is the time window for aggregation. When set, the operator uses query_range (start=now-lookback, end=now) and sums all returned values per image to produce a score. When unset, uses an instant query (/api/v1/query) and the point-in-time value is the score. Example: "168h" (7 days), "24h", "72h"'
+        doc: 'Lookback is the time window for aggregation. When set, the operator uses query_range (start=now-lookback, end=now) and aggregates all returned values per image to produce a score. The aggregation function is controlled by the aggregationMethod field. When unset, uses an instant query (/api/v1/query) and the point-in-time value is the score. Example: "168h" (7 days), "24h", "72h"'
+      - name: AggregationMethod
+        json: aggregationMethod
+        type: AggregationMethod
+        required: false
+        default: sum
+        doc: 'AggregationMethod controls how data points from a range query are combined into a single score. Only used when lookback is set. Ignored for instant queries. Default: "sum". Options: "sum", "count", "avg", "max"'
       - name: Step
         json: step
         type: string
         required: false
         default: 5m
-        doc: 'Step is the resolution step for range queries (only used when lookback is set). Smaller steps = more data points = more accurate sums but higher Prometheus load. Default: "5m". Example: "1m", "15m"'
+        doc: 'Step is the resolution step for range queries (only used when lookback is set). Smaller steps = more data points = more accurate aggregation but higher Prometheus load. Default: "5m". Example: "1m", "15m"'
   - name: RegistrySource
     doc: RegistrySource defines OCI registry tag listing configuration for image discovery.
     fields:
