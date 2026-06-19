@@ -71,6 +71,25 @@ spec:
   syncInterval: 30s
   maxImages: 10
 ---
+# queryType: range with aggregationMethod: none — uses the last data-point value directly.
+# Ideal for self-contained PromQL queries that already aggregate internally.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-none
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'sum(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
+        lookback: 1h
+        step: 5m
+        aggregationMethod: none
+  syncInterval: 30s
+  maxImages: 10
+---
 # queryType: instant — uses /api/v1/query for a single point-in-time result.
 # The returned value is used directly as the score without aggregation.
 apiVersion: drop.corewire.io/v1alpha1

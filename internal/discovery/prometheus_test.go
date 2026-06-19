@@ -143,6 +143,32 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 		wantScore         int64
 	}{
 		{
+			name:              "none aggregation (last value)",
+			aggregationMethod: dropv1alpha1.AggregationNone,
+			response: prometheusResponse{
+				Status: prometheusStatusSuccess,
+				Data: struct {
+					ResultType string             `json:"resultType"`
+					Result     []prometheusResult `json:"result"`
+				}{
+					ResultType: "matrix",
+					Result: []prometheusResult{
+						{
+							Metric: map[string]string{"image": "nginx:1.25"},
+							Values: [][]interface{}{
+								{1234567890.0, "10"},
+								{1234567950.0, "20"},
+								{1234568010.0, "30"},
+							},
+						},
+					},
+				},
+			},
+			wantCount: 1,
+			wantFirst: "nginx:1.25",
+			wantScore: 30, // last data-point value
+		},
+		{
 			name:              "sum aggregation",
 			aggregationMethod: dropv1alpha1.AggregationSum,
 			response: prometheusResponse{
@@ -300,6 +326,9 @@ func TestPrometheusSource_DefaultQueryType(t *testing.T) {
 	source := NewPrometheusSource(server.URL, "test_query", "", time.Hour, "", 0, server.Client())
 	if source.QueryType != dropv1alpha1.QueryTypeRange {
 		t.Errorf("default QueryType = %q, want %q", source.QueryType, dropv1alpha1.QueryTypeRange)
+	}
+	if source.AggregationMethod != dropv1alpha1.AggregationNone {
+		t.Errorf("default AggregationMethod = %q, want %q", source.AggregationMethod, dropv1alpha1.AggregationNone)
 	}
 	_, err := source.Fetch(context.Background())
 	if err != nil {

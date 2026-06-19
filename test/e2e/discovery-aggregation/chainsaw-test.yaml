@@ -13,7 +13,8 @@ spec:
       count → alpine first  (3 > 1)
       avg   → busybox first (500 > 200)
       max   → busybox first (500 > 300)
-      sum   → alpine first  (600 > 500)  [default]
+      sum   → alpine first  (600 > 500)
+      none  → uses last data-point value directly
 
     queryType: instant uses /api/v1/query directly — no aggregation.
   steps:
@@ -46,6 +47,11 @@ spec:
         - assert:
             timeout: 90s
             file: 06-assert-instant.yaml
+    - name: Assert none aggregation discovers images (last value used directly)
+      try:
+        - assert:
+            timeout: 90s
+            file: 07-assert-none.yaml
     - name: Verify aggregation scores are populated
       try:
         - script:
@@ -59,10 +65,11 @@ spec:
               COUNT_SCORE=$(kubectl get discoverypolicy e2e-agg-count -o jsonpath='{.status.discoveredImages[0].score}')
               MAX_SCORE=$(kubectl get discoverypolicy e2e-agg-max -o jsonpath='{.status.discoveredImages[0].score}')
               INSTANT_SCORE=$(kubectl get discoverypolicy e2e-agg-instant -o jsonpath='{.status.discoveredImages[0].score}')
+              NONE_SCORE=$(kubectl get discoverypolicy e2e-agg-none -o jsonpath='{.status.discoveredImages[0].score}')
 
-              echo "Scores — sum:$SUM_SCORE avg:$AVG_SCORE count:$COUNT_SCORE max:$MAX_SCORE instant:$INSTANT_SCORE"
+              echo "Scores — sum:$SUM_SCORE avg:$AVG_SCORE count:$COUNT_SCORE max:$MAX_SCORE instant:$INSTANT_SCORE none:$NONE_SCORE"
 
-              if [ -z "$SUM_SCORE" ] || [ -z "$AVG_SCORE" ] || [ -z "$COUNT_SCORE" ] || [ -z "$MAX_SCORE" ] || [ -z "$INSTANT_SCORE" ]; then
+              if [ -z "$SUM_SCORE" ] || [ -z "$AVG_SCORE" ] || [ -z "$COUNT_SCORE" ] || [ -z "$MAX_SCORE" ] || [ -z "$INSTANT_SCORE" ] || [ -z "$NONE_SCORE" ]; then
                 echo "FAIL: expected non-empty scores for all methods"
                 exit 1
               fi
@@ -94,3 +101,8 @@ spec:
               apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
               name: e2e-agg-instant
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-agg-none

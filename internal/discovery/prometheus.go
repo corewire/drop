@@ -35,7 +35,7 @@ func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryTyp
 		step = 5 * time.Minute
 	}
 	if aggregationMethod == "" {
-		aggregationMethod = dropv1alpha1.AggregationSum
+		aggregationMethod = dropv1alpha1.AggregationNone
 	}
 	if queryType == "" {
 		queryType = dropv1alpha1.QueryTypeRange
@@ -197,7 +197,24 @@ func aggregateRangeValues(values [][]interface{}, method dropv1alpha1.Aggregatio
 		return int64(total / float64(count))
 	case dropv1alpha1.AggregationMax:
 		return int64(max)
-	default: // AggregationSum
+	case dropv1alpha1.AggregationSum:
 		return int64(total)
+	default: // AggregationNone — use last data-point value
+		if len(values) == 0 {
+			return 0
+		}
+		lastPair := values[len(values)-1]
+		if len(lastPair) < 2 {
+			return 0
+		}
+		strVal, ok := lastPair[1].(string)
+		if !ok {
+			return 0
+		}
+		var v float64
+		if _, err := fmt.Sscanf(strVal, "%f", &v); err != nil {
+			return 0
+		}
+		return int64(v)
 	}
 }

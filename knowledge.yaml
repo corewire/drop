@@ -460,8 +460,8 @@ helperTypes:
         json: aggregationMethod
         type: AggregationMethod
         required: false
-        default: sum
-        doc: 'AggregationMethod controls how data points from a range query are combined into a single score. Only used when queryType is "range". Ignored for instant queries. Default: "sum". Options: "sum", "count", "avg", "max"'
+        default: none
+        doc: 'AggregationMethod controls how data points from a range query are combined into a single score. Only used when queryType is "range". Ignored for instant queries. "none" means Drop uses the last data-point value directly (use when your PromQL already aggregates). Default: "none". Options: "none", "sum", "count", "avg", "max"'
       - name: Step
         json: step
         type: '*metav1.Duration'
