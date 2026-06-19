@@ -36,7 +36,7 @@ func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryTyp
 		aggregationMethod = dropv1alpha1.AggregationSum
 	}
 	if queryType == "" {
-		queryType = dropv1alpha1.QueryTypeInstant
+		queryType = dropv1alpha1.QueryTypeRange
 	}
 	return &PrometheusSource{
 		Endpoint:          endpoint,

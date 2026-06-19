@@ -1,0 +1,11 @@
+# Assert instant query: policy is Ready, both images discovered.
+# queryType=instant uses /api/v1/query — the returned value is used directly as the score.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-instant
+status:
+  (conditions[?type == 'Ready']):
+    - status: "True"
+      reason: Synced
+  imageCount: 2

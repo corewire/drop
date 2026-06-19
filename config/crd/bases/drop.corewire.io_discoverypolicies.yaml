@@ -121,12 +121,12 @@ spec:
                           minLength: 1
                           type: string
                         queryType:
-                          default: instant
+                          default: range
                           description: |-
                             QueryType controls how the Prometheus query is executed.
                             "range" uses /api/v1/query_range with a time window defined by lookback.
                             "instant" uses /api/v1/query for a single point-in-time result.
-                            Default: "instant".
+                            Default: "range".
                           enum:
                           - range
                           - instant

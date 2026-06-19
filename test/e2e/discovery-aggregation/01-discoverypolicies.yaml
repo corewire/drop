@@ -1,4 +1,5 @@
-# Four DiscoveryPolicies, each using a different aggregationMethod.
+# Four DiscoveryPolicies using queryType: range with different aggregationMethods,
+# plus one using queryType: instant.
 # All query the same seed metrics (container_cpu_usage_seconds_total in namespace aggregation-test).
 # Seed data: alpine has 3 pods (values 100, 200, 300), busybox has 1 pod (value 500).
 ---
@@ -67,5 +68,21 @@ spec:
         lookback: 1h
         step: 5m
         aggregationMethod: sum
+  syncInterval: 30s
+  maxImages: 10
+---
+# queryType: instant — uses /api/v1/query for a single point-in-time result.
+# The returned value is used directly as the score without aggregation.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-instant
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'count(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: instant
   syncInterval: 30s
   maxImages: 10

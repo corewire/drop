@@ -102,8 +102,8 @@ type PrometheusSource struct {
 	// QueryType controls how the Prometheus query is executed.
 	// "range" uses /api/v1/query_range with a time window defined by lookback.
 	// "instant" uses /api/v1/query for a single point-in-time result.
-	// Default: "instant".
-	// +kubebuilder:default="instant"
+	// Default: "range".
+	// +kubebuilder:default="range"
 	// +optional
 	QueryType QueryType `json:"queryType,omitempty"`
 	// Lookback is the time window for range queries. When queryType is "range",

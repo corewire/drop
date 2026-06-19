@@ -5,17 +5,19 @@ metadata:
   name: discovery-aggregation-methods
 spec:
   description: |
-    Verify that DiscoveryPolicy aggregationMethod field works correctly against a
-    real Prometheus endpoint. Seeds use container_cpu_usage_seconds_total with two
-    images (alpine: 3 pods with values 100/200/300, busybox: 1 pod with value 500).
+    Verify that DiscoveryPolicy aggregationMethod and queryType fields work correctly
+    against a real Prometheus endpoint. Seeds use container_cpu_usage_seconds_total with
+    two images (alpine: 3 pods with values 100/200/300, busybox: 1 pod with value 500).
 
-    Expected rankings per method:
+    Expected rankings per method (queryType: range):
       count → alpine first  (3 > 1)
       avg   → busybox first (500 > 200)
       max   → busybox first (500 > 300)
       sum   → alpine first  (600 > 500)  [default]
+
+    queryType: instant uses /api/v1/query directly — no aggregation.
   steps:
-    - name: Create DiscoveryPolicies with different aggregation methods
+    - name: Create DiscoveryPolicies with different aggregation methods and query types
       try:
         - apply:
             file: 01-discoverypolicies.yaml
@@ -39,6 +41,11 @@ spec:
         - assert:
             timeout: 90s
             file: 05-assert-sum.yaml
+    - name: Assert instant query discovers images
+      try:
+        - assert:
+            timeout: 90s
+            file: 06-assert-instant.yaml
     - name: Verify aggregation scores are populated
       try:
         - script:
@@ -51,14 +58,15 @@ spec:
               AVG_SCORE=$(kubectl get discoverypolicy e2e-agg-avg -o jsonpath='{.status.discoveredImages[0].score}')
               COUNT_SCORE=$(kubectl get discoverypolicy e2e-agg-count -o jsonpath='{.status.discoveredImages[0].score}')
               MAX_SCORE=$(kubectl get discoverypolicy e2e-agg-max -o jsonpath='{.status.discoveredImages[0].score}')
+              INSTANT_SCORE=$(kubectl get discoverypolicy e2e-agg-instant -o jsonpath='{.status.discoveredImages[0].score}')
 
-              echo "Scores — sum:$SUM_SCORE avg:$AVG_SCORE count:$COUNT_SCORE max:$MAX_SCORE"
+              echo "Scores — sum:$SUM_SCORE avg:$AVG_SCORE count:$COUNT_SCORE max:$MAX_SCORE instant:$INSTANT_SCORE"
 
-              if [ -z "$SUM_SCORE" ] || [ -z "$AVG_SCORE" ] || [ -z "$COUNT_SCORE" ] || [ -z "$MAX_SCORE" ]; then
-                echo "FAIL: expected non-empty scores for all aggregation methods"
+              if [ -z "$SUM_SCORE" ] || [ -z "$AVG_SCORE" ] || [ -z "$COUNT_SCORE" ] || [ -z "$MAX_SCORE" ] || [ -z "$INSTANT_SCORE" ]; then
+                echo "FAIL: expected non-empty scores for all methods"
                 exit 1
               fi
-              echo "OK: aggregation methods produced non-empty scores"
+              echo "OK: all query types and aggregation methods produced non-empty scores"
     - name: Cleanup
       try:
         - delete:
@@ -81,3 +89,8 @@ spec:
               apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
               name: e2e-agg-sum
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-agg-instant

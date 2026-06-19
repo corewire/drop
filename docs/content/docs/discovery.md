@@ -66,7 +66,7 @@ count(container_memory_working_set_bytes{
 
 Hand-maintained image lists do not keep up in environments where automation (for example Renovate) ships new image versions every day. A practical pattern is to rank images by observed CI usage over a rolling window.
 
-The `queryType` field controls whether Drop sends an instant or range query. When set to `range`, the `lookback` field defines the time window and `aggregationMethod` controls how the returned data points are combined into a single score per image:
+The `queryType` field controls whether Drop sends an instant or range query (default: `range`). When set to `range`, the `lookback` field defines the time window and `aggregationMethod` controls how the returned data points are combined into a single score per image:
 
 | Method | Behavior | Use when |
 |--------|----------|----------|
@@ -87,7 +87,7 @@ spec:
     - type: prometheus
       prometheus:
         endpoint: https://mimir.example.com
-        queryType: range   # use query_range API
+        queryType: range   # default — use query_range API
         lookback: 168h   # 7 days
         step: 5m
         aggregationMethod: sum   # default — rank by total usage over 7 days
@@ -104,7 +104,7 @@ Use this when you want DiscoveryPolicy to continuously follow what your GitLab r
 
 #### Field-by-field explanation
 
-- `queryType: range` — tells Drop to use the Prometheus `query_range` API instead of an instant query. Valid values: `range`, `instant` (default).
+- `queryType: range` — tells Drop to use the Prometheus `query_range` API. This is the default. Set to `instant` for a single point-in-time query.
 - `lookback: 168h` — defines the time window for range queries (start=now-7d, end=now). Required when `queryType` is `range`.
 - `aggregationMethod: sum` — sums all data-point values to rank by total usage. Use `count` to rank by number of appearances, `avg` for average magnitude, or `max` for peak value.
 - `step: 5m` — resolution step for the range query (controls how many data points Prometheus returns).
@@ -119,7 +119,7 @@ Use this when you want DiscoveryPolicy to continuously follow what your GitLab r
 
 For each unique `image` label, Drop uses the Prometheus query result value as the score.
 
-When `queryType` is `instant` (the default), Drop sends an instant query (`/api/v1/query`) and uses the returned value directly. When `queryType` is `range`, Drop uses a range query (`/api/v1/query_range`) over the `lookback` window and aggregates data points using the `aggregationMethod`:
+When `queryType` is `range` (the default), Drop uses a range query (`/api/v1/query_range`) over the `lookback` window and aggregates data points using the `aggregationMethod`. When `queryType` is `instant`, Drop sends an instant query (`/api/v1/query`) and uses the returned value directly:
 
 - `sum` (default): adds all data-point values — images with higher cumulative usage score higher
 - `count`: counts the number of data points — images that appear more frequently score higher
