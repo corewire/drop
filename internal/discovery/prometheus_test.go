@@ -23,7 +23,7 @@ func TestPrometheusSource_Fetch_Instant(t *testing.T) {
 		{
 			name: "valid response with image labels",
 			response: prometheusResponse{
-				Status: "success",
+				Status: prometheusStatusSuccess,
 				Data: struct {
 					ResultType string             `json:"resultType"`
 					Result     []prometheusResult `json:"result"`
@@ -48,7 +48,7 @@ func TestPrometheusSource_Fetch_Instant(t *testing.T) {
 		{
 			name: "skips results without image label",
 			response: prometheusResponse{
-				Status: "success",
+				Status: prometheusStatusSuccess,
 				Data: struct {
 					ResultType string             `json:"resultType"`
 					Result     []prometheusResult `json:"result"`
@@ -79,7 +79,7 @@ func TestPrometheusSource_Fetch_Instant(t *testing.T) {
 		{
 			name: "empty results",
 			response: prometheusResponse{
-				Status: "success",
+				Status: prometheusStatusSuccess,
 				Data: struct {
 					ResultType string             `json:"resultType"`
 					Result     []prometheusResult `json:"result"`
@@ -146,7 +146,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 			name:              "sum aggregation",
 			aggregationMethod: dropv1alpha1.AggregationSum,
 			response: prometheusResponse{
-				Status: "success",
+				Status: prometheusStatusSuccess,
 				Data: struct {
 					ResultType string             `json:"resultType"`
 					Result     []prometheusResult `json:"result"`
@@ -172,7 +172,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 			name:              "count aggregation",
 			aggregationMethod: dropv1alpha1.AggregationCount,
 			response: prometheusResponse{
-				Status: "success",
+				Status: prometheusStatusSuccess,
 				Data: struct {
 					ResultType string             `json:"resultType"`
 					Result     []prometheusResult `json:"result"`
@@ -198,7 +198,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 			name:              "avg aggregation",
 			aggregationMethod: dropv1alpha1.AggregationAvg,
 			response: prometheusResponse{
-				Status: "success",
+				Status: prometheusStatusSuccess,
 				Data: struct {
 					ResultType string             `json:"resultType"`
 					Result     []prometheusResult `json:"result"`
@@ -224,7 +224,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 			name:              "max aggregation",
 			aggregationMethod: dropv1alpha1.AggregationMax,
 			response: prometheusResponse{
-				Status: "success",
+				Status: prometheusStatusSuccess,
 				Data: struct {
 					ResultType string             `json:"resultType"`
 					Result     []prometheusResult `json:"result"`
@@ -288,7 +288,7 @@ func TestPrometheusSource_DefaultQueryType(t *testing.T) {
 		if r.URL.Path != "/api/v1/query_range" {
 			t.Errorf("default queryType should use query_range, got path: %s", r.URL.Path)
 		}
-		resp := prometheusResponse{Status: "success"}
+		resp := prometheusResponse{Status: prometheusStatusSuccess}
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			t.Fatal(err)

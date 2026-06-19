@@ -36,6 +36,7 @@ make docs-gen      # regenerate AI docs from source
 - Don't manually edit generated files — run make docs-gen
 - Documentation must never contain unverified information — verify all examples against a real cluster before merging
 - Always document which resources you looked at in which order (short summary + time spent + tokens consumed + context consumed)
+- Always lint and fix linter issues locally before pushing code
 
 ## Testing Patterns
 

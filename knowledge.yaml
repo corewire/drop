@@ -557,6 +557,9 @@ conventions:
   - rule: Always document which resources you looked at in which order (short summary + time spent + tokens consumed + context consumed)
     scope:
       - code
+  - rule: Always lint and fix linter issues locally before pushing code
+    scope:
+      - code
 errors:
   - reason: Cached
     controller: CachedImage

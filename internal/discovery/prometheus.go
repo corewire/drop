@@ -13,6 +13,8 @@ import (
 	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
 )
 
+const prometheusStatusSuccess = "success"
+
 // PrometheusSource queries Prometheus for image references.
 type PrometheusSource struct {
 	Endpoint          string
@@ -108,7 +110,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
 
-	if promResp.Status != "success" {
+	if promResp.Status != prometheusStatusSuccess {
 		return nil, fmt.Errorf("prometheus query failed with status: %s", promResp.Status)
 	}
 
