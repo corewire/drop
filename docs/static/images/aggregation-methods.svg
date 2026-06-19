@@ -1,0 +1,195 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 680" font-family="system-ui, -apple-system, sans-serif" font-size="12">
+  <!-- Background -->
+  <rect width="700" height="680" fill="#fafafa" rx="8"/>
+
+  <!-- Title -->
+  <text x="350" y="24" text-anchor="middle" font-size="14" font-weight="bold" fill="#1a1a2e">Aggregation Methods</text>
+  <text x="350" y="42" text-anchor="middle" font-size="11" fill="#666">How range query data points are combined into a single score</text>
+
+  <!-- Shared data points: values 2, 5, 3, 7, 4, 6 (for all charts) -->
+
+  <!-- ===== nil (not set) — last value ===== -->
+  <g transform="translate(20, 55)">
+    <text x="150" y="12" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a1a2e">not set (nil) — last value used</text>
+
+    <!-- Mini axes -->
+    <line x1="30" y1="100" x2="290" y2="100" stroke="#ccc" stroke-width="1"/>
+    <line x1="30" y1="25" x2="30" y2="100" stroke="#ccc" stroke-width="1"/>
+
+    <!-- Data line -->
+    <polyline points="50,85 90,60 130,75 170,35 210,65 250,50"
+      fill="none" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4,2" stroke-linejoin="round"/>
+
+    <!-- All points grey except last -->
+    <g fill="#ccc">
+      <circle cx="50" cy="85" r="3"/>
+      <circle cx="90" cy="60" r="3"/>
+      <circle cx="130" cy="75" r="3"/>
+      <circle cx="170" cy="35" r="3"/>
+      <circle cx="210" cy="65" r="3"/>
+    </g>
+    <!-- Last point highlighted -->
+    <circle cx="250" cy="50" r="6" fill="#7209b7" fill-opacity="0.2" stroke="#7209b7" stroke-width="2"/>
+    <circle cx="250" cy="50" r="3" fill="#7209b7"/>
+
+    <!-- Score -->
+    <text x="270" y="53" font-size="10" fill="#7209b7" font-weight="bold">score = 6</text>
+  </g>
+
+  <!-- ===== sum ===== -->
+  <g transform="translate(350, 55)">
+    <text x="150" y="12" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a1a2e">sum — total of all values</text>
+
+    <!-- Mini axes -->
+    <line x1="30" y1="100" x2="290" y2="100" stroke="#ccc" stroke-width="1"/>
+    <line x1="30" y1="25" x2="30" y2="100" stroke="#ccc" stroke-width="1"/>
+
+    <!-- Data line -->
+    <polyline points="50,85 90,60 130,75 170,35 210,65 250,50"
+      fill="none" stroke="#4361ee" stroke-width="2" stroke-linejoin="round"/>
+
+    <!-- Filled area under curve -->
+    <polygon points="50,85 90,60 130,75 170,35 210,65 250,50 250,100 50,100"
+      fill="#4361ee" fill-opacity="0.15"/>
+
+    <!-- Points -->
+    <g fill="#4361ee">
+      <circle cx="50" cy="85" r="3"/>
+      <circle cx="90" cy="60" r="3"/>
+      <circle cx="130" cy="75" r="3"/>
+      <circle cx="170" cy="35" r="3"/>
+      <circle cx="210" cy="65" r="3"/>
+      <circle cx="250" cy="50" r="3"/>
+    </g>
+
+    <!-- Score -->
+    <text x="270" y="53" font-size="10" fill="#4361ee" font-weight="bold">score = 27</text>
+    <text x="150" y="115" text-anchor="middle" font-size="9" fill="#666">(2+5+3+7+4+6)</text>
+  </g>
+
+  <!-- ===== count ===== -->
+  <g transform="translate(20, 200)">
+    <text x="150" y="12" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a1a2e">count — number of data points</text>
+
+    <!-- Mini axes -->
+    <line x1="30" y1="100" x2="290" y2="100" stroke="#ccc" stroke-width="1"/>
+    <line x1="30" y1="25" x2="30" y2="100" stroke="#ccc" stroke-width="1"/>
+
+    <!-- Data line -->
+    <polyline points="50,85 90,60 130,75 170,35 210,65 250,50"
+      fill="none" stroke="#2ec4b6" stroke-width="2" stroke-linejoin="round"/>
+
+    <!-- Points with count markers -->
+    <g fill="#2ec4b6">
+      <circle cx="50" cy="85" r="5" fill-opacity="0.3" stroke="#2ec4b6" stroke-width="1.5"/>
+      <circle cx="90" cy="60" r="5" fill-opacity="0.3" stroke="#2ec4b6" stroke-width="1.5"/>
+      <circle cx="130" cy="75" r="5" fill-opacity="0.3" stroke="#2ec4b6" stroke-width="1.5"/>
+      <circle cx="170" cy="35" r="5" fill-opacity="0.3" stroke="#2ec4b6" stroke-width="1.5"/>
+      <circle cx="210" cy="65" r="5" fill-opacity="0.3" stroke="#2ec4b6" stroke-width="1.5"/>
+      <circle cx="250" cy="50" r="5" fill-opacity="0.3" stroke="#2ec4b6" stroke-width="1.5"/>
+    </g>
+    <!-- Numbers on points -->
+    <g font-size="8" fill="#2ec4b6" text-anchor="middle" font-weight="bold">
+      <text x="50" y="88">1</text>
+      <text x="90" y="63">2</text>
+      <text x="130" y="78">3</text>
+      <text x="170" y="38">4</text>
+      <text x="210" y="68">5</text>
+      <text x="250" y="53">6</text>
+    </g>
+
+    <!-- Score -->
+    <text x="280" y="53" font-size="10" fill="#2ec4b6" font-weight="bold">score = 6</text>
+    <text x="150" y="115" text-anchor="middle" font-size="9" fill="#666">(6 data points returned)</text>
+  </g>
+
+  <!-- ===== avg ===== -->
+  <g transform="translate(350, 200)">
+    <text x="150" y="12" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a1a2e">avg — arithmetic mean</text>
+
+    <!-- Mini axes -->
+    <line x1="30" y1="100" x2="290" y2="100" stroke="#ccc" stroke-width="1"/>
+    <line x1="30" y1="25" x2="30" y2="100" stroke="#ccc" stroke-width="1"/>
+
+    <!-- Data line -->
+    <polyline points="50,85 90,60 130,75 170,35 210,65 250,50"
+      fill="none" stroke="#f77f00" stroke-width="2" stroke-linejoin="round"/>
+
+    <!-- Points -->
+    <g fill="#f77f00">
+      <circle cx="50" cy="85" r="3"/>
+      <circle cx="90" cy="60" r="3"/>
+      <circle cx="130" cy="75" r="3"/>
+      <circle cx="170" cy="35" r="3"/>
+      <circle cx="210" cy="65" r="3"/>
+      <circle cx="250" cy="50" r="3"/>
+    </g>
+
+    <!-- Average line -->
+    <line x1="30" y1="62" x2="290" y2="62" stroke="#f77f00" stroke-width="2" stroke-dasharray="6,3"/>
+    <text x="295" y="60" font-size="9" fill="#f77f00">avg</text>
+
+    <!-- Score -->
+    <text x="270" y="80" font-size="10" fill="#f77f00" font-weight="bold">score = 4.5</text>
+    <text x="150" y="115" text-anchor="middle" font-size="9" fill="#666">(27 ÷ 6 = 4.5)</text>
+  </g>
+
+  <!-- ===== max ===== -->
+  <g transform="translate(185, 355)">
+    <text x="150" y="12" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a1a2e">max — highest single value</text>
+
+    <!-- Mini axes -->
+    <line x1="30" y1="100" x2="290" y2="100" stroke="#ccc" stroke-width="1"/>
+    <line x1="30" y1="25" x2="30" y2="100" stroke="#ccc" stroke-width="1"/>
+
+    <!-- Data line -->
+    <polyline points="50,85 90,60 130,75 170,35 210,65 250,50"
+      fill="none" stroke="#d62828" stroke-width="2" stroke-linejoin="round"/>
+
+    <!-- Points (all grey except max) -->
+    <g fill="#ccc">
+      <circle cx="50" cy="85" r="3"/>
+      <circle cx="90" cy="60" r="3"/>
+      <circle cx="130" cy="75" r="3"/>
+      <circle cx="210" cy="65" r="3"/>
+      <circle cx="250" cy="50" r="3"/>
+    </g>
+    <!-- Max point highlighted -->
+    <circle cx="170" cy="35" r="7" fill="#d62828" fill-opacity="0.2" stroke="#d62828" stroke-width="2"/>
+    <circle cx="170" cy="35" r="3" fill="#d62828"/>
+
+    <!-- Max line -->
+    <line x1="30" y1="35" x2="290" y2="35" stroke="#d62828" stroke-width="1" stroke-dasharray="4,2"/>
+
+    <!-- Score -->
+    <text x="270" y="33" font-size="10" fill="#d62828" font-weight="bold">score = 7</text>
+    <text x="150" y="115" text-anchor="middle" font-size="9" fill="#666">(highest value in the window)</text>
+  </g>
+
+  <!-- Legend at bottom -->
+  <g transform="translate(50, 510)">
+    <rect x="0" y="0" width="600" height="150" fill="#fff" rx="6" stroke="#e0e0e0" stroke-width="1"/>
+    <text x="300" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a1a2e">Example data points: 2, 5, 3, 7, 4, 6</text>
+
+    <g transform="translate(30, 40)">
+      <circle cx="8" cy="6" r="4" fill="#7209b7"/>
+      <text x="20" y="10" font-size="11" fill="#333">not set (nil): score = 6 (last value)</text>
+    </g>
+    <g transform="translate(30, 62)">
+      <circle cx="8" cy="6" r="4" fill="#4361ee"/>
+      <text x="20" y="10" font-size="11" fill="#333">sum: score = 27 (2+5+3+7+4+6)</text>
+    </g>
+    <g transform="translate(30, 84)">
+      <circle cx="8" cy="6" r="4" fill="#2ec4b6"/>
+      <text x="20" y="10" font-size="11" fill="#333">count: score = 6 (number of data points)</text>
+    </g>
+    <g transform="translate(30, 106)">
+      <circle cx="8" cy="6" r="4" fill="#f77f00"/>
+      <text x="20" y="10" font-size="11" fill="#333">avg: score = 4.5 (27 ÷ 6)</text>
+    </g>
+    <g transform="translate(30, 128)">
+      <circle cx="8" cy="6" r="4" fill="#d62828"/>
+      <text x="20" y="10" font-size="11" fill="#333">max: score = 7 (highest single value)</text>
+    </g>
+  </g>
+</svg>

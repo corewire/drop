@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280" font-family="system-ui, -apple-system, sans-serif" font-size="12">
+  <!-- Background -->
+  <rect width="600" height="280" fill="#fafafa" rx="8"/>
+
+  <!-- Title -->
+  <text x="300" y="24" text-anchor="middle" font-size="14" font-weight="bold" fill="#1a1a2e">queryType: instant</text>
+  <text x="300" y="42" text-anchor="middle" font-size="11" fill="#666">Uses /api/v1/query — returns a single point-in-time value</text>
+
+  <!-- Axes -->
+  <line x1="70" y1="220" x2="560" y2="220" stroke="#ccc" stroke-width="1.5"/>
+  <line x1="70" y1="60" x2="70" y2="220" stroke="#ccc" stroke-width="1.5"/>
+
+  <!-- Y-axis label -->
+  <text x="20" y="140" text-anchor="middle" font-size="11" fill="#666" transform="rotate(-90 20 140)">metric value</text>
+
+  <!-- X-axis label -->
+  <text x="315" y="245" text-anchor="middle" font-size="11" fill="#666">time</text>
+
+  <!-- Ghost data line (showing what range would see) -->
+  <polyline points="90,180 140,160 190,130 240,145 290,100 340,110 390,85 440,120 490,95 540,105"
+    fill="none" stroke="#ccc" stroke-width="1.5" stroke-dasharray="4,3" stroke-linejoin="round"/>
+
+  <!-- Ghost points -->
+  <g fill="#ddd">
+    <circle cx="90" cy="180" r="3"/>
+    <circle cx="140" cy="160" r="3"/>
+    <circle cx="190" cy="130" r="3"/>
+    <circle cx="240" cy="145" r="3"/>
+    <circle cx="290" cy="100" r="3"/>
+    <circle cx="340" cy="110" r="3"/>
+    <circle cx="390" cy="85" r="3"/>
+    <circle cx="440" cy="120" r="3"/>
+    <circle cx="490" cy="95" r="3"/>
+  </g>
+
+  <!-- NOW marker -->
+  <line x1="540" y1="55" x2="540" y2="220" stroke="#e63946" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="540" y="52" text-anchor="middle" font-size="10" fill="#e63946" font-weight="bold">now</text>
+
+  <!-- Single instant point -->
+  <circle cx="540" cy="105" r="8" fill="#e63946" fill-opacity="0.2" stroke="#e63946" stroke-width="2"/>
+  <circle cx="540" cy="105" r="4" fill="#e63946"/>
+
+  <!-- Annotation -->
+  <rect x="380" y="70" width="140" height="30" fill="#e63946" fill-opacity="0.1" rx="4" stroke="#e63946" stroke-width="1"/>
+  <text x="450" y="89" text-anchor="middle" font-size="10" fill="#e63946" font-weight="bold">this value = score</text>
+
+  <!-- Arrow from annotation to point -->
+  <line x1="520" y1="85" x2="534" y2="100" stroke="#e63946" stroke-width="1.5" marker-end="none"/>
+</svg>

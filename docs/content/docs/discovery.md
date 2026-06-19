@@ -66,7 +66,19 @@ count(container_memory_working_set_bytes{
 
 Hand-maintained image lists do not keep up in environments where automation (for example Renovate) ships new image versions every day. A practical pattern is to rank images by observed CI usage over a rolling window.
 
-The `queryType` field controls whether Drop sends an instant or range query (default: `range`). When set to `range`, the `lookback` field defines the time window and `aggregationMethod` controls how the returned data points are combined into a single score per image:
+The `queryType` field controls whether Drop sends an instant or range query (default: `range`). When set to `range`, the `lookback` field defines the time window and `aggregationMethod` controls how the returned data points are combined into a single score per image.
+
+#### Query Types
+
+{{< figure src="/drop/images/query-type-range.svg" alt="Range query: multiple data points over a lookback window" >}}
+
+{{< figure src="/drop/images/query-type-instant.svg" alt="Instant query: single point-in-time value used as score" >}}
+
+#### Aggregation Methods
+
+When using `queryType: range`, the `aggregationMethod` field determines how the returned data points are reduced into a single score:
+
+{{< figure src="/drop/images/aggregation-methods.svg" alt="Aggregation methods: nil (last value), sum, count, avg, max" >}}
 
 | Method | Behavior | Use when |
 |--------|----------|----------|
