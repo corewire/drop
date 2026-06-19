@@ -34,6 +34,7 @@ func conventions() []Convention {
 		{Rule: "Pacing logic lives exclusively in internal/pacing/", Scope: []string{"code"}},
 		{Rule: "Don't manually edit generated files — run make docs-gen", Scope: []string{"code"}},
 		{Rule: "Documentation must never contain unverified information — verify all examples against a real cluster before merging", Scope: []string{"code"}},
+		{Rule: "Always document which resources you looked at in which order (short summary + time spent + tokens consumed + context consumed)", Scope: []string{"code"}},
 	}
 }
 

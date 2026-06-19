@@ -554,6 +554,9 @@ conventions:
   - rule: Documentation must never contain unverified information — verify all examples against a real cluster before merging
     scope:
       - code
+  - rule: Always document which resources you looked at in which order (short summary + time spent + tokens consumed + context consumed)
+    scope:
+      - code
 errors:
   - reason: Cached
     controller: CachedImage
