@@ -121,10 +121,9 @@ type PrometheusSource struct {
 	AggregationMethod AggregationMethod `json:"aggregationMethod,omitempty"`
 	// Step is the resolution step for range queries (only used when lookback is set).
 	// Smaller steps = more data points = more accurate aggregation but higher Prometheus load.
-	// Default: "5m". Example: "1m", "15m"
-	// +kubebuilder:default="5m"
+	// Default: 5m. Example: "1m", "15m"
 	// +optional
-	Step string `json:"step,omitempty"`
+	Step *metav1.Duration `json:"step,omitempty"`
 }
 
 // RegistrySource defines OCI registry tag listing configuration for image discovery.

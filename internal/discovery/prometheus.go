@@ -22,17 +22,17 @@ type PrometheusSource struct {
 	QueryType         dropv1alpha1.QueryType         // range or instant
 	Lookback          time.Duration                  // time window for range queries
 	AggregationMethod dropv1alpha1.AggregationMethod // sum, count, avg, max
-	Step              string                         // resolution step for range queries (default "5m")
+	Step              time.Duration                  // resolution step for range queries (default 5m)
 	HTTPClient        *http.Client
 }
 
 // NewPrometheusSource creates a new Prometheus discovery source.
-func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryType, lookback time.Duration, aggregationMethod dropv1alpha1.AggregationMethod, step string, httpClient *http.Client) *PrometheusSource {
+func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryType, lookback time.Duration, aggregationMethod dropv1alpha1.AggregationMethod, step time.Duration, httpClient *http.Client) *PrometheusSource {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
-	if step == "" {
-		step = "5m"
+	if step == 0 {
+		step = 5 * time.Minute
 	}
 	if aggregationMethod == "" {
 		aggregationMethod = dropv1alpha1.AggregationSum
@@ -82,7 +82,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 		now := time.Now().UTC()
 		q.Set("start", now.Add(-p.Lookback).Format(time.RFC3339))
 		q.Set("end", now.Format(time.RFC3339))
-		q.Set("step", p.Step)
+		q.Set("step", fmt.Sprintf("%ds", int(p.Step.Seconds())))
 	} else {
 		// Instant query: single point in time
 		u.Path = "/api/v1/query"

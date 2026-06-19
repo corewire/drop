@@ -464,10 +464,9 @@ helperTypes:
         doc: 'AggregationMethod controls how data points from a range query are combined into a single score. Only used when queryType is "range". Ignored for instant queries. Default: "sum". Options: "sum", "count", "avg", "max"'
       - name: Step
         json: step
-        type: string
+        type: '*metav1.Duration'
         required: false
-        default: 5m
-        doc: 'Step is the resolution step for range queries (only used when lookback is set). Smaller steps = more data points = more accurate aggregation but higher Prometheus load. Default: "5m". Example: "1m", "15m"'
+        doc: 'Step is the resolution step for range queries (only used when lookback is set). Smaller steps = more data points = more accurate aggregation but higher Prometheus load. Default: 5m. Example: "1m", "15m"'
   - name: RegistrySource
     doc: RegistrySource defines OCI registry tag listing configuration for image discovery.
     fields:

@@ -106,7 +106,7 @@ func TestPrometheusSource_Fetch_Instant(t *testing.T) {
 			}))
 			defer server.Close()
 
-			source := NewPrometheusSource(server.URL, "test_query", dropv1alpha1.QueryTypeInstant, 0, "", "", server.Client())
+			source := NewPrometheusSource(server.URL, "test_query", dropv1alpha1.QueryTypeInstant, 0, "", 0, server.Client())
 			results, err := source.Fetch(context.Background())
 
 			if tt.wantErr {
@@ -261,7 +261,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 			}))
 			defer server.Close()
 
-			source := NewPrometheusSource(server.URL, "test_query", dropv1alpha1.QueryTypeRange, time.Hour, tt.aggregationMethod, "5m", server.Client())
+			source := NewPrometheusSource(server.URL, "test_query", dropv1alpha1.QueryTypeRange, time.Hour, tt.aggregationMethod, 5*time.Minute, server.Client())
 			results, err := source.Fetch(context.Background())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -297,7 +297,7 @@ func TestPrometheusSource_DefaultQueryType(t *testing.T) {
 	defer server.Close()
 
 	// Empty queryType should default to range
-	source := NewPrometheusSource(server.URL, "test_query", "", time.Hour, "", "", server.Client())
+	source := NewPrometheusSource(server.URL, "test_query", "", time.Hour, "", 0, server.Client())
 	if source.QueryType != dropv1alpha1.QueryTypeRange {
 		t.Errorf("default QueryType = %q, want %q", source.QueryType, dropv1alpha1.QueryTypeRange)
 	}

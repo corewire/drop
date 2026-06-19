@@ -132,11 +132,10 @@ spec:
                           - instant
                           type: string
                         step:
-                          default: 5m
                           description: |-
                             Step is the resolution step for range queries (only used when lookback is set).
                             Smaller steps = more data points = more accurate aggregation but higher Prometheus load.
-                            Default: "5m". Example: "1m", "15m"
+                            Default: 5m. Example: "1m", "15m"
                           type: string
                       required:
                       - endpoint

@@ -210,7 +210,7 @@ PrometheusSource defines Prometheus query configuration for image discovery.
 | `queryType` | `QueryType` | No | range | QueryType controls how the Prometheus query is executed. "range" uses /api/v1/query_range with a time window defined by lookback. "instant" uses /api/v1/query for a single point-in-time result. Default: "range". |
 | `lookback` | `*metav1.Duration` | No | — | Lookback is the time window for range queries. When queryType is "range", the operator queries (start=now-lookback, end=now) and aggregates all returned values per image. The aggregation function is controlled by the aggregationMethod field. Required when queryType is "range". Ignored when queryType is "instant". Example: "168h" (7 days), "24h", "72h" |
 | `aggregationMethod` | `AggregationMethod` | No | sum | AggregationMethod controls how data points from a range query are combined into a single score. Only used when queryType is "range". Ignored for instant queries. Default: "sum". Options: "sum", "count", "avg", "max" |
-| `step` | `string` | No | 5m | Step is the resolution step for range queries (only used when lookback is set). Smaller steps = more data points = more accurate aggregation but higher Prometheus load. Default: "5m". Example: "1m", "15m" |
+| `step` | `*metav1.Duration` | No | — | Step is the resolution step for range queries (only used when lookback is set). Smaller steps = more data points = more accurate aggregation but higher Prometheus load. Default: 5m. Example: "1m", "15m" |
 
 ### RegistrySource
 
