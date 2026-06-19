@@ -59,6 +59,7 @@ api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the drop v
 internal/controller — Package controller implements Kubernetes reconcilers for the drop CRDs (one per Kind).
   imports: api/v1alpha1, internal/discovery, internal/metrics, internal/pacing, internal/podbuilder
 internal/discovery — Package discovery implements image discovery from registries and Prometheus metrics.
+  imports: api/v1alpha1
 internal/metrics — Package metrics registers Prometheus metrics for the drop operator.
 internal/pacing — Package pacing implements the shared rate-limiting engine for image pull scheduling.
   imports: api/v1alpha1, internal/podbuilder

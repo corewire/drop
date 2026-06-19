@@ -81,6 +81,7 @@ spec:
       prometheus:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
+        queryType: range
         lookback: 24h
         step: 5m
         aggregationMethod: sum

@@ -74,6 +74,19 @@ const (
 	AggregationMax AggregationMethod = "max"
 )
 
+// QueryType defines how the Prometheus query is executed.
+// +kubebuilder:validation:Enum=range;instant
+type QueryType string
+
+const (
+	// QueryTypeRange uses /api/v1/query_range with a time window defined by lookback.
+	// Returns multiple data points which are aggregated using the aggregationMethod.
+	QueryTypeRange QueryType = "range"
+	// QueryTypeInstant uses /api/v1/query for a single point-in-time result.
+	// The returned value is used directly as the score.
+	QueryTypeInstant QueryType = "instant"
+)
+
 // PrometheusSource defines Prometheus query configuration for image discovery.
 type PrometheusSource struct {
 	// Endpoint is the Prometheus-compatible API URL (Prometheus, Thanos, Mimir, VictoriaMetrics).
@@ -86,15 +99,22 @@ type PrometheusSource struct {
 	// Example: count(container_memory_working_set_bytes{container!="",container!="POD",namespace="gitlab-runner"}) by (image)
 	// +kubebuilder:validation:MinLength=1
 	Query string `json:"query"`
-	// Lookback is the time window for aggregation. When set, the operator uses query_range
-	// (start=now-lookback, end=now) and aggregates all returned values per image to produce a score.
+	// QueryType controls how the Prometheus query is executed.
+	// "range" uses /api/v1/query_range with a time window defined by lookback.
+	// "instant" uses /api/v1/query for a single point-in-time result.
+	// When lookback is set, defaults to "range". When lookback is unset, defaults to "instant".
+	// +kubebuilder:default="instant"
+	// +optional
+	QueryType QueryType `json:"queryType,omitempty"`
+	// Lookback is the time window for range queries. When queryType is "range",
+	// the operator queries (start=now-lookback, end=now) and aggregates all returned values per image.
 	// The aggregation function is controlled by the aggregationMethod field.
-	// When unset, uses an instant query (/api/v1/query) and the point-in-time value is the score.
+	// Required when queryType is "range". Ignored when queryType is "instant".
 	// Example: "168h" (7 days), "24h", "72h"
 	// +optional
 	Lookback *metav1.Duration `json:"lookback,omitempty"`
 	// AggregationMethod controls how data points from a range query are combined into a single score.
-	// Only used when lookback is set. Ignored for instant queries.
+	// Only used when queryType is "range". Ignored for instant queries.
 	// Default: "sum". Options: "sum", "count", "avg", "max"
 	// +kubebuilder:default="sum"
 	// +optional

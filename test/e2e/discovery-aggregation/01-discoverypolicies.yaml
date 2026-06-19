@@ -12,6 +12,7 @@ spec:
       prometheus:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
         query: 'count(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
         lookback: 1h
         step: 5m
         aggregationMethod: count
@@ -28,6 +29,7 @@ spec:
       prometheus:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
         query: 'sum(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
         lookback: 1h
         step: 5m
         aggregationMethod: avg
@@ -44,6 +46,7 @@ spec:
       prometheus:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
         query: 'sum(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
         lookback: 1h
         step: 5m
         aggregationMethod: max
@@ -60,6 +63,7 @@ spec:
       prometheus:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
         query: 'sum(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
         lookback: 1h
         step: 5m
         aggregationMethod: sum

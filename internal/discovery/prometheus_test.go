@@ -103,7 +103,7 @@ func TestPrometheusSource_Fetch(t *testing.T) {
 			}))
 			defer server.Close()
 
-			source := NewPrometheusSource(server.URL, "test_query", 0, "", "", server.Client())
+			source := NewPrometheusSource(server.URL, "test_query", "", 0, "", "", server.Client())
 			results, err := source.Fetch(context.Background())
 
 			if tt.wantErr {

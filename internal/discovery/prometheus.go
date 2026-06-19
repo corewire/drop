@@ -9,20 +9,23 @@ import (
 	"net/url"
 	"sort"
 	"time"
+
+	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
 )
 
 // PrometheusSource queries Prometheus for image references.
 type PrometheusSource struct {
 	Endpoint          string
 	Query             string
-	Lookback          time.Duration // 0 = instant query; >0 = query_range
-	AggregationMethod string        // sum, count, avg, max (default: sum)
-	Step              string        // resolution step for range queries (default "5m")
+	QueryType         dropv1alpha1.QueryType         // range or instant
+	Lookback          time.Duration                  // time window for range queries
+	AggregationMethod dropv1alpha1.AggregationMethod // sum, count, avg, max
+	Step              string                         // resolution step for range queries (default "5m")
 	HTTPClient        *http.Client
 }
 
 // NewPrometheusSource creates a new Prometheus discovery source.
-func NewPrometheusSource(endpoint, query string, lookback time.Duration, aggregationMethod, step string, httpClient *http.Client) *PrometheusSource {
+func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryType, lookback time.Duration, aggregationMethod dropv1alpha1.AggregationMethod, step string, httpClient *http.Client) *PrometheusSource {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
@@ -30,11 +33,20 @@ func NewPrometheusSource(endpoint, query string, lookback time.Duration, aggrega
 		step = "5m"
 	}
 	if aggregationMethod == "" {
-		aggregationMethod = "sum"
+		aggregationMethod = dropv1alpha1.AggregationSum
+	}
+	if queryType == "" {
+		// Default based on lookback: range if lookback is set, instant otherwise
+		if lookback > 0 {
+			queryType = dropv1alpha1.QueryTypeRange
+		} else {
+			queryType = dropv1alpha1.QueryTypeInstant
+		}
 	}
 	return &PrometheusSource{
 		Endpoint:          endpoint,
 		Query:             query,
+		QueryType:         queryType,
 		Lookback:          lookback,
 		AggregationMethod: aggregationMethod,
 		Step:              step,
@@ -67,7 +79,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 	q := u.Query()
 	q.Set("query", p.Query)
 
-	if p.Lookback > 0 {
+	if p.QueryType == dropv1alpha1.QueryTypeRange {
 		// Range query: aggregate over time window
 		u.Path = "/api/v1/query_range"
 		now := time.Now().UTC()
@@ -113,7 +125,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 		}
 
 		var score int64
-		if p.Lookback > 0 {
+		if p.QueryType == dropv1alpha1.QueryTypeRange {
 			// Range query: aggregate values according to configured method
 			score = aggregateRangeValues(r.Values, p.AggregationMethod)
 		} else {
@@ -152,7 +164,7 @@ func extractScore(value []interface{}) int64 {
 }
 
 // aggregateRangeValues aggregates all values from a query_range result using the specified method.
-func aggregateRangeValues(values [][]interface{}, method string) int64 {
+func aggregateRangeValues(values [][]interface{}, method dropv1alpha1.AggregationMethod) int64 {
 	var total float64
 	var max float64
 	var count int64
@@ -179,16 +191,16 @@ func aggregateRangeValues(values [][]interface{}, method string) int64 {
 	}
 
 	switch method {
-	case "count":
+	case dropv1alpha1.AggregationCount:
 		return count
-	case "avg":
+	case dropv1alpha1.AggregationAvg:
 		if count == 0 {
 			return 0
 		}
 		return int64(total / float64(count))
-	case "max":
+	case dropv1alpha1.AggregationMax:
 		return int64(max)
-	default: // "sum"
+	default: // AggregationSum
 		return int64(total)
 	}
 }

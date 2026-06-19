@@ -246,7 +246,7 @@ func (r *DiscoveryPolicyReconciler) buildSource(ctx context.Context, src dropv1a
 		if src.Prometheus.Lookback != nil {
 			lookback = src.Prometheus.Lookback.Duration
 		}
-		return discovery.NewPrometheusSource(src.Prometheus.Endpoint, src.Prometheus.Query, lookback, string(src.Prometheus.AggregationMethod), src.Prometheus.Step, httpClient), nil
+		return discovery.NewPrometheusSource(src.Prometheus.Endpoint, src.Prometheus.Query, src.Prometheus.QueryType, lookback, src.Prometheus.AggregationMethod, src.Prometheus.Step, httpClient), nil
 	case "registry":
 		if src.Registry == nil {
 			return nil, fmt.Errorf("registry config is required when type=registry")

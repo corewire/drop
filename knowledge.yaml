@@ -445,17 +445,23 @@ helperTypes:
         type: string
         required: true
         doc: 'Query is the PromQL expression. It MUST return results with an "image" label — that label value is used as the discovered image reference. The query result value is used as the ranking score (higher = more relevant). Example: count(container_memory_working_set_bytes{container!="",container!="POD",namespace="gitlab-runner"}) by (image)'
+      - name: QueryType
+        json: queryType
+        type: QueryType
+        required: false
+        default: instant
+        doc: QueryType controls how the Prometheus query is executed. "range" uses /api/v1/query_range with a time window defined by lookback. "instant" uses /api/v1/query for a single point-in-time result. When lookback is set, defaults to "range". When lookback is unset, defaults to "instant".
       - name: Lookback
         json: lookback
         type: '*metav1.Duration'
         required: false
-        doc: 'Lookback is the time window for aggregation. When set, the operator uses query_range (start=now-lookback, end=now) and aggregates all returned values per image to produce a score. The aggregation function is controlled by the aggregationMethod field. When unset, uses an instant query (/api/v1/query) and the point-in-time value is the score. Example: "168h" (7 days), "24h", "72h"'
+        doc: 'Lookback is the time window for range queries. When queryType is "range", the operator queries (start=now-lookback, end=now) and aggregates all returned values per image. The aggregation function is controlled by the aggregationMethod field. Required when queryType is "range". Ignored when queryType is "instant". Example: "168h" (7 days), "24h", "72h"'
       - name: AggregationMethod
         json: aggregationMethod
         type: AggregationMethod
         required: false
         default: sum
-        doc: 'AggregationMethod controls how data points from a range query are combined into a single score. Only used when lookback is set. Ignored for instant queries. Default: "sum". Options: "sum", "count", "avg", "max"'
+        doc: 'AggregationMethod controls how data points from a range query are combined into a single score. Only used when queryType is "range". Ignored for instant queries. Default: "sum". Options: "sum", "count", "avg", "max"'
       - name: Step
         json: step
         type: string
@@ -516,6 +522,8 @@ packages:
       - internal/podbuilder
   - path: internal/discovery
     role: Package discovery implements image discovery from registries and Prometheus metrics.
+    imports:
+      - api/v1alpha1
   - path: internal/metrics
     role: Package metrics registers Prometheus metrics for the drop operator.
   - path: internal/pacing
@@ -771,6 +779,7 @@ samples: |
         prometheus:
           endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
           query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
+          queryType: range
           lookback: 24h
           step: 5m
           aggregationMethod: sum
