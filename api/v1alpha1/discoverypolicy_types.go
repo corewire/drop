@@ -54,14 +54,10 @@ type DiscoverySource struct {
 }
 
 // AggregationMethod defines how range query values are aggregated into a score.
-// +kubebuilder:validation:Enum=none;sum;count;avg;max
+// +kubebuilder:validation:Enum=sum;count;avg;max
 type AggregationMethod string
 
 const (
-	// AggregationNone disables Drop-side aggregation — the last data-point value
-	// from the range query is used directly as the score. Use when your PromQL
-	// already contains aggregation functions (e.g., count_over_time, topk).
-	AggregationNone AggregationMethod = "none"
 	// AggregationSum adds all data-point values over the lookback window.
 	// Use when the query returns a gauge/counter and the total magnitude matters
 	// (e.g., total memory usage across the window).
@@ -119,11 +115,11 @@ type PrometheusSource struct {
 	Lookback *metav1.Duration `json:"lookback,omitempty"`
 	// AggregationMethod controls how data points from a range query are combined into a single score.
 	// Only used when queryType is "range". Ignored for instant queries.
-	// "none" means Drop uses the last data-point value directly (use when your PromQL already aggregates).
-	// Default: "none". Options: "none", "sum", "count", "avg", "max"
-	// +kubebuilder:default="none"
+	// When not set (nil), Drop uses the last data-point value directly — use this when your PromQL
+	// already contains aggregation functions (e.g., count_over_time, topk).
+	// Options: "sum", "count", "avg", "max"
 	// +optional
-	AggregationMethod AggregationMethod `json:"aggregationMethod,omitempty"`
+	AggregationMethod *AggregationMethod `json:"aggregationMethod,omitempty"`
 	// Step is the resolution step for range queries (only used when lookback is set).
 	// Smaller steps = more data points = more accurate aggregation but higher Prometheus load.
 	// Default: 5m. Example: "1m", "15m"

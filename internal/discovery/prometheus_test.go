@@ -106,7 +106,7 @@ func TestPrometheusSource_Fetch_Instant(t *testing.T) {
 			}))
 			defer server.Close()
 
-			source := NewPrometheusSource(server.URL, "test_query", dropv1alpha1.QueryTypeInstant, 0, "", 0, server.Client())
+			source := NewPrometheusSource(server.URL, "test_query", dropv1alpha1.QueryTypeInstant, 0, nil, 0, server.Client())
 			results, err := source.Fetch(context.Background())
 
 			if tt.wantErr {
@@ -136,15 +136,15 @@ func TestPrometheusSource_Fetch_Instant(t *testing.T) {
 func TestPrometheusSource_Fetch_Range(t *testing.T) {
 	tests := []struct {
 		name              string
-		aggregationMethod dropv1alpha1.AggregationMethod
+		aggregationMethod *dropv1alpha1.AggregationMethod
 		response          prometheusResponse
 		wantCount         int
 		wantFirst         string
 		wantScore         int64
 	}{
 		{
-			name:              "none aggregation (last value)",
-			aggregationMethod: dropv1alpha1.AggregationNone,
+			name:              "nil aggregation (last value)",
+			aggregationMethod: nil,
 			response: prometheusResponse{
 				Status: prometheusStatusSuccess,
 				Data: struct {
@@ -170,7 +170,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 		},
 		{
 			name:              "sum aggregation",
-			aggregationMethod: dropv1alpha1.AggregationSum,
+			aggregationMethod: aggregationMethodPtr(dropv1alpha1.AggregationSum),
 			response: prometheusResponse{
 				Status: prometheusStatusSuccess,
 				Data: struct {
@@ -196,7 +196,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 		},
 		{
 			name:              "count aggregation",
-			aggregationMethod: dropv1alpha1.AggregationCount,
+			aggregationMethod: aggregationMethodPtr(dropv1alpha1.AggregationCount),
 			response: prometheusResponse{
 				Status: prometheusStatusSuccess,
 				Data: struct {
@@ -222,7 +222,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 		},
 		{
 			name:              "avg aggregation",
-			aggregationMethod: dropv1alpha1.AggregationAvg,
+			aggregationMethod: aggregationMethodPtr(dropv1alpha1.AggregationAvg),
 			response: prometheusResponse{
 				Status: prometheusStatusSuccess,
 				Data: struct {
@@ -248,7 +248,7 @@ func TestPrometheusSource_Fetch_Range(t *testing.T) {
 		},
 		{
 			name:              "max aggregation",
-			aggregationMethod: dropv1alpha1.AggregationMax,
+			aggregationMethod: aggregationMethodPtr(dropv1alpha1.AggregationMax),
 			response: prometheusResponse{
 				Status: prometheusStatusSuccess,
 				Data: struct {
@@ -323,15 +323,19 @@ func TestPrometheusSource_DefaultQueryType(t *testing.T) {
 	defer server.Close()
 
 	// Empty queryType should default to range
-	source := NewPrometheusSource(server.URL, "test_query", "", time.Hour, "", 0, server.Client())
+	source := NewPrometheusSource(server.URL, "test_query", "", time.Hour, nil, 0, server.Client())
 	if source.QueryType != dropv1alpha1.QueryTypeRange {
 		t.Errorf("default QueryType = %q, want %q", source.QueryType, dropv1alpha1.QueryTypeRange)
 	}
-	if source.AggregationMethod != dropv1alpha1.AggregationNone {
-		t.Errorf("default AggregationMethod = %q, want %q", source.AggregationMethod, dropv1alpha1.AggregationNone)
+	if source.AggregationMethod != nil {
+		t.Errorf("default AggregationMethod = %v, want nil", source.AggregationMethod)
 	}
 	_, err := source.Fetch(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+}
+
+func aggregationMethodPtr(m dropv1alpha1.AggregationMethod) *dropv1alpha1.AggregationMethod {
+	return &m
 }

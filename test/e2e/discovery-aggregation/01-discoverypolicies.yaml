@@ -71,7 +71,8 @@ spec:
   syncInterval: 30s
   maxImages: 10
 ---
-# queryType: range with aggregationMethod: none — uses the last data-point value directly.
+# queryType: range without aggregationMethod — field is nullable, omitting it means
+# Drop uses the last data-point value directly without aggregation.
 # Ideal for self-contained PromQL queries that already aggregate internally.
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
@@ -86,7 +87,7 @@ spec:
         queryType: range
         lookback: 1h
         step: 5m
-        aggregationMethod: none
+        # aggregationMethod intentionally omitted (nil) — uses last value directly
   syncInterval: 30s
   maxImages: 10
 ---

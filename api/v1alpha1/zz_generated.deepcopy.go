@@ -512,6 +512,11 @@ func (in *PrometheusSource) DeepCopyInto(out *PrometheusSource) {
 		*out = new(metav1.Duration)
 		**out = **in
 	}
+	if in.AggregationMethod != nil {
+		in, out := &in.AggregationMethod, &out.AggregationMethod
+		*out = new(AggregationMethod)
+		**out = **in
+	}
 	if in.Step != nil {
 		in, out := &in.Step, &out.Step
 		*out = new(metav1.Duration)

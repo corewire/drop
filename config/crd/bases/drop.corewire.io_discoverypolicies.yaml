@@ -87,14 +87,13 @@ spec:
                       description: Prometheus contains the configuration when type=prometheus.
                       properties:
                         aggregationMethod:
-                          default: none
                           description: |-
                             AggregationMethod controls how data points from a range query are combined into a single score.
                             Only used when queryType is "range". Ignored for instant queries.
-                            "none" means Drop uses the last data-point value directly (use when your PromQL already aggregates).
-                            Default: "none". Options: "none", "sum", "count", "avg", "max"
+                            When not set (nil), Drop uses the last data-point value directly — use this when your PromQL
+                            already contains aggregation functions (e.g., count_over_time, topk).
+                            Options: "sum", "count", "avg", "max"
                           enum:
-                          - none
                           - sum
                           - count
                           - avg

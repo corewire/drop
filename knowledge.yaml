@@ -458,10 +458,9 @@ helperTypes:
         doc: 'Lookback is the time window for range queries. When queryType is "range", the operator queries (start=now-lookback, end=now) and aggregates all returned values per image. The aggregation function is controlled by the aggregationMethod field. Required when queryType is "range". Ignored when queryType is "instant". Example: "168h" (7 days), "24h", "72h"'
       - name: AggregationMethod
         json: aggregationMethod
-        type: AggregationMethod
+        type: '*AggregationMethod'
         required: false
-        default: none
-        doc: 'AggregationMethod controls how data points from a range query are combined into a single score. Only used when queryType is "range". Ignored for instant queries. "none" means Drop uses the last data-point value directly (use when your PromQL already aggregates). Default: "none". Options: "none", "sum", "count", "avg", "max"'
+        doc: 'AggregationMethod controls how data points from a range query are combined into a single score. Only used when queryType is "range". Ignored for instant queries. When not set (nil), Drop uses the last data-point value directly — use this when your PromQL already contains aggregation functions (e.g., count_over_time, topk). Options: "sum", "count", "avg", "max"'
       - name: Step
         json: step
         type: '*metav1.Duration'

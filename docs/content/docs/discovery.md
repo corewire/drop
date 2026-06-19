@@ -70,7 +70,7 @@ The `queryType` field controls whether Drop sends an instant or range query (def
 
 | Method | Behavior | Use when |
 |--------|----------|----------|
-| `none` (default) | Uses the last data-point value directly | Your PromQL already aggregates (e.g. `count_over_time`, `topk`) |
+| *(not set)* | Uses the last data-point value directly | Your PromQL already aggregates (e.g. `count_over_time`, `topk`) |
 | `sum` | Adds all data-point values over the window | Total cumulative usage matters (e.g. total memory consumed) |
 | `count` | Counts the number of data points returned | You want to rank by how frequently an image appears |
 | `avg` | Arithmetic mean of all data-point values | Average magnitude matters regardless of sample count |
@@ -91,7 +91,7 @@ spec:
         queryType: range   # default — use query_range API
         lookback: 168h   # 7 days
         step: 5m
-        aggregationMethod: sum   # rank by total usage over 7 days (default is "none" which passes through raw values)
+        aggregationMethod: sum   # rank by total usage over 7 days (omit to use last value directly)
         query: |
           count(
             container_memory_working_set_bytes{
@@ -107,7 +107,7 @@ Use this when you want DiscoveryPolicy to continuously follow what your GitLab r
 
 - `queryType: range` — tells Drop to use the Prometheus `query_range` API. This is the default. Set to `instant` for a single point-in-time query.
 - `lookback: 168h` — defines the time window for range queries (start=now-7d, end=now). Required when `queryType` is `range`.
-- `aggregationMethod: sum` — sums all data-point values to rank by total usage. The default is `none` which uses the last value directly (for self-contained PromQL queries). Other options: `count` to rank by number of appearances, `avg` for average magnitude, or `max` for peak value.
+- `aggregationMethod: sum` — sums all data-point values to rank by total usage. When omitted (nil), the last value is used directly — ideal for self-contained PromQL queries. Other options: `count` to rank by number of appearances, `avg` for average magnitude, or `max` for peak value.
 - `step: 5m` — resolution step for the range query (controls how many data points Prometheus returns).
 - `count(...) by (image)` — counts the number of running containers per image to rank by popularity.
 - `container_memory_working_set_bytes{...}` — source metric used to observe running containers.
@@ -122,7 +122,7 @@ For each unique `image` label, Drop uses the Prometheus query result value as th
 
 When `queryType` is `range` (the default), Drop uses a range query (`/api/v1/query_range`) over the `lookback` window and aggregates data points using the `aggregationMethod`. When `queryType` is `instant`, Drop sends an instant query (`/api/v1/query`) and uses the returned value directly:
 
-- `none` (default): uses the last data-point value — ideal when your PromQL already contains aggregation functions like `count_over_time` or `topk`
+- *(not set)*: uses the last data-point value — ideal when your PromQL already contains aggregation functions like `count_over_time` or `topk`
 - `sum`: adds all data-point values — images with higher cumulative usage score higher
 - `count`: counts the number of data points — images that appear more frequently score higher
 - `avg`: averages data-point values — images with higher average value score higher

@@ -19,23 +19,20 @@ const prometheusStatusSuccess = "success"
 type PrometheusSource struct {
 	Endpoint          string
 	Query             string
-	QueryType         dropv1alpha1.QueryType         // range or instant
-	Lookback          time.Duration                  // time window for range queries
-	AggregationMethod dropv1alpha1.AggregationMethod // sum, count, avg, max
-	Step              time.Duration                  // resolution step for range queries (default 5m)
+	QueryType         dropv1alpha1.QueryType          // range or instant
+	Lookback          time.Duration                   // time window for range queries
+	AggregationMethod *dropv1alpha1.AggregationMethod // nil = use last value; sum, count, avg, max
+	Step              time.Duration                   // resolution step for range queries (default 5m)
 	HTTPClient        *http.Client
 }
 
 // NewPrometheusSource creates a new Prometheus discovery source.
-func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryType, lookback time.Duration, aggregationMethod dropv1alpha1.AggregationMethod, step time.Duration, httpClient *http.Client) *PrometheusSource {
+func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryType, lookback time.Duration, aggregationMethod *dropv1alpha1.AggregationMethod, step time.Duration, httpClient *http.Client) *PrometheusSource {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 	if step == 0 {
 		step = 5 * time.Minute
-	}
-	if aggregationMethod == "" {
-		aggregationMethod = dropv1alpha1.AggregationNone
 	}
 	if queryType == "" {
 		queryType = dropv1alpha1.QueryTypeRange
@@ -123,7 +120,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 
 		var score int64
 		if p.QueryType == dropv1alpha1.QueryTypeRange {
-			// Range query: aggregate values according to configured method
+			// Range query: aggregate values according to configured method (nil = last value)
 			score = aggregateRangeValues(r.Values, p.AggregationMethod)
 		} else {
 			// Instant query: use single value
@@ -161,7 +158,28 @@ func extractScore(value []interface{}) int64 {
 }
 
 // aggregateRangeValues aggregates all values from a query_range result using the specified method.
-func aggregateRangeValues(values [][]interface{}, method dropv1alpha1.AggregationMethod) int64 {
+// When method is nil, the last data-point value is used directly (no aggregation).
+func aggregateRangeValues(values [][]interface{}, method *dropv1alpha1.AggregationMethod) int64 {
+	// nil = no aggregation, use last data-point value directly
+	if method == nil {
+		if len(values) == 0 {
+			return 0
+		}
+		lastPair := values[len(values)-1]
+		if len(lastPair) < 2 {
+			return 0
+		}
+		strVal, ok := lastPair[1].(string)
+		if !ok {
+			return 0
+		}
+		var v float64
+		if _, err := fmt.Sscanf(strVal, "%f", &v); err != nil {
+			return 0
+		}
+		return int64(v)
+	}
+
 	var total float64
 	var max float64
 	var count int64
@@ -187,7 +205,7 @@ func aggregateRangeValues(values [][]interface{}, method dropv1alpha1.Aggregatio
 		}
 	}
 
-	switch method {
+	switch *method {
 	case dropv1alpha1.AggregationCount:
 		return count
 	case dropv1alpha1.AggregationAvg:
@@ -197,24 +215,7 @@ func aggregateRangeValues(values [][]interface{}, method dropv1alpha1.Aggregatio
 		return int64(total / float64(count))
 	case dropv1alpha1.AggregationMax:
 		return int64(max)
-	case dropv1alpha1.AggregationSum:
+	default: // AggregationSum
 		return int64(total)
-	default: // AggregationNone — use last data-point value
-		if len(values) == 0 {
-			return 0
-		}
-		lastPair := values[len(values)-1]
-		if len(lastPair) < 2 {
-			return 0
-		}
-		strVal, ok := lastPair[1].(string)
-		if !ok {
-			return 0
-		}
-		var v float64
-		if _, err := fmt.Sscanf(strVal, "%f", &v); err != nil {
-			return 0
-		}
-		return int64(v)
 	}
 }
