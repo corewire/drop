@@ -36,12 +36,7 @@ func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryTyp
 		aggregationMethod = dropv1alpha1.AggregationSum
 	}
 	if queryType == "" {
-		// Default based on lookback: range if lookback is set, instant otherwise
-		if lookback > 0 {
-			queryType = dropv1alpha1.QueryTypeRange
-		} else {
-			queryType = dropv1alpha1.QueryTypeInstant
-		}
+		queryType = dropv1alpha1.QueryTypeInstant
 	}
 	return &PrometheusSource{
 		Endpoint:          endpoint,

@@ -173,7 +173,6 @@ spec:
       prometheus:
         endpoint: https://mimir.example.com
         queryType: instant
-        aggregationMethod: count  # rank by number of appearances
         query: |
           count(container_memory_working_set_bytes{
             container!="", container!="POD",
