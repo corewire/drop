@@ -64,3 +64,43 @@ data:
               namespace: "production"
               pod: "myapp-xyz"
             expr: "209715200"
+      # Metrics for aggregation method e2e tests.
+      # Two images with multiple pods each so count() and sum() produce
+      # different rankings:
+      #   alpine  → 3 pods, values 100+200+300 → sum=600, count=3, avg=200, max=300
+      #   busybox → 1 pod,  value  500         → sum=500, count=1, avg=500, max=500
+      # With count(), alpine ranks higher (3 > 1).
+      # With sum(),   alpine still ranks higher (600 > 500).
+      # With avg(),   busybox ranks higher (500 > 200).
+      # With max(),   busybox ranks higher (500 > 300).
+      - name: seed_aggregation_metrics
+        interval: 10s
+        rules:
+          - record: container_cpu_usage_seconds_total
+            labels:
+              image: "docker.io/library/alpine:3.19"
+              container: "worker"
+              namespace: "aggregation-test"
+              pod: "worker-aaa"
+            expr: "100"
+          - record: container_cpu_usage_seconds_total
+            labels:
+              image: "docker.io/library/alpine:3.19"
+              container: "worker"
+              namespace: "aggregation-test"
+              pod: "worker-bbb"
+            expr: "200"
+          - record: container_cpu_usage_seconds_total
+            labels:
+              image: "docker.io/library/alpine:3.19"
+              container: "worker"
+              namespace: "aggregation-test"
+              pod: "worker-ccc"
+            expr: "300"
+          - record: container_cpu_usage_seconds_total
+            labels:
+              image: "docker.io/library/busybox:1.36"
+              container: "init"
+              namespace: "aggregation-test"
+              pod: "init-ddd"
+            expr: "500"

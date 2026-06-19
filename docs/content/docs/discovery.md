@@ -66,7 +66,27 @@ count(container_memory_working_set_bytes{
 
 Hand-maintained image lists do not keep up in environments where automation (for example Renovate) ships new image versions every day. A practical pattern is to rank images by observed CI usage over a rolling window.
 
-The `lookback` field tells Drop to use Prometheus `query_range` API over that time window and sum all returned values per image to produce a total usage score:
+The `queryType` field controls whether Drop sends an instant or range query (default: `range`). When set to `range`, the `lookback` field defines the time window and `aggregationMethod` controls how the returned data points are combined into a single score per image.
+
+#### Query Types
+
+{{< figure src="/drop/images/query-type-range.svg" alt="Range query: multiple data points over a lookback window" >}}
+
+{{< figure src="/drop/images/query-type-instant.svg" alt="Instant query: single point-in-time value used as score" >}}
+
+#### Aggregation Methods
+
+When using `queryType: range`, the `aggregationMethod` field determines how the returned data points are reduced into a single score:
+
+{{< figure src="/drop/images/aggregation-methods.svg" alt="Aggregation methods: nil (last value), sum, count, avg, max" >}}
+
+| Method | Behavior | Use when |
+|--------|----------|----------|
+| *(not set)* | Uses the last data-point value directly | Your PromQL already aggregates (e.g. `count_over_time`, `topk`) |
+| `sum` | Adds all data-point values over the window | Total cumulative usage matters (e.g. total memory consumed) |
+| `count` | Counts the number of data points returned | You want to rank by how frequently an image appears |
+| `avg` | Arithmetic mean of all data-point values | Average magnitude matters regardless of sample count |
+| `max` | Highest single data-point value | Peak usage is more relevant than cumulative |
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
@@ -80,8 +100,10 @@ spec:
     - type: prometheus
       prometheus:
         endpoint: https://mimir.example.com
+        queryType: range   # default — use query_range API
         lookback: 168h   # 7 days
         step: 5m
+        aggregationMethod: sum   # rank by total usage over 7 days (omit to use last value directly)
         query: |
           count(
             container_memory_working_set_bytes{
@@ -95,7 +117,9 @@ Use this when you want DiscoveryPolicy to continuously follow what your GitLab r
 
 #### Field-by-field explanation
 
-- `lookback: 168h` — Drop uses `query_range` with start=now-7d, end=now, and sums all returned values per image to rank by total usage over the window.
+- `queryType: range` — tells Drop to use the Prometheus `query_range` API. This is the default. Set to `instant` for a single point-in-time query.
+- `lookback: 168h` — defines the time window for range queries (start=now-7d, end=now). Required when `queryType` is `range`.
+- `aggregationMethod: sum` — sums all data-point values to rank by total usage. When omitted (nil), the last value is used directly — ideal for self-contained PromQL queries. Other options: `count` to rank by number of appearances, `avg` for average magnitude, or `max` for peak value.
 - `step: 5m` — resolution step for the range query (controls how many data points Prometheus returns).
 - `count(...) by (image)` — counts the number of running containers per image to rank by popularity.
 - `container_memory_working_set_bytes{...}` — source metric used to observe running containers.
@@ -108,9 +132,15 @@ Use this when you want DiscoveryPolicy to continuously follow what your GitLab r
 
 For each unique `image` label, Drop uses the Prometheus query result value as the score.
 
-When `lookback` is not set (the default), Drop sends an instant query (`/api/v1/query`) and uses the returned value directly. When `lookback` is set (e.g. `lookback: 168h`), Drop uses a range query (`/api/v1/query_range`) over that window and **sums all returned values** to produce the score. This means images that appear more frequently over the window get a higher score.
+When `queryType` is `range` (the default), Drop uses a range query (`/api/v1/query_range`) over the `lookback` window and aggregates data points using the `aggregationMethod`. When `queryType` is `instant`, Drop sends an instant query (`/api/v1/query`) and uses the returned value directly:
 
-The example above uses `lookback: 168h` so Drop handles the 7-day windowing via the API — no need to embed `[7d]` in PromQL.
+- *(not set)*: uses the last data-point value — ideal when your PromQL already contains aggregation functions like `count_over_time` or `topk`
+- `sum`: adds all data-point values — images with higher cumulative usage score higher
+- `count`: counts the number of data points — images that appear more frequently score higher
+- `avg`: averages data-point values — images with higher average value score higher
+- `max`: takes the peak value — images with the highest single observation score higher
+
+The example above uses `queryType: range` with `lookback: 168h` so Drop handles the 7-day windowing via the API — no need to embed `[7d]` in PromQL.
 
 If Prometheus returns:
 
@@ -156,6 +186,7 @@ spec:
     - type: prometheus
       prometheus:
         endpoint: https://mimir.example.com
+        queryType: instant
         query: |
           count(container_memory_working_set_bytes{
             container!="", container!="POD",

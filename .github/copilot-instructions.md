@@ -34,6 +34,9 @@ make docs-gen      # regenerate AI docs from source
 - Pod builder is a pure function in internal/podbuilder/ (no k8s client)
 - Pacing logic lives exclusively in internal/pacing/
 - Don't manually edit generated files — run make docs-gen
+- Documentation must never contain unverified information — verify all examples against a real cluster before merging
+- Always document which resources you looked at in which order (short summary + time spent + tokens consumed + context consumed)
+- Always lint and fix linter issues locally before pushing code
 
 ## Testing Patterns
 
@@ -58,6 +61,7 @@ api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the drop v
 internal/controller — Package controller implements Kubernetes reconcilers for the drop CRDs (one per Kind).
   imports: api/v1alpha1, internal/discovery, internal/metrics, internal/pacing, internal/podbuilder
 internal/discovery — Package discovery implements image discovery from registries and Prometheus metrics.
+  imports: api/v1alpha1
 internal/metrics — Package metrics registers Prometheus metrics for the drop operator.
 internal/pacing — Package pacing implements the shared rate-limiting engine for image pull scheduling.
   imports: api/v1alpha1, internal/podbuilder

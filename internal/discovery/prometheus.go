@@ -9,31 +9,42 @@ import (
 	"net/url"
 	"sort"
 	"time"
+
+	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
 )
+
+const prometheusStatusSuccess = "success"
 
 // PrometheusSource queries Prometheus for image references.
 type PrometheusSource struct {
-	Endpoint   string
-	Query      string
-	Lookback   time.Duration // 0 = instant query; >0 = query_range
-	Step       string        // resolution step for range queries (default "5m")
-	HTTPClient *http.Client
+	Endpoint          string
+	Query             string
+	QueryType         dropv1alpha1.QueryType          // range or instant
+	Lookback          time.Duration                   // time window for range queries
+	AggregationMethod *dropv1alpha1.AggregationMethod // nil = use last value; sum, count, avg, max
+	Step              time.Duration                   // resolution step for range queries (default 5m)
+	HTTPClient        *http.Client
 }
 
 // NewPrometheusSource creates a new Prometheus discovery source.
-func NewPrometheusSource(endpoint, query string, lookback time.Duration, step string, httpClient *http.Client) *PrometheusSource {
+func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryType, lookback time.Duration, aggregationMethod *dropv1alpha1.AggregationMethod, step time.Duration, httpClient *http.Client) *PrometheusSource {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
-	if step == "" {
-		step = "5m"
+	if step == 0 {
+		step = 5 * time.Minute
+	}
+	if queryType == "" {
+		queryType = dropv1alpha1.QueryTypeRange
 	}
 	return &PrometheusSource{
-		Endpoint:   endpoint,
-		Query:      query,
-		Lookback:   lookback,
-		Step:       step,
-		HTTPClient: httpClient,
+		Endpoint:          endpoint,
+		Query:             query,
+		QueryType:         queryType,
+		Lookback:          lookback,
+		AggregationMethod: aggregationMethod,
+		Step:              step,
+		HTTPClient:        httpClient,
 	}
 }
 
@@ -62,13 +73,13 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 	q := u.Query()
 	q.Set("query", p.Query)
 
-	if p.Lookback > 0 {
+	if p.QueryType == dropv1alpha1.QueryTypeRange {
 		// Range query: aggregate over time window
 		u.Path = "/api/v1/query_range"
 		now := time.Now().UTC()
 		q.Set("start", now.Add(-p.Lookback).Format(time.RFC3339))
 		q.Set("end", now.Format(time.RFC3339))
-		q.Set("step", p.Step)
+		q.Set("step", fmt.Sprintf("%ds", int(p.Step.Seconds())))
 	} else {
 		// Instant query: single point in time
 		u.Path = "/api/v1/query"
@@ -96,7 +107,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
 
-	if promResp.Status != "success" {
+	if promResp.Status != prometheusStatusSuccess {
 		return nil, fmt.Errorf("prometheus query failed with status: %s", promResp.Status)
 	}
 
@@ -108,9 +119,9 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 		}
 
 		var score int64
-		if p.Lookback > 0 {
-			// Range query: sum all values to get total usage score
-			score = sumRangeValues(r.Values)
+		if p.QueryType == dropv1alpha1.QueryTypeRange {
+			// Range query: aggregate values according to configured method (nil = last value)
+			score = aggregateRangeValues(r.Values, p.AggregationMethod)
 		} else {
 			// Instant query: use single value
 			score = extractScore(r.Value)
@@ -146,9 +157,34 @@ func extractScore(value []interface{}) int64 {
 	return int64(score)
 }
 
-// sumRangeValues sums all values from a query_range result to produce a total usage score.
-func sumRangeValues(values [][]interface{}) int64 {
+// aggregateRangeValues aggregates all values from a query_range result using the specified method.
+// When method is nil, the last data-point value is used directly (no aggregation).
+func aggregateRangeValues(values [][]interface{}, method *dropv1alpha1.AggregationMethod) int64 {
+	// nil = no aggregation, use last data-point value directly
+	if method == nil {
+		if len(values) == 0 {
+			return 0
+		}
+		lastPair := values[len(values)-1]
+		if len(lastPair) < 2 {
+			return 0
+		}
+		strVal, ok := lastPair[1].(string)
+		if !ok {
+			return 0
+		}
+		var v float64
+		if _, err := fmt.Sscanf(strVal, "%f", &v); err != nil {
+			return 0
+		}
+		return int64(v)
+	}
+
 	var total float64
+	var max float64
+	var count int64
+	maxSet := false
+
 	for _, pair := range values {
 		if len(pair) < 2 {
 			continue
@@ -158,9 +194,28 @@ func sumRangeValues(values [][]interface{}) int64 {
 			continue
 		}
 		var v float64
-		if _, err := fmt.Sscanf(strVal, "%f", &v); err == nil {
-			total += v
+		if _, err := fmt.Sscanf(strVal, "%f", &v); err != nil {
+			continue
+		}
+		total += v
+		count++
+		if !maxSet || v > max {
+			max = v
+			maxSet = true
 		}
 	}
-	return int64(total)
+
+	switch *method {
+	case dropv1alpha1.AggregationCount:
+		return count
+	case dropv1alpha1.AggregationAvg:
+		if count == 0 {
+			return 0
+		}
+		return int64(total / float64(count))
+	case dropv1alpha1.AggregationMax:
+		return int64(max)
+	default: // AggregationSum
+		return int64(total)
+	}
 }

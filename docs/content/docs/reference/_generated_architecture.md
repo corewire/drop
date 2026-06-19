@@ -30,6 +30,7 @@ graph LR
   internal/controller --> internal/metrics
   internal/controller --> internal/pacing
   internal/controller --> internal/podbuilder
+  internal/discovery --> api/v1alpha1
   internal/pacing --> api/v1alpha1
   internal/pacing --> internal/podbuilder
   internal/podbuilder --> api/v1alpha1

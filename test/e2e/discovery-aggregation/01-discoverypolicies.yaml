@@ -1,0 +1,108 @@
+# Four DiscoveryPolicies using queryType: range with different aggregationMethods,
+# plus one using queryType: instant.
+# All query the same seed metrics (container_cpu_usage_seconds_total in namespace aggregation-test).
+# Seed data: alpine has 3 pods (values 100, 200, 300), busybox has 1 pod (value 500).
+---
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-count
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'count(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
+        lookback: 1h
+        step: 5m
+        aggregationMethod: count
+  syncInterval: 30s
+  maxImages: 10
+---
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-avg
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'sum(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
+        lookback: 1h
+        step: 5m
+        aggregationMethod: avg
+  syncInterval: 30s
+  maxImages: 10
+---
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-max
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'sum(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
+        lookback: 1h
+        step: 5m
+        aggregationMethod: max
+  syncInterval: 30s
+  maxImages: 10
+---
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-sum
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'sum(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
+        lookback: 1h
+        step: 5m
+        aggregationMethod: sum
+  syncInterval: 30s
+  maxImages: 10
+---
+# queryType: range without aggregationMethod — field is nullable, omitting it means
+# Drop uses the last data-point value directly without aggregation.
+# Ideal for self-contained PromQL queries that already aggregate internally.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-none
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'sum(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: range
+        lookback: 1h
+        step: 5m
+        # aggregationMethod intentionally omitted (nil) — uses last value directly
+  syncInterval: 30s
+  maxImages: 10
+---
+# queryType: instant — uses /api/v1/query for a single point-in-time result.
+# The returned value is used directly as the score without aggregation.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-agg-instant
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'count(container_cpu_usage_seconds_total{namespace="aggregation-test"}) by (image)'
+        queryType: instant
+  syncInterval: 30s
+  maxImages: 10
