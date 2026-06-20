@@ -4,6 +4,7 @@
     "config:recommended"
   ],
   "minimumReleaseAge": "3 days",
+  "postUpdateOptions": ["gomodTidy"],
   "packageRules": [
     {
       "description": "Automerge minor, patch, and digest updates",
@@ -19,6 +20,12 @@
       "description": "Group drop chart and drop-crds chart version bumps together",
       "matchFileNames": ["charts/drop/Chart.yaml", "charts/drop-crds/Chart.yaml"],
       "groupName": "drop-charts"
+    },
+    {
+      "description": "Enable updates for transitive (indirect) Go dependencies",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["indirect"],
+      "enabled": true
     }
   ],
   "customManagers": [
