@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: discovery-worktime-scoring
+spec:
+  description: |
+    Verify that DiscoveryPolicy scoringStrategy (worktime) correctly weights data points
+    by time of day before aggregation.
+
+    Two policies query the same Prometheus metrics (aggregation-test namespace):
+      - e2e-worktime-full: window 0-24 with weight 1.0 → normal scores (positive)
+      - e2e-worktime-zero: window 0-24 with weight 0.0 → all scores become 0
+
+    This proves the worktime weighting multiplier is applied to data points during aggregation.
+    The zero-weight policy demonstrates that images outside desired time windows are suppressed.
+  steps:
+    - name: Create DiscoveryPolicies with worktime scoring strategies
+      try:
+        - apply:
+            file: 01-discoverypolicies.yaml
+    - name: Assert full-weight policy discovers images with positive scores
+      try:
+        - assert:
+            timeout: 90s
+            file: 02-assert-full-weight.yaml
+    - name: Assert zero-weight policy discovers images with score 0
+      try:
+        - assert:
+            timeout: 90s
+            file: 03-assert-zero-weight.yaml
+    - name: Verify worktime scoring produces expected score relationships
+      try:
+        - script:
+            timeout: 30s
+            content: |
+              # Full-weight policy should produce positive scores
+              FULL_SCORE=$(kubectl get discoverypolicy e2e-worktime-full -o jsonpath='{.status.discoveredImages[0].score}')
+              # Zero-weight policy should produce zero scores
+              ZERO_SCORE=$(kubectl get discoverypolicy e2e-worktime-zero -o jsonpath='{.status.discoveredImages[0].score}')
+
+              echo "Scores — full-weight:$FULL_SCORE zero-weight:$ZERO_SCORE"
+
+              if [ -z "$FULL_SCORE" ]; then
+                echo "FAIL: full-weight policy has no discovered images"
+                exit 1
+              fi
+
+              if [ "$FULL_SCORE" -le 0 ]; then
+                echo "FAIL: full-weight policy score should be positive, got $FULL_SCORE"
+                exit 1
+              fi
+
+              if [ "$ZERO_SCORE" != "0" ]; then
+                echo "FAIL: zero-weight policy score should be 0, got $ZERO_SCORE"
+                exit 1
+              fi
+
+              echo "OK: worktime scoring produces correct score relationships"
+              echo "  full-weight score=$FULL_SCORE (positive as expected)"
+              echo "  zero-weight score=$ZERO_SCORE (zero as expected — nighttime images suppressed)"
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-worktime-full
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-worktime-zero
