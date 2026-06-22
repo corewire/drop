@@ -125,6 +125,61 @@ type PrometheusSource struct {
 	// Default: 5m. Example: "1m", "15m"
 	// +optional
 	Step *metav1.Duration `json:"step,omitempty"`
+	// ScoringStrategy applies a weighting function to data points before aggregation.
+	// Use this to give higher importance to data points that occur during specific time windows
+	// (e.g., working hours). Only used when queryType is "range".
+	// +optional
+	ScoringStrategy *ScoringStrategy `json:"scoringStrategy,omitempty"`
+}
+
+// ScoringStrategy configures how data point values are weighted before aggregation.
+type ScoringStrategy struct {
+	// Type identifies the scoring strategy. Must be "worktime".
+	// +kubebuilder:validation:Enum=worktime
+	Type ScoringStrategyType `json:"type"`
+	// Worktime contains the configuration when type=worktime.
+	// +optional
+	Worktime *WorktimeStrategy `json:"worktime,omitempty"`
+}
+
+// ScoringStrategyType identifies the scoring strategy.
+// +kubebuilder:validation:Enum=worktime
+type ScoringStrategyType string
+
+const (
+	// ScoringStrategyWorktime weights data points based on the time of day they occurred.
+	ScoringStrategyWorktime ScoringStrategyType = "worktime"
+)
+
+// WorktimeStrategy weights data points based on configurable time-of-day windows.
+// Each window defines an hour range and a weight multiplier. Data points outside
+// all defined windows receive zero weight by default.
+type WorktimeStrategy struct {
+	// Windows defines the time-of-day windows and their weight multipliers.
+	// Hours are in 24h format (0-23) interpreted in the configured timezone.
+	// Windows must not overlap. Data points outside all windows have weight 0.
+	// +kubebuilder:validation:MinItems=1
+	Windows []WorktimeWindow `json:"windows"`
+	// Timezone is the IANA timezone name used to interpret window hours.
+	// Default: "UTC". Example: "Europe/Berlin", "America/New_York"
+	// +kubebuilder:default="UTC"
+	// +optional
+	Timezone string `json:"timezone,omitempty"`
+}
+
+// WorktimeWindow defines a single time-of-day window with a weight multiplier.
+type WorktimeWindow struct {
+	// StartHour is the beginning of the window (inclusive, 0-23).
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=23
+	StartHour int32 `json:"startHour"`
+	// EndHour is the end of the window (exclusive, 1-24). Must be greater than startHour.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=24
+	EndHour int32 `json:"endHour"`
+	// Weight is the multiplier applied to data point values within this window.
+	// Example: "1.0" (full weight), "0.3" (reduced), "0.0" (ignored)
+	Weight string `json:"weight"`
 }
 
 // RegistrySource defines OCI registry tag listing configuration for image discovery.

@@ -250,7 +250,11 @@ func (r *DiscoveryPolicyReconciler) buildSource(ctx context.Context, src dropv1a
 		if src.Prometheus.Step != nil {
 			step = src.Prometheus.Step.Duration
 		}
-		return discovery.NewPrometheusSource(src.Prometheus.Endpoint, src.Prometheus.Query, src.Prometheus.QueryType, lookback, src.Prometheus.AggregationMethod, step, httpClient), nil
+		weighter, err := discovery.NewScoreWeighter(src.Prometheus.ScoringStrategy)
+		if err != nil {
+			return nil, fmt.Errorf("building scoring strategy: %w", err)
+		}
+		return discovery.NewPrometheusSource(src.Prometheus.Endpoint, src.Prometheus.Query, src.Prometheus.QueryType, lookback, src.Prometheus.AggregationMethod, step, weighter, httpClient), nil
 	case "registry":
 		if src.Registry == nil {
 			return nil, fmt.Errorf("registry config is required when type=registry")

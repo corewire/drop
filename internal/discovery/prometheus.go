@@ -23,11 +23,12 @@ type PrometheusSource struct {
 	Lookback          time.Duration                   // time window for range queries
 	AggregationMethod *dropv1alpha1.AggregationMethod // nil = use last value; sum, count, avg, max
 	Step              time.Duration                   // resolution step for range queries (default 5m)
+	Weighter          ScoreWeighter                   // optional time-based weighting strategy
 	HTTPClient        *http.Client
 }
 
 // NewPrometheusSource creates a new Prometheus discovery source.
-func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryType, lookback time.Duration, aggregationMethod *dropv1alpha1.AggregationMethod, step time.Duration, httpClient *http.Client) *PrometheusSource {
+func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryType, lookback time.Duration, aggregationMethod *dropv1alpha1.AggregationMethod, step time.Duration, weighter ScoreWeighter, httpClient *http.Client) *PrometheusSource {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
@@ -44,6 +45,7 @@ func NewPrometheusSource(endpoint, query string, queryType dropv1alpha1.QueryTyp
 		Lookback:          lookback,
 		AggregationMethod: aggregationMethod,
 		Step:              step,
+		Weighter:          weighter,
 		HTTPClient:        httpClient,
 	}
 }
@@ -121,7 +123,7 @@ func (p *PrometheusSource) Fetch(ctx context.Context) ([]ImageResult, error) {
 		var score int64
 		if p.QueryType == dropv1alpha1.QueryTypeRange {
 			// Range query: aggregate values according to configured method (nil = last value)
-			score = aggregateRangeValues(r.Values, p.AggregationMethod)
+			score = aggregateRangeValues(r.Values, p.AggregationMethod, p.Weighter)
 		} else {
 			// Instant query: use single value
 			score = extractScore(r.Value)
@@ -159,7 +161,8 @@ func extractScore(value []interface{}) int64 {
 
 // aggregateRangeValues aggregates all values from a query_range result using the specified method.
 // When method is nil, the last data-point value is used directly (no aggregation).
-func aggregateRangeValues(values [][]interface{}, method *dropv1alpha1.AggregationMethod) int64 {
+// When weighter is non-nil, each data point value is multiplied by the weight for its timestamp.
+func aggregateRangeValues(values [][]interface{}, method *dropv1alpha1.AggregationMethod, weighter ScoreWeighter) int64 {
 	// nil = no aggregation, use last data-point value directly
 	if method == nil {
 		if len(values) == 0 {
@@ -176,6 +179,10 @@ func aggregateRangeValues(values [][]interface{}, method *dropv1alpha1.Aggregati
 		var v float64
 		if _, err := fmt.Sscanf(strVal, "%f", &v); err != nil {
 			return 0
+		}
+		if weighter != nil {
+			ts := extractTimestamp(lastPair[0])
+			v *= weighter.Weight(ts)
 		}
 		return int64(v)
 	}
@@ -197,6 +204,10 @@ func aggregateRangeValues(values [][]interface{}, method *dropv1alpha1.Aggregati
 		if _, err := fmt.Sscanf(strVal, "%f", &v); err != nil {
 			continue
 		}
+		if weighter != nil {
+			ts := extractTimestamp(pair[0])
+			v *= weighter.Weight(ts)
+		}
 		total += v
 		count++
 		if !maxSet || v > max {
@@ -217,5 +228,21 @@ func aggregateRangeValues(values [][]interface{}, method *dropv1alpha1.Aggregati
 		return int64(max)
 	default: // AggregationSum
 		return int64(total)
+	}
+}
+
+// extractTimestamp parses a Unix timestamp from a Prometheus data point.
+func extractTimestamp(raw interface{}) time.Time {
+	switch v := raw.(type) {
+	case float64:
+		return time.Unix(int64(v), 0).UTC()
+	case json.Number:
+		f, err := v.Float64()
+		if err != nil {
+			return time.Time{}
+		}
+		return time.Unix(int64(f), 0).UTC()
+	default:
+		return time.Time{}
 	}
 }

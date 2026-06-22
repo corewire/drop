@@ -132,6 +132,73 @@ spec:
                           - range
                           - instant
                           type: string
+                        scoringStrategy:
+                          description: |-
+                            ScoringStrategy applies a weighting function to data points before aggregation.
+                            Use this to give higher importance to data points that occur during specific time windows
+                            (e.g., working hours). Only used when queryType is "range".
+                          properties:
+                            type:
+                              allOf:
+                              - enum:
+                                - worktime
+                              - enum:
+                                - worktime
+                              description: Type identifies the scoring strategy. Must
+                                be "worktime".
+                              type: string
+                            worktime:
+                              description: Worktime contains the configuration when
+                                type=worktime.
+                              properties:
+                                timezone:
+                                  default: UTC
+                                  description: |-
+                                    Timezone is the IANA timezone name used to interpret window hours.
+                                    Default: "UTC". Example: "Europe/Berlin", "America/New_York"
+                                  type: string
+                                windows:
+                                  description: |-
+                                    Windows defines the time-of-day windows and their weight multipliers.
+                                    Hours are in 24h format (0-23) interpreted in the configured timezone.
+                                    Windows must not overlap. Data points outside all windows have weight 0.
+                                  items:
+                                    description: WorktimeWindow defines a single time-of-day
+                                      window with a weight multiplier.
+                                    properties:
+                                      endHour:
+                                        description: EndHour is the end of the window
+                                          (exclusive, 1-24). Must be greater than
+                                          startHour.
+                                        format: int32
+                                        maximum: 24
+                                        minimum: 1
+                                        type: integer
+                                      startHour:
+                                        description: StartHour is the beginning of
+                                          the window (inclusive, 0-23).
+                                        format: int32
+                                        maximum: 23
+                                        minimum: 0
+                                        type: integer
+                                      weight:
+                                        description: |-
+                                          Weight is the multiplier applied to data point values within this window.
+                                          Example: "1.0" (full weight), "0.3" (reduced), "0.0" (ignored)
+                                        type: string
+                                    required:
+                                    - endHour
+                                    - startHour
+                                    - weight
+                                    type: object
+                                  minItems: 1
+                                  type: array
+                              required:
+                              - windows
+                              type: object
+                          required:
+                          - type
+                          type: object
                         step:
                           description: |-
                             Step is the resolution step for range queries (only used when lookback is set).
