@@ -38,7 +38,7 @@ spec:
               echo "Prometheus pod: $PROM_POD"
 
               # Build the OpenMetrics file content: one sample per 5 minutes within each window.
-              # prometheus staleness window is 5m, so 5-minute resolution ensures every
+              # Prometheus staleness window is 5m, so 5-minute resolution ensures every
               # hourly query step finds a sample.
               {
                 echo "# HELP worktime_test_cpu Worktime e2e test metric"

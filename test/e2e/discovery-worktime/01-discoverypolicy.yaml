@@ -12,6 +12,7 @@
 #   startHour: 9,  endHour: 17, weight: "1.0"   (core business hours)
 #   startHour: 6,  endHour: 9,  weight: "0.3"   (early morning)
 #   startHour: 17, endHour: 19, weight: "0.3"   (evening)
+# endHour is exclusive (hour < endHour), so windows 6–9 and 9–17 are adjacent with no overlap.
 ---
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
