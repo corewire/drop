@@ -26,9 +26,9 @@ func TestWorktimeWeighter_Weight(t *testing.T) {
 	}
 
 	tests := []struct {
-		name   string
-		hour   int
-		want   float64
+		name string
+		hour int
+		want float64
 	}{
 		{"peak hours 9am", 9, 1.0},
 		{"peak hours 12pm", 12, 1.0},
