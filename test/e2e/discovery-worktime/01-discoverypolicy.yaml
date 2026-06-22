@@ -1,0 +1,46 @@
+# DiscoveryPolicy that uses a realistic 9–17 business-hours worktime scoring strategy.
+#
+# Seed data (injected at known UTC timestamps by the chainsaw seed step):
+#   nginx:1.25-alpine  → data from 09:00–16:59 UTC yesterday → falls in 9–17 window → weight 1.0
+#   redis:7-alpine     → data from 00:00–05:59 UTC yesterday → outside all windows  → weight 0.0
+#
+# With maxImages=1 and aggregationMethod=sum:
+#   nginx  score = Σ(1000 × 1.0) over ~96 data points in business hours  → large positive score
+#   redis  score = Σ(1000 × 0.0) = 0                                     → excluded by maxImages
+#
+# This mirrors the example from the PR description:
+#   startHour: 9,  endHour: 17, weight: "1.0"   (core business hours)
+#   startHour: 6,  endHour: 9,  weight: "0.3"   (early morning)
+#   startHour: 17, endHour: 19, weight: "0.3"   (evening)
+---
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-worktime-business
+spec:
+  sources:
+    - type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        query: 'sum(worktime_test_cpu{namespace="worktime-test"}) by (image)'
+        queryType: range
+        lookback: 27h
+        step: 1h
+        aggregationMethod: sum
+        scoringStrategy:
+          type: worktime
+          worktime:
+            timezone: "UTC"
+            windows:
+              - startHour: 9
+                endHour: 17
+                weight: "1.0"
+              - startHour: 6
+                endHour: 9
+                weight: "0.3"
+              - startHour: 17
+                endHour: 19
+                weight: "0.3"
+  syncInterval: 30s
+  maxImages: 1
+

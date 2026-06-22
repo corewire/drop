@@ -1,0 +1,17 @@
+# Assert that the worktime policy with 9–17 business-hours windows:
+#   - reaches Ready state
+#   - discovers exactly 1 image (nginx, the business-hours image)
+#
+# redis (nighttime image, score=0) is excluded by maxImages=1.
+# The script step in chainsaw-test.yaml verifies redis is absent and nginx score > 0.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-worktime-business
+status:
+  (conditions[?type == 'Ready']):
+    - status: "True"
+      reason: Synced
+  imageCount: 1
+  discoveredImages:
+    - image: "docker.io/library/nginx:1.25-alpine"
