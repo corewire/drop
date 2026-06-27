@@ -21,13 +21,19 @@ spec:
 
               # Wait for Loki to be ready
               echo "Waiting for Loki..."
+              READY=0
               for i in $(seq 1 60); do
                 if curl -sf "$LOKI/ready" >/dev/null 2>&1; then
                   echo "Loki is ready"
+                  READY=1
                   break
                 fi
                 sleep 2
               done
+              if [ "$READY" -ne 1 ]; then
+                echo "ERROR: Loki did not become ready in time"
+                exit 1
+              fi
 
               # Base timestamp (Unix nanoseconds). Each entry adds a small offset so
               # values are uniquely ordered within the stream.
@@ -59,12 +65,18 @@ spec:
               add "Successfully pulled image \"$REGISTRY/test/tools:v1\" in 1.0s (1.0s including waiting)"
               add "Successfully pulled image \"$REGISTRY/test/tools:v1\" in 2.0s (2.0s including waiting)"
 
-              PAYLOAD="{\"streams\":[{\"stream\":{\"job\":\"kubelet\",\"namespace\":\"default\"},\"values\":[$ENTRIES]}]}"
+              PAYLOAD="{\"streams\":[{\"stream\":{\"job\":\"kubelet\",\"namespace\":\"default\",\"drop_e2e\":\"true\"},\"values\":[$ENTRIES]}]}"
 
               echo "Pushing image-pull events to Loki..."
-              CODE=$(printf '%s' "$PAYLOAD" | curl -s -o /dev/stderr -w '%{http_code}' \
+              RESP_FILE=$(mktemp)
+              CODE=$(printf '%s' "$PAYLOAD" | curl -s -o "$RESP_FILE" -w '%{http_code}' \
                 -X POST -H 'Content-Type: application/json' \
                 --data-binary @- "$LOKI/loki/api/v1/push")
+              RESP_BODY="$(cat "$RESP_FILE")"
+              rm -f "$RESP_FILE"
+              if [ -n "$RESP_BODY" ]; then
+                echo "$RESP_BODY"
+              fi
               echo "push HTTP $CODE"
               case "$CODE" in
                 204|200) echo "Seed events accepted." ;;
@@ -75,7 +87,7 @@ spec:
               echo "Verifying seed events..."
               for i in $(seq 1 30); do
                 RESULT=$(curl -s -G "$LOKI/loki/api/v1/query_range" \
-                  --data-urlencode 'query={job="kubelet"}' \
+                  --data-urlencode 'query={job="kubelet",drop_e2e="true"}' \
                   --data-urlencode 'limit=10' 2>/dev/null || echo "")
                 if echo "$RESULT" | grep -q "Successfully pulled"; then
                   echo "Seed events are queryable!"
@@ -83,5 +95,5 @@ spec:
                 fi
                 sleep 2
               done
-              echo "WARNING: seed events may not be queryable yet"
-              exit 0
+              echo "ERROR: seed events are not queryable"
+              exit 1

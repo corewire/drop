@@ -10,7 +10,7 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{job="kubelet"}'
+        query: '{job="kubelet",drop_e2e="true"}'
         parser:
           type: kubernetesEvents
   signals:

@@ -48,7 +48,8 @@ echo "[e2e-infra] Waiting for Prometheus to be ready..."
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/prometheus --timeout=90s
 
 echo "[e2e-infra] Waiting for Loki to be ready..."
-kubectl -n "$NAMESPACE" wait --for=condition=available deployment/loki --timeout=120s
+# Loki single-binary startup can lag behind registry/prometheus in CI clusters.
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/loki --timeout=300s
 
 # --- Seed the registry with a few images ---
 echo "[e2e-infra] Seeding registry with test images..."
@@ -67,7 +68,7 @@ kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-metrics --timeout
 # --- Seed Loki with image-pull events ---
 echo "[e2e-infra] Seeding Loki with image-pull events..."
 kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/seed-loki-job.yaml"
-kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-loki --timeout=120s 2>/dev/null || true
+kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-loki --timeout=180s
 
 echo "[e2e-infra] Infrastructure ready."
 echo "  Prometheus: http://prometheus.$NAMESPACE.svc.cluster.local:9090"
