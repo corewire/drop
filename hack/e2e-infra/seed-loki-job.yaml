@@ -1,0 +1,87 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-loki
+  namespace: e2e-infra
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: curlimages/curl:8.10.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              LOKI="http://loki.e2e-infra.svc.cluster.local:3100"
+              REGISTRY="registry.e2e-infra.svc.cluster.local:5000"
+
+              # Wait for Loki to be ready
+              echo "Waiting for Loki..."
+              for i in $(seq 1 60); do
+                if curl -sf "$LOKI/ready" >/dev/null 2>&1; then
+                  echo "Loki is ready"
+                  break
+                fi
+                sleep 2
+              done
+
+              # Base timestamp (Unix nanoseconds). Each entry adds a small offset so
+              # values are uniquely ordered within the stream.
+              BASE="$(date +%s)000000000"
+              n=0
+              ENTRIES=""
+              add() {
+                # add <message>
+                TS=$(( BASE + n * 1000000000 ))
+                n=$(( n + 1 ))
+                MSG=$(printf '%s' "$1" | sed 's/"/\\"/g')
+                if [ -n "$ENTRIES" ]; then ENTRIES="$ENTRIES,"; fi
+                ENTRIES="$ENTRIES[ \"$TS\", \"$MSG\" ]"
+              }
+
+              # myapp:v1 — three cold pulls (3s, 4s, 5s) → avg 4s, plus a cache hit.
+              add "Pulling image \"$REGISTRY/test/myapp:v1\""
+              add "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 3.0s (3.0s including waiting)"
+              add "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 4.0s (4.0s including waiting)"
+              add "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 5.0s (5.0s including waiting)"
+              add "Container image \"$REGISTRY/test/myapp:v1\" already present on machine"
+
+              # worker:v2 — one slow cold pull (12s) and one pull failure.
+              add "Pulling image \"$REGISTRY/test/worker:v2\""
+              add "Successfully pulled image \"$REGISTRY/test/worker:v2\" in 12.0s (12.0s including waiting)"
+              add "Failed to pull image \"$REGISTRY/test/worker:v2\": rpc error: code = Unknown"
+
+              # tools:v1 — two quick cold pulls (1s, 2s).
+              add "Successfully pulled image \"$REGISTRY/test/tools:v1\" in 1.0s (1.0s including waiting)"
+              add "Successfully pulled image \"$REGISTRY/test/tools:v1\" in 2.0s (2.0s including waiting)"
+
+              PAYLOAD="{\"streams\":[{\"stream\":{\"job\":\"kubelet\",\"namespace\":\"default\"},\"values\":[$ENTRIES]}]}"
+
+              echo "Pushing image-pull events to Loki..."
+              CODE=$(printf '%s' "$PAYLOAD" | curl -s -o /dev/stderr -w '%{http_code}' \
+                -X POST -H 'Content-Type: application/json' \
+                --data-binary @- "$LOKI/loki/api/v1/push")
+              echo "push HTTP $CODE"
+              case "$CODE" in
+                204|200) echo "Seed events accepted." ;;
+                *) echo "WARNING: unexpected status $CODE" ;;
+              esac
+
+              # Verify the events are queryable.
+              echo "Verifying seed events..."
+              for i in $(seq 1 30); do
+                RESULT=$(curl -s -G "$LOKI/loki/api/v1/query_range" \
+                  --data-urlencode 'query={job="kubelet"}' \
+                  --data-urlencode 'limit=10' 2>/dev/null || echo "")
+                if echo "$RESULT" | grep -q "Successfully pulled"; then
+                  echo "Seed events are queryable!"
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "WARNING: seed events may not be queryable yet"
+              exit 0
