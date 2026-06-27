@@ -5,8 +5,11 @@
 #   redis:7-alpine     → data from 00:00–05:59 UTC yesterday → outside all windows  → weight 0.0
 #
 # With maxImages=1 and aggregationMethod=sum:
-#   nginx  score = Σ(1000 × 1.0) over ~96 data points in business hours  → large positive score
+#   nginx  score = Σ(1000 × 1.0) over ~8 hourly steps in business hours  → large positive score
 #   redis  score = Σ(1000 × 0.0) = 0                                     → excluded by maxImages
+#
+# lookback=48h ensures yesterday's data (up to ~39h old) is always within the query window,
+# regardless of the time of day CI runs.  Retention is also 48h so no data is lost.
 #
 # This mirrors the example from the PR description:
 #   startHour: 9,  endHour: 17, weight: "1.0"   (core business hours)
@@ -25,7 +28,7 @@ spec:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
         query: 'sum(worktime_test_cpu{namespace="worktime-test"}) by (image)'
         queryType: range
-        lookback: 27h
+        lookback: 48h
         step: 1h
         aggregationMethod: sum
         scoringStrategy:

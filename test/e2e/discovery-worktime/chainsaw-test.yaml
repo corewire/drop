@@ -72,9 +72,14 @@ spec:
               kubectl exec -n e2e-infra "$PROM_POD" -- wget -q --post-data='' -O /dev/null http://localhost:9090/-/reload
               echo "Prometheus reload triggered"
 
-              # Wait for Prometheus to be ready and seed data to be queryable
+              # Wait for Prometheus to be ready and seed data to be queryable.
+              # Query at yesterday noon (a known data point) — an instant query without
+              # an explicit time= parameter would use "now" and miss historical data
+              # because Prometheus's default staleness window is only 5 minutes.
+              # Decoded query: worktime_test_cpu{image="docker.io/library/nginx:1.25-alpine"}
+              TS_NOON=$(( YESTERDAY_MIDNIGHT + 12 * 3600 ))
               for i in $(seq 1 30); do
-                RESULT=$(kubectl exec -n e2e-infra "$PROM_POD" -- wget -q -O- "http://localhost:9090/api/v1/query?query=worktime_test_cpu%7Bimage%3D%22docker.io%2Flibrary%2Fnginx%3A1.25-alpine%22%7D" 2>/dev/null || echo "")
+                RESULT=$(kubectl exec -n e2e-infra "$PROM_POD" -- wget -q -O- "http://localhost:9090/api/v1/query?query=worktime_test_cpu%7Bimage%3D%22docker.io%2Flibrary%2Fnginx%3A1.25-alpine%22%7D&time=${TS_NOON}" 2>/dev/null || echo "")
                 if echo "$RESULT" | grep -q "nginx"; then
                   echo "Seed data queryable after ${i}s"
                   exit 0
