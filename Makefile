@@ -103,7 +103,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from cluster.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found -f -
 
 .PHONY: e2e-infra
-e2e-infra: ## Deploy Prometheus + Registry for E2E/dev.
+e2e-infra: ## Deploy Prometheus, Loki, and Registry for E2E/dev.
 	@chmod +x hack/e2e-infra/setup.sh && hack/e2e-infra/setup.sh
 
 ##@ Docker

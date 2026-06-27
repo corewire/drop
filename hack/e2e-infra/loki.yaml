@@ -66,6 +66,14 @@ spec:
               mountPath: /etc/loki
             - name: data
               mountPath: /loki
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3100
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 18
           resources:
             requests:
               cpu: 50m
