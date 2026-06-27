@@ -1,0 +1,28 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-registry
+spec:
+  queries:
+    - name: registry-tags
+      type: registry
+      registry:
+        url: "http://registry.e2e-infra.svc.cluster.local:5000"
+        repositories:
+          - test/myapp
+          - test/worker
+          - test/tools
+        tagFilter: "^v"
+        topX: 5
+  signals:
+    - name: tag-recency
+      queryRef: registry-tags
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: tag-recency
+  syncInterval: 30s
+  maxImages: 20

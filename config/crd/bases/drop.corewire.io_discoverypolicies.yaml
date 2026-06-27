@@ -194,6 +194,47 @@ spec:
                       - endpoint
                       - query
                       type: object
+                    registry:
+                      description: Registry contains the configuration when type=registry.
+                      properties:
+                        imageTemplate:
+                          description: |-
+                            ImageTemplate is a Go text/template for constructing the full image reference from discovered tags.
+                            Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}}
+                            Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}"
+                            Example: "registry.example.com/{{.Repository}}:{{.Tag}}"
+                          type: string
+                        repositories:
+                          description: |-
+                            Repositories is the list of repository paths to list tags from.
+                            Example: ["team/app", "team/worker", "infra/tools"]
+                          items:
+                            type: string
+                          minItems: 1
+                          type: array
+                        tagFilter:
+                          description: |-
+                            TagFilter is a regex applied to tag names. Only matching tags are discovered.
+                            Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds)
+                          type: string
+                        topX:
+                          description: |-
+                            TopX limits the number of tags kept per repository after tagFilter is applied.
+                            The registry API does not guarantee ordering; Drop keeps the last N tags returned by the registry.
+                            Example: 3 (keep the last 3 matching tags returned per repo)
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        url:
+                          description: |-
+                            URL is the registry base URL (without repository path).
+                            Example: "https://registry.example.com", "https://ghcr.io"
+                          minLength: 1
+                          type: string
+                      required:
+                      - repositories
+                      - url
+                      type: object
                     secretRef:
                       description: |-
                         SecretRef references a Secret in the pod namespace (default "drop-system") for auth/TLS.
@@ -215,11 +256,13 @@ spec:
                       - enum:
                         - prometheus
                         - loki
+                        - registry
                       - enum:
                         - prometheus
                         - loki
-                      description: Type selects the backend. Must be "prometheus"
-                        or "loki".
+                        - registry
+                      description: Type selects the backend. Must be "prometheus",
+                        "loki", or "registry".
                       type: string
                   required:
                   - name
@@ -804,6 +847,7 @@ spec:
                       enum:
                       - prometheus
                       - loki
+                      - registry
                       type: string
                   required:
                   - name

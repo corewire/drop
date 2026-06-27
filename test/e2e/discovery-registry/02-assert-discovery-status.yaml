@@ -1,11 +1,11 @@
-# Assert that DiscoveryPolicy pipeline executed successfully:
+# Assert that DiscoveryPolicy with registry query executed the pipeline successfully:
 # - Ready=True with reason Synced
-# - At least one image discovered
+# - At least one image discovered from the registry
 # - queryCount reflects the spec
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: e2e-prometheus
+  name: e2e-registry
 status:
   (conditions[?type == 'Ready']):
     - status: "True"

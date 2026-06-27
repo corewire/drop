@@ -5,19 +5,18 @@ metadata:
   name: discovery-failure
 spec:
   description: |
-    Verify that DiscoveryPolicy with the new query/signal/ranking schema is accepted
-    and the controller sets the NotImplemented condition.
-    DNS error and query failure testing will be re-enabled in Issue 2 (Prometheus execution).
+    Verify that a DiscoveryPolicy pointing at a non-existent Prometheus endpoint
+    sets Ready=False with reason DNSError in the status.
   steps:
     - name: Create DiscoveryPolicy with broken Prometheus endpoint
       try:
         - apply:
             file: 01-broken-prometheus.yaml
-    - name: Assert NotImplemented condition is set
+    - name: Assert DNSError condition is set
       try:
         - assert:
             timeout: 60s
-            file: 02-assert-notimplemented.yaml
+            file: 04-assert-dns-prometheus.yaml
     - name: Cleanup
       try:
         - delete:

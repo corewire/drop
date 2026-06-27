@@ -5,20 +5,34 @@ metadata:
   name: discovery
 spec:
   description: |
-    Verify that a DiscoveryPolicy with the new query/signal/ranking schema is accepted
-    and the controller sets a NotImplemented condition until pipeline execution is implemented.
+    Verify that a DiscoveryPolicy with a Prometheus query executes the full
+    query/signal/ranking pipeline and populates status.discoveredImages.
   steps:
     - name: Create DiscoveryPolicy with query/signal/ranking pipeline
       try:
         - apply:
             file: 01-discoverypolicy.yaml
-    - name: Assert NotImplemented condition is set
+    - name: Assert pipeline executed and images were discovered
+      try:
+        - assert:
+            timeout: 120s
+            file: 02-assert-discovery-status.yaml
+    - name: Create CachedImageSet backed by discovery
+      try:
+        - apply:
+            file: 03-cachedimageset-discovery.yaml
+    - name: Assert child CachedImages were created from discovered images
       try:
         - assert:
             timeout: 60s
-            file: 02-assert-discovery-status.yaml
+            file: 04-assert-children.yaml
     - name: Cleanup
       try:
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: CachedImageSet
+              name: discovered-set
         - delete:
             ref:
               apiVersion: drop.corewire.io/v1alpha1

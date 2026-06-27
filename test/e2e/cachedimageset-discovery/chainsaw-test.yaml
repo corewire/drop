@@ -5,10 +5,8 @@ metadata:
   name: cachedimageset-discovery
 spec:
   description: |
-    Verify that a CachedImageSet with discoveryPolicyRef accepts the new pipeline
-    schema and the DiscoveryPolicy is reconciled with the expected condition.
-    NOTE: Full CachedImage creation from discovered images will be re-enabled in
-    Issue 4 once signal ranking and status output are implemented.
+    Verify that a CachedImageSet with discoveryPolicyRef correctly reads discovered
+    images from a DiscoveryPolicy that has executed the query/signal/ranking pipeline.
   steps:
     - name: Create PullPolicy
       try:

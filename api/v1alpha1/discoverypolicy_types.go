@@ -46,7 +46,7 @@ type DiscoveryPolicySpec struct {
 // ============================================================
 
 // DiscoveryQueryType identifies the backend for a named query.
-// +kubebuilder:validation:Enum=prometheus;loki
+// +kubebuilder:validation:Enum=prometheus;loki;registry
 type DiscoveryQueryType string
 
 const (
@@ -54,6 +54,8 @@ const (
 	DiscoveryQueryTypePrometheus DiscoveryQueryType = "prometheus"
 	// DiscoveryQueryTypeLoki fetches log event data from a Loki-compatible API.
 	DiscoveryQueryTypeLoki DiscoveryQueryType = "loki"
+	// DiscoveryQueryTypeRegistry lists image tags from an OCI-compatible container registry.
+	DiscoveryQueryTypeRegistry DiscoveryQueryType = "registry"
 )
 
 // DiscoveryQuery defines a named raw-data source referenced by signals.
@@ -62,8 +64,8 @@ type DiscoveryQuery struct {
 	// Signals reference queries by this name via queryRef.
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// Type selects the backend. Must be "prometheus" or "loki".
-	// +kubebuilder:validation:Enum=prometheus;loki
+	// Type selects the backend. Must be "prometheus", "loki", or "registry".
+	// +kubebuilder:validation:Enum=prometheus;loki;registry
 	Type DiscoveryQueryType `json:"type"`
 	// Prometheus contains the configuration when type=prometheus.
 	// +optional
@@ -71,10 +73,41 @@ type DiscoveryQuery struct {
 	// Loki contains the configuration when type=loki.
 	// +optional
 	Loki *DiscoveryLokiQuery `json:"loki,omitempty"`
+	// Registry contains the configuration when type=registry.
+	// +optional
+	Registry *DiscoveryRegistryQuery `json:"registry,omitempty"`
 	// SecretRef references a Secret in the pod namespace (default "drop-system") for auth/TLS.
 	// Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>.
 	// +optional
 	SecretRef *corev1.LocalObjectReference `json:"secretRef,omitempty"`
+}
+
+// DiscoveryRegistryQuery defines OCI registry tag listing configuration for image discovery.
+type DiscoveryRegistryQuery struct {
+	// URL is the registry base URL (without repository path).
+	// Example: "https://registry.example.com", "https://ghcr.io"
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url"`
+	// Repositories is the list of repository paths to list tags from.
+	// Example: ["team/app", "team/worker", "infra/tools"]
+	// +kubebuilder:validation:MinItems=1
+	Repositories []string `json:"repositories"`
+	// TagFilter is a regex applied to tag names. Only matching tags are discovered.
+	// Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds)
+	// +optional
+	TagFilter string `json:"tagFilter,omitempty"`
+	// TopX limits the number of tags kept per repository after tagFilter is applied.
+	// The registry API does not guarantee ordering; Drop keeps the last N tags returned by the registry.
+	// Example: 3 (keep the last 3 matching tags returned per repo)
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	TopX int32 `json:"topX,omitempty"`
+	// ImageTemplate is a Go text/template for constructing the full image reference from discovered tags.
+	// Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}}
+	// Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}"
+	// Example: "registry.example.com/{{.Repository}}:{{.Tag}}"
+	// +optional
+	ImageTemplate string `json:"imageTemplate,omitempty"`
 }
 
 // QueryType defines how the Prometheus query is executed.

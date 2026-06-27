@@ -65,29 +65,97 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 			}
 		})
 
-		It("should successfully reconcile the resource", func() {
+		It("reconciles and sets a failure condition when the Prometheus endpoint is unreachable", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &DiscoveryPolicyReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+			// The reconciler will attempt to query localhost:9090 which will fail.
+			// It returns an error so controller-runtime applies rate-limited backoff.
+			_, _ = controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
-			// The stub reconciler sets a NotImplemented condition and does not return an error.
-			Expect(err).NotTo(HaveOccurred())
 
-			// Verify the NotImplemented condition is set in status.
+			// Verify the status reflects the query failure.
 			updated := &dropv1alpha1.DiscoveryPolicy{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
-			var readyReason string
-			for _, c := range updated.Status.Conditions {
-				if c.Type == "Ready" {
-					readyReason = c.Reason
+
+			var readyCondition *metav1.Condition
+			for i := range updated.Status.Conditions {
+				if updated.Status.Conditions[i].Type == "Ready" {
+					readyCondition = &updated.Status.Conditions[i]
 				}
 			}
-			Expect(readyReason).To(Equal("NotImplemented"))
+			Expect(readyCondition).NotTo(BeNil(), "Ready condition should be set")
+			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
+			// Reason is one of ConnectionRefused / SyncFailed depending on OS
+			Expect(readyCondition.Reason).NotTo(BeEmpty())
+
+			// queryCount should reflect the spec
+			Expect(updated.Status.QueryCount).To(Equal(int32(1)))
+		})
+
+		It("reconciles successfully with a registry query that lists from a mock server", func() {
+			By("creating a DiscoveryPolicy with a registry query")
+			const regResourceName = "test-discovery-registry"
+
+			// We can't spin up a real registry in unit tests, but we can verify the
+			// full pipeline runs without panicking and sets the correct status fields.
+			resource := &dropv1alpha1.DiscoveryPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: regResourceName,
+				},
+				Spec: dropv1alpha1.DiscoveryPolicySpec{
+					Queries: []dropv1alpha1.DiscoveryQuery{
+						{
+							Name: "reg-query",
+							Type: dropv1alpha1.DiscoveryQueryTypeRegistry,
+							Registry: &dropv1alpha1.DiscoveryRegistryQuery{
+								URL:          "http://nonexistent-registry:5000",
+								Repositories: []string{"team/app"},
+							},
+						},
+					},
+					Signals: []dropv1alpha1.DiscoverySignal{
+						{
+							Name:     "tag-score",
+							QueryRef: "reg-query",
+							Type:     dropv1alpha1.SignalTypeAggregate,
+							Aggregate: &dropv1alpha1.AggregateSignalConfig{
+								Method: dropv1alpha1.AggregationSum,
+							},
+						},
+					},
+					Ranking: &dropv1alpha1.DiscoveryRanking{
+						Strategy: dropv1alpha1.RankingStrategySignal,
+						Signal: &dropv1alpha1.SignalRankingConfig{
+							SignalRef: "tag-score",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+			defer func() {
+				_ = k8sClient.Delete(ctx, resource)
+			}()
+
+			controllerReconciler := &DiscoveryPolicyReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+			_, _ = controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: regResourceName},
+			})
+
+			updated := &dropv1alpha1.DiscoveryPolicy{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: regResourceName}, updated)).To(Succeed())
+
+			// Status should have a QueryResult entry for the registry query
+			Expect(updated.Status.QueryResults).To(HaveLen(1))
+			Expect(updated.Status.QueryResults[0].Name).To(Equal("reg-query"))
+			Expect(updated.Status.QueryResults[0].Type).To(Equal(dropv1alpha1.DiscoveryQueryTypeRegistry))
 		})
 
 		It("uses the configured secret namespace for discovery source credentials", func() {

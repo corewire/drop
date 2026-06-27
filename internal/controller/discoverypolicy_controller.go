@@ -26,6 +26,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
+	"github.com/corewire/drop/internal/discovery"
+	dropmetrics "github.com/corewire/drop/internal/metrics"
 )
 
 // DiscoveryPolicyReconciler reconciles a DiscoveryPolicy object
@@ -35,14 +37,18 @@ type DiscoveryPolicyReconciler struct {
 	SecretNamespace string
 }
 
+const (
+	reasonDNSError          = "DNSError"
+	reasonConnectionRefused = "ConnectionRefused"
+	secretHeaderPrefix      = "headers."
+)
+
 // +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
-// Reconcile updates the DiscoveryPolicy status.
-// NOTE: Query/signal/ranking execution is not yet implemented. The controller sets a
-// NotImplemented condition and requeues after syncInterval until a future release adds execution.
+// Reconcile executes the query/signal/ranking pipeline for a DiscoveryPolicy and updates status.
 func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
@@ -55,26 +61,59 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	log.Info("reconciling DiscoveryPolicy (pipeline execution not yet implemented)",
+	log.Info("reconciling DiscoveryPolicy",
 		"queries", len(dp.Spec.Queries),
 		"signals", len(dp.Spec.Signals),
 	)
 
-	// 2. Update status with query/image counts and NotImplemented condition.
-	patch := client.MergeFrom(dp.DeepCopy())
+	// 2. Execute pipeline
+	httpClientFunc := r.buildHTTPClientFunc(dp)
+	result := discovery.ExecutePipeline(ctx, dp.Spec, httpClientFunc)
 
+	// 3. Build status patch
+	patch := client.MergeFrom(dp.DeepCopy())
 	now := metav1.Now()
+
 	dp.Status.LastSyncTime = &now
 	dp.Status.QueryCount = int32(len(dp.Spec.Queries))
-	dp.Status.ImageCount = int32(len(dp.Status.DiscoveredImages))
+	dp.Status.QueryResults = result.QueryResults
+	dp.Status.SignalResults = result.SignalResults
+	dp.Status.DiscoveredImages = result.Images
+	dp.Status.ImageCount = int32(len(result.Images))
 
+	// Determine overall health from query results
+	allHealthy, failReason, failMsg := summarizeQueryResults(result.QueryResults)
+
+	// Emit per-query metrics
+	for _, qr := range result.QueryResults {
+		healthy := float64(0)
+		if qr.Status == dropv1alpha1.QueryResultStatusSuccess {
+			healthy = 1
+		}
+		dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, string(qr.Type), qr.Name).Set(healthy)
+		if qr.Status == dropv1alpha1.QueryResultStatusSuccess {
+			images := 0
+			if qr.Series != nil {
+				images = int(*qr.Series)
+			}
+			dropmetrics.DiscoveryImagesFound.WithLabelValues(dp.Name, string(qr.Type)).Set(float64(images))
+		}
+	}
+
+	// 4. Set Ready condition
 	readyCondition := metav1.Condition{
 		Type:               conditionTypeReady,
-		Status:             metav1.ConditionFalse,
-		Reason:             "NotImplemented",
-		Message:            "Query/signal/ranking pipeline execution is not yet implemented; discovered images will be populated in a future release.",
 		ObservedGeneration: dp.Generation,
 		LastTransitionTime: now,
+	}
+	if allHealthy || len(result.Images) > 0 {
+		readyCondition.Status = metav1.ConditionTrue
+		readyCondition.Reason = "Synced"
+		readyCondition.Message = fmt.Sprintf("Pipeline executed successfully; %d images discovered.", len(result.Images))
+	} else {
+		readyCondition.Status = metav1.ConditionFalse
+		readyCondition.Reason = failReason
+		readyCondition.Message = failMsg
 	}
 	meta.SetStatusCondition(&dp.Status.Conditions, readyCondition)
 
@@ -82,16 +121,85 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, fmt.Errorf("patching status: %w", err)
 	}
 
-	// 3. Requeue after sync interval.
+	// 5. Requeue after sync interval
 	syncInterval := dp.Spec.SyncInterval.Duration
 	if syncInterval == 0 {
 		syncInterval = 30 * time.Minute
 	}
+
+	// Return an error to trigger rate-limited backoff when all queries failed and no images available.
+	if !allHealthy && len(result.Images) == 0 {
+		return ctrl.Result{}, fmt.Errorf("discovery sync failed: %s", failMsg)
+	}
+
 	return ctrl.Result{RequeueAfter: syncInterval}, nil
 }
 
+// buildHTTPClientFunc returns a discovery.HTTPClientFunc that provides per-query auth/TLS clients.
+func (r *DiscoveryPolicyReconciler) buildHTTPClientFunc(dp *dropv1alpha1.DiscoveryPolicy) discovery.HTTPClientFunc {
+	// Build a name → secretRef index for quick lookup
+	secretIndex := make(map[string]*corev1.LocalObjectReference, len(dp.Spec.Queries))
+	for _, q := range dp.Spec.Queries {
+		if q.SecretRef != nil {
+			secretIndex[q.Name] = q.SecretRef
+		}
+	}
+
+	return func(innerCtx context.Context, queryName string) (*http.Client, error) {
+		secretRef, hasSecret := secretIndex[queryName]
+		if !hasSecret {
+			return &http.Client{Timeout: 30 * time.Second}, nil
+		}
+		return r.buildHTTPClient(innerCtx, secretRef)
+	}
+}
+
+// summarizeQueryResults determines overall health and a human-readable reason/message.
+func summarizeQueryResults(qrs []dropv1alpha1.QueryResult) (allHealthy bool, reason, message string) {
+	if len(qrs) == 0 {
+		return true, "Synced", "No queries configured."
+	}
+
+	var failures []string
+	for _, qr := range qrs {
+		if qr.Status != dropv1alpha1.QueryResultStatusSuccess {
+			failures = append(failures, fmt.Sprintf("%s: %s", qr.Name, qr.Message))
+		}
+	}
+
+	if len(failures) == 0 {
+		return true, "Synced", ""
+	}
+
+	// Classify the first failure for the Reason field
+	reason = classifyReason(failures[0])
+	message = strings.Join(failures, "; ")
+	return false, reason, message
+}
+
+// classifyReason maps a failure message to a k8s-style reason string.
+func classifyReason(msg string) string {
+	switch {
+	case strings.Contains(msg, "no such host") || strings.Contains(msg, "server misbehaving") || strings.Contains(msg, "lookup"):
+		return reasonDNSError
+	case strings.Contains(msg, "connection refused"):
+		return reasonConnectionRefused
+	case strings.Contains(msg, "timeout") || strings.Contains(msg, "deadline exceeded"):
+		return "Timeout"
+	case strings.Contains(msg, "401") || strings.Contains(msg, "Unauthorized"):
+		return "Unauthorized"
+	case strings.Contains(msg, "403") || strings.Contains(msg, "Forbidden"):
+		return "Forbidden"
+	case strings.Contains(msg, "404") || strings.Contains(msg, "NotFound"):
+		return "NotFound"
+	case strings.Contains(msg, "certificate") || strings.Contains(msg, "x509"):
+		return "TLSError"
+	default:
+		return "SyncFailed"
+	}
+}
+
 // buildHTTPClient creates an HTTP client with auth/TLS from a Secret.
-// This is retained for use by future query execution (Issues 2 and 8).
 func (r *DiscoveryPolicyReconciler) buildHTTPClient(ctx context.Context, secretRef *corev1.LocalObjectReference) (*http.Client, error) {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 
@@ -161,8 +269,8 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Custom headers (headers.<name>)
 	for key, value := range t.secret.Data {
-		if strings.HasPrefix(key, "headers.") {
-			headerName := key[len("headers."):]
+		if strings.HasPrefix(key, secretHeaderPrefix) {
+			headerName := key[len(secretHeaderPrefix):]
 			req.Header.Set(headerName, string(value))
 		}
 	}

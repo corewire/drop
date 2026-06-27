@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"time"
 
 	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
@@ -218,4 +219,118 @@ func aggregateRangeValues(values [][]interface{}, method *dropv1alpha1.Aggregati
 	default: // AggregationSum
 		return int64(total)
 	}
+}
+
+// FetchRaw queries Prometheus and returns raw timed samples per image, preserving timestamps.
+// This is used by the pipeline engine so that signal derivation can apply per-timestamp logic
+// (timeWeightedAggregate, windowAggregate) without discarding timestamp information.
+func (p *PrometheusSource) FetchRaw(ctx context.Context) (map[string][]TimedSample, error) {
+	u, err := url.Parse(p.Endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("parsing endpoint: %w", err)
+	}
+
+	q := u.Query()
+	q.Set("query", p.Query)
+
+	if p.QueryType == dropv1alpha1.QueryTypeRange {
+		u.Path = "/api/v1/query_range"
+		now := time.Now().UTC()
+		lookback := p.Lookback
+		if lookback == 0 {
+			lookback = 24 * time.Hour
+		}
+		step := p.Step
+		if step == 0 {
+			step = 5 * time.Minute
+		}
+		q.Set("start", now.Add(-lookback).Format(time.RFC3339))
+		q.Set("end", now.Format(time.RFC3339))
+		q.Set("step", fmt.Sprintf("%ds", int(step.Seconds())))
+	} else {
+		u.Path = "/api/v1/query"
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := p.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("querying prometheus: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("prometheus returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var promResp prometheusResponse
+	if err := json.NewDecoder(resp.Body).Decode(&promResp); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	if promResp.Status != prometheusStatusSuccess {
+		return nil, fmt.Errorf("prometheus query failed with status: %s", promResp.Status)
+	}
+
+	out := make(map[string][]TimedSample, len(promResp.Data.Result))
+	for _, r := range promResp.Data.Result {
+		image, ok := r.Metric["image"]
+		if !ok || image == "" {
+			continue
+		}
+
+		if p.QueryType == dropv1alpha1.QueryTypeRange {
+			samples := make([]TimedSample, 0, len(r.Values))
+			for _, pair := range r.Values {
+				if len(pair) < 2 {
+					continue
+				}
+				var ts float64
+				switch v := pair[0].(type) {
+				case float64:
+					ts = v
+				default:
+					continue
+				}
+				strVal, ok := pair[1].(string)
+				if !ok {
+					continue
+				}
+				val, err := strconv.ParseFloat(strVal, 64)
+				if err != nil {
+					continue
+				}
+				samples = append(samples, TimedSample{Timestamp: ts, Value: val})
+			}
+			out[image] = samples
+		} else {
+			// Instant query
+			if len(r.Value) < 2 {
+				continue
+			}
+			var ts float64
+			switch v := r.Value[0].(type) {
+			case float64:
+				ts = v
+			default:
+				ts = float64(time.Now().Unix())
+			}
+			strVal, ok := r.Value[1].(string)
+			if !ok {
+				continue
+			}
+			val, err := strconv.ParseFloat(strVal, 64)
+			if err != nil {
+				continue
+			}
+			out[image] = []TimedSample{{Timestamp: ts, Value: val}}
+		}
+	}
+
+	return out, nil
 }
