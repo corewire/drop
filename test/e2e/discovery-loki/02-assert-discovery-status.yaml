@@ -1,0 +1,23 @@
+# Assert that the DiscoveryPolicy with a Loki query + eventPullTime signals
+# executed the full pipeline successfully:
+# - Ready=True with reason Synced
+# - The Loki query succeeded
+# - The eventPullTime signals produced per-image values
+# - Images parsed from kubelet pull events were discovered and ranked
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-loki
+status:
+  (conditions[?type == 'Ready']):
+    - status: "True"
+      reason: Synced
+  (queryCount == `1`): true
+  (imageCount > `0`): true
+  (queryResults[?name == 'image-pull-events'] | [0].status): success
+  (queryResults[?name == 'image-pull-events'] | [0].type): loki
+  (signalResults[?name == 'p50-cold-pull-time'] | [0].status): success
+  (signalResults[?name == 'p50-cold-pull-time'] | [0].images > `0`): true
+  (signalResults[?name == 'pull-failures'] | [0].status): success
+  (length(discoveredImages[?contains(image, 'test/myapp:v1')]) > `0`): true
+  (length(discoveredImages[?contains(image, 'test/worker:v2')]) > `0`): true

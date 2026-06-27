@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: discovery-loki
+spec:
+  description: |
+    Verify that a DiscoveryPolicy with a Loki query and the kubernetesEvents
+    parser derives eventPullTime signals (cold-pull time and failure count) from
+    seeded image-pull events and populates status.discoveredImages.
+  steps:
+    - name: Create DiscoveryPolicy with a Loki query and eventPullTime signals
+      try:
+        - apply:
+            file: 01-discoverypolicy.yaml
+    - name: Assert pipeline executed and images were discovered from Loki events
+      try:
+        - assert:
+            timeout: 120s
+            file: 02-assert-discovery-status.yaml
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-loki
