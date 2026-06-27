@@ -14,7 +14,10 @@ import (
 	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
 )
 
-const signalStatusFailed = "failed"
+const (
+	signalStatusFailed  = "failed"
+	signalStatusSuccess = "success"
+)
 
 // QueryRawData holds raw per-image samples from a single query execution.
 // For prometheus range queries each image may have multiple samples.
@@ -197,9 +200,21 @@ func executeQuery(ctx context.Context, q dropv1alpha1.DiscoveryQuery, httpClient
 		return raw, qr
 
 	case dropv1alpha1.DiscoveryQueryTypeLoki:
-		qr.Status = dropv1alpha1.QueryResultStatusFailed
-		qr.Message = "loki query execution is not yet implemented"
-		return nil, qr
+		if q.Loki == nil {
+			qr.Status = dropv1alpha1.QueryResultStatusFailed
+			qr.Message = "loki config is required when type=loki"
+			return nil, qr
+		}
+		raw, err := executeLokiQuery(ctx, q.Loki, httpClient)
+		if err != nil {
+			qr.Status = dropv1alpha1.QueryResultStatusFailed
+			qr.Message = err.Error()
+			return nil, qr
+		}
+		records := countSamples(raw.Samples)
+		qr.Records = &records
+		qr.Status = dropv1alpha1.QueryResultStatusSuccess
+		return raw, qr
 
 	default:
 		qr.Status = dropv1alpha1.QueryResultStatusFailed
@@ -247,6 +262,24 @@ func executeRegistryQuery(ctx context.Context, cfg *dropv1alpha1.DiscoveryRegist
 	now := float64(time.Now().Unix())
 	for _, r := range results {
 		raw.Samples[r.Image] = []TimedSample{{Timestamp: now, Value: float64(r.Score)}}
+	}
+	return raw, nil
+}
+
+// executeLokiQuery fetches log entries from Loki and returns raw per-image samples.
+func executeLokiQuery(ctx context.Context, cfg *dropv1alpha1.DiscoveryLokiQuery, httpClient *http.Client) (*QueryRawData, error) {
+	var lookback time.Duration
+	if cfg.Lookback != nil {
+		lookback = cfg.Lookback.Duration
+	}
+	src := NewLokiSource(cfg.Endpoint, cfg.Query, lookback, cfg.Parser, httpClient)
+	results, err := src.FetchRaw(ctx)
+	if err != nil {
+		return nil, err
+	}
+	raw := &QueryRawData{
+		Samples:   results,
+		QueryType: dropv1alpha1.DiscoveryQueryTypeLoki,
 	}
 	return raw, nil
 }
@@ -300,9 +333,15 @@ func deriveSignal(sig dropv1alpha1.DiscoverySignal, raw *QueryRawData) (map[stri
 		return values, sr
 
 	case dropv1alpha1.SignalTypeEventPullTime:
-		sr.Status = signalStatusFailed
-		sr.Message = "eventPullTime signal derivation is not yet implemented"
-		return nil, sr
+		if sig.EventPullTime == nil {
+			sr.Status = signalStatusFailed
+			sr.Message = "eventPullTime config is required when type=eventPullTime"
+			return nil, sr
+		}
+		values := deriveEventPullTime(raw.Samples, sig.EventPullTime)
+		sr.Images = int32(len(values))
+		sr.Status = signalStatusSuccess
+		return values, sr
 
 	default:
 		sr.Status = signalStatusFailed
@@ -656,11 +695,20 @@ func modelExposureRank(cfg *dropv1alpha1.ModelExposureRankingConfig, signals map
 }
 
 // collectImages returns a sorted, deduplicated list of all image references across all query results.
+// For Loki query data, special per-image suffix keys (":failed", ":cache_hit") are stripped to
+// their base image name so that images visible only via failure/cache events are still included.
 func collectImages(rawByQuery map[string]*QueryRawData) []string {
 	seen := make(map[string]struct{})
 	for _, raw := range rawByQuery {
 		for img := range raw.Samples {
-			seen[img] = struct{}{}
+			switch {
+			case strings.HasSuffix(img, lokiFailedSuffix):
+				seen[strings.TrimSuffix(img, lokiFailedSuffix)] = struct{}{}
+			case strings.HasSuffix(img, lokiCacheHitSuffix):
+				seen[strings.TrimSuffix(img, lokiCacheHitSuffix)] = struct{}{}
+			default:
+				seen[img] = struct{}{}
+			}
 		}
 	}
 	images := make([]string, 0, len(seen))
@@ -678,4 +726,98 @@ func countSamples(samples map[string][]TimedSample) int64 {
 		total += int64(len(pts))
 	}
 	return total
+}
+
+// deriveEventPullTime computes per-image pull-time statistics from Loki event samples.
+//
+// The samples map is expected to come from a Loki kubernetesEvents query:
+//   - samples[image]              → pull duration values in seconds (from Pulled events)
+//   - samples[image+":failed"]    → count of pull-failure events (value=1.0 each)
+//   - samples[image+":cache_hit"] → count of already-present events (value=1.0 each)
+func deriveEventPullTime(samples map[string][]TimedSample, cfg *dropv1alpha1.EventPullTimeSignalConfig) map[string]float64 {
+	imageSet := make(map[string]struct{})
+	for key := range samples {
+		switch {
+		case strings.HasSuffix(key, lokiFailedSuffix):
+			imageSet[strings.TrimSuffix(key, lokiFailedSuffix)] = struct{}{}
+		case strings.HasSuffix(key, lokiCacheHitSuffix):
+			imageSet[strings.TrimSuffix(key, lokiCacheHitSuffix)] = struct{}{}
+		default:
+			imageSet[key] = struct{}{}
+		}
+	}
+
+	out := make(map[string]float64, len(imageSet))
+	for img := range imageSet {
+		var v float64
+		switch cfg.Statistic {
+		case dropv1alpha1.EventPullTimeStatisticFailureCount:
+			v = float64(len(samples[img+lokiFailedSuffix]))
+		case dropv1alpha1.EventPullTimeStatisticCacheHitCount:
+			v = float64(len(samples[img+lokiCacheHitSuffix]))
+		case dropv1alpha1.EventPullTimeStatisticCount:
+			pts := append([]TimedSample(nil), samples[img]...)
+			if cfg.IncludeCacheHits {
+				pts = append(pts, samples[img+lokiCacheHitSuffix]...)
+			}
+			v = float64(len(pts))
+		default:
+			// Duration statistics: p50, p90, p95, avg, max.
+			pts := append([]TimedSample(nil), samples[img]...)
+			if cfg.IncludeCacheHits {
+				pts = append(pts, samples[img+lokiCacheHitSuffix]...)
+			}
+			if len(pts) == 0 {
+				continue
+			}
+			durations := make([]float64, len(pts))
+			for i, pt := range pts {
+				durations[i] = pt.Value
+			}
+			v = computeEventPullTimeStat(durations, cfg.Statistic)
+		}
+		out[img] = v
+	}
+	return out
+}
+
+// computeEventPullTimeStat computes a duration statistic over a non-empty slice.
+func computeEventPullTimeStat(vals []float64, stat dropv1alpha1.EventPullTimeStatistic) float64 {
+	sorted := make([]float64, len(vals))
+	copy(sorted, vals)
+	sort.Float64s(sorted)
+
+	switch stat {
+	case dropv1alpha1.EventPullTimeStatisticP50:
+		return durationPercentile(sorted, 50)
+	case dropv1alpha1.EventPullTimeStatisticP90:
+		return durationPercentile(sorted, 90)
+	case dropv1alpha1.EventPullTimeStatisticP95:
+		return durationPercentile(sorted, 95)
+	case dropv1alpha1.EventPullTimeStatisticAvg:
+		var sum float64
+		for _, v := range sorted {
+			sum += v
+		}
+		return sum / float64(len(sorted))
+	case dropv1alpha1.EventPullTimeStatisticMax:
+		return sorted[len(sorted)-1]
+	default:
+		return 0
+	}
+}
+
+// durationPercentile returns the p-th percentile of a sorted slice using linear interpolation.
+func durationPercentile(sorted []float64, p float64) float64 {
+	n := len(sorted)
+	if n == 1 {
+		return sorted[0]
+	}
+	rank := p / 100.0 * float64(n-1)
+	lo := int(rank)
+	hi := lo + 1
+	if hi >= n {
+		return sorted[n-1]
+	}
+	return sorted[lo] + (rank-float64(lo))*(sorted[hi]-sorted[lo])
 }

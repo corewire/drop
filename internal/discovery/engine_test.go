@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -351,4 +352,189 @@ func prometheusInstantHandler(imageValues map[string]string) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(resp)
 	})
+}
+
+// lokiStreamHandler returns an HTTP handler that serves a fixed Loki query_range response.
+func lokiStreamHandler(streams []lokiStream) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := lokiResponse{
+			Status: lokiStatusSuccess,
+			Data: lokiData{
+				ResultType: "streams",
+				Result:     streams,
+			},
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+}
+
+// TestExecutePipeline_Loki verifies the full pipeline with a Loki query and eventPullTime signal.
+func TestExecutePipeline_Loki(t *testing.T) {
+	now := time.Now()
+	nanoStr := func(t time.Time) string {
+		return strconv.FormatInt(t.UnixNano(), 10)
+	}
+
+	streams := []lokiStream{
+		{
+			Stream: map[string]string{"app": "kubelet"},
+			Values: [][]string{
+				{nanoStr(now.Add(-10 * time.Second)), `Pulling image "nginx:1.25"`},
+				{nanoStr(now.Add(-7 * time.Second)), `Successfully pulled image "nginx:1.25" in 3s (3s including waiting)`},
+				{nanoStr(now.Add(-5 * time.Second)), `Pulling image "redis:7.0"`},
+				{nanoStr(now.Add(-2 * time.Second)), `Successfully pulled image "redis:7.0" in 3s (3s including waiting)`},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(lokiStreamHandler(streams))
+	defer srv.Close()
+
+	spec := dropv1alpha1.DiscoveryPolicySpec{
+		Queries: []dropv1alpha1.DiscoveryQuery{
+			{
+				Name: "pull-events",
+				Type: dropv1alpha1.DiscoveryQueryTypeLoki,
+				Loki: &dropv1alpha1.DiscoveryLokiQuery{
+					Endpoint:  srv.URL,
+					Query:     `{app="kubelet"}`,
+					QueryType: dropv1alpha1.LokiQueryTypeRange,
+					Lookback:  &metav1.Duration{Duration: time.Hour},
+					Parser: &dropv1alpha1.LokiParser{
+						Type:         dropv1alpha1.LokiParserTypeKubernetesEvents,
+						MessageField: "message",
+					},
+				},
+			},
+		},
+		Signals: []dropv1alpha1.DiscoverySignal{
+			{
+				Name:          "pull-time",
+				QueryRef:      "pull-events",
+				Type:          dropv1alpha1.SignalTypeEventPullTime,
+				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventPullTimeStatisticAvg, DurationMode: dropv1alpha1.DurationModeMessageDuration},
+			},
+		},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "pull-time"}},
+		MaxImages: 10,
+	}
+
+	clientFn := func(_ context.Context, _ string) (*http.Client, error) { return srv.Client(), nil }
+	result := ExecutePipeline(context.Background(), spec, clientFn)
+
+	if len(result.QueryResults) != 1 {
+		t.Fatalf("expected 1 query result, got %d", len(result.QueryResults))
+	}
+	if result.QueryResults[0].Status != dropv1alpha1.QueryResultStatusSuccess {
+		t.Fatalf("expected success, got %s: %s", result.QueryResults[0].Status, result.QueryResults[0].Message)
+	}
+	if len(result.Images) != 2 {
+		t.Fatalf("expected 2 images, got %d: %v", len(result.Images), result.Images)
+	}
+	// Both images have avg pull time of 3s
+	for _, img := range result.Images {
+		if img.FinalScore != "3" {
+			t.Errorf("expected score 3 for %s, got %s", img.Image, img.FinalScore)
+		}
+	}
+}
+
+// TestExecutePipeline_LokiFailureCount verifies that failure event counts are reported correctly.
+func TestExecutePipeline_LokiFailureCount(t *testing.T) {
+	now := time.Now()
+	nanoStr := func(t time.Time) string {
+		return strconv.FormatInt(t.UnixNano(), 10)
+	}
+
+	streams := []lokiStream{
+		{
+			Stream: map[string]string{"app": "kubelet"},
+			Values: [][]string{
+				{nanoStr(now.Add(-5 * time.Second)), `Pulling image "nginx:1.25"`},
+				{nanoStr(now.Add(-4 * time.Second)), `Failed to pull image "nginx:1.25": rpc error`},
+				{nanoStr(now.Add(-3 * time.Second)), `Back-off pulling image "nginx:1.25"`},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(lokiStreamHandler(streams))
+	defer srv.Close()
+
+	spec := dropv1alpha1.DiscoveryPolicySpec{
+		Queries: []dropv1alpha1.DiscoveryQuery{
+			{
+				Name: "pull-events",
+				Type: dropv1alpha1.DiscoveryQueryTypeLoki,
+				Loki: &dropv1alpha1.DiscoveryLokiQuery{
+					Endpoint: srv.URL,
+					Query:    `{app="kubelet"}`,
+					Parser: &dropv1alpha1.LokiParser{
+						Type:         dropv1alpha1.LokiParserTypeKubernetesEvents,
+						MessageField: "message",
+					},
+				},
+			},
+		},
+		Signals: []dropv1alpha1.DiscoverySignal{
+			{
+				Name:          "failures",
+				QueryRef:      "pull-events",
+				Type:          dropv1alpha1.SignalTypeEventPullTime,
+				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventPullTimeStatisticFailureCount, DurationMode: dropv1alpha1.DurationModeMessageDuration},
+			},
+		},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "failures"}},
+		MaxImages: 10,
+	}
+
+	clientFn := func(_ context.Context, _ string) (*http.Client, error) { return srv.Client(), nil }
+	result := ExecutePipeline(context.Background(), spec, clientFn)
+
+	if result.QueryResults[0].Status != dropv1alpha1.QueryResultStatusSuccess {
+		t.Fatalf("expected success, got %s: %s", result.QueryResults[0].Status, result.QueryResults[0].Message)
+	}
+	if len(result.Images) != 1 {
+		t.Fatalf("expected 1 image, got %d: %v", len(result.Images), result.Images)
+	}
+	// Both "failed" and "backoff" reasons count as failures → 2 failure events
+	if result.Images[0].FinalScore != "2" {
+		t.Errorf("expected failureCount=2, got %s", result.Images[0].FinalScore)
+	}
+}
+
+// TestDeriveEventPullTime_Percentiles verifies p50/p90/p95 computation.
+func TestDeriveEventPullTime_Percentiles(t *testing.T) {
+	// 10 duration samples: 1,2,3,4,5,6,7,8,9,10 seconds
+	pts := make([]TimedSample, 10)
+	for i := range pts {
+		pts[i] = TimedSample{Timestamp: float64(i), Value: float64(i + 1)}
+	}
+	samples := map[string][]TimedSample{"nginx:1.25": pts}
+
+	tests := []struct {
+		stat dropv1alpha1.EventPullTimeStatistic
+		want float64
+	}{
+		{dropv1alpha1.EventPullTimeStatisticP50, 5.5},
+		{dropv1alpha1.EventPullTimeStatisticP90, 9.1},
+		{dropv1alpha1.EventPullTimeStatisticP95, 9.55},
+		{dropv1alpha1.EventPullTimeStatisticAvg, 5.5},
+		{dropv1alpha1.EventPullTimeStatisticMax, 10},
+		{dropv1alpha1.EventPullTimeStatisticCount, 10},
+	}
+	for _, tt := range tests {
+		cfg := &dropv1alpha1.EventPullTimeSignalConfig{Statistic: tt.stat}
+		got := deriveEventPullTime(samples, cfg)["nginx:1.25"]
+		if absFloat(got-tt.want) > 0.01 {
+			t.Errorf("statistic %s: got %v, want %v", tt.stat, got, tt.want)
+		}
+	}
+}
+
+func absFloat(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
