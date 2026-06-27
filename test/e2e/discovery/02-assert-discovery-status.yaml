@@ -1,11 +1,11 @@
-# Assert that DiscoveryPolicy status contains discovered images and Ready condition.
-# The query 'count(...{namespace="build-stuff"}) by (image)' returns alpine + busybox.
+# Assert that DiscoveryPolicy is reconciled and has the NotImplemented condition.
+# Pipeline execution is not yet implemented; the controller sets NotImplemented condition.
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: e2e-prometheus
 status:
   (conditions[?type == 'Ready']):
-    - status: "True"
-      reason: Synced
-  imageCount: 2
+    - status: "False"
+      reason: NotImplemented
+  queryCount: 1

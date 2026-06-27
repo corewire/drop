@@ -5,36 +5,19 @@ metadata:
   name: discovery-failure
 spec:
   description: |
-    Verify that DiscoveryPolicy with broken sources reports appropriate error
-    reasons: DNSError for unreachable endpoints, NotFound for missing repos.
+    Verify that DiscoveryPolicy with the new query/signal/ranking schema is accepted
+    and the controller sets the NotImplemented condition.
+    DNS error and query failure testing will be re-enabled in Issue 2 (Prometheus execution).
   steps:
-    - name: Create broken Prometheus DiscoveryPolicy (DNS failure)
+    - name: Create DiscoveryPolicy with broken Prometheus endpoint
       try:
         - apply:
             file: 01-broken-prometheus.yaml
-    - name: Create broken Registry DiscoveryPolicy (DNS failure)
-      try:
-        - apply:
-            file: 02-broken-registry.yaml
-    - name: Create DiscoveryPolicy with nonexistent repo (NotFound)
-      try:
-        - apply:
-            file: 03-notfound-registry.yaml
-    - name: Assert broken Prometheus shows DNSError
+    - name: Assert NotImplemented condition is set
       try:
         - assert:
-            timeout: 90s
-            file: 04-assert-dns-prometheus.yaml
-    - name: Assert broken registry shows DNSError
-      try:
-        - assert:
-            timeout: 90s
-            file: 05-assert-dns-registry.yaml
-    - name: Assert notfound repo shows error
-      try:
-        - assert:
-            timeout: 90s
-            file: 06-assert-notfound.yaml
+            timeout: 60s
+            file: 02-assert-notimplemented.yaml
     - name: Cleanup
       try:
         - delete:
@@ -42,13 +25,3 @@ spec:
               apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
               name: test-broken-prom
-        - delete:
-            ref:
-              apiVersion: drop.corewire.io/v1alpha1
-              kind: DiscoveryPolicy
-              name: test-broken-registry
-        - delete:
-            ref:
-              apiVersion: drop.corewire.io/v1alpha1
-              kind: DiscoveryPolicy
-              name: test-notfound-repo

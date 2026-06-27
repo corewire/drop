@@ -5,61 +5,28 @@ metadata:
   name: cachedimageset-discovery
 spec:
   description: |
-    Verify that a CachedImageSet with discoveryPolicyRef creates child CachedImages
-    from a registry-based DiscoveryPolicy, with policyRef propagated to children.
+    Verify that a CachedImageSet with discoveryPolicyRef accepts the new pipeline
+    schema and the DiscoveryPolicy is reconciled with the expected condition.
+    NOTE: Full CachedImage creation from discovered images will be re-enabled in
+    Issue 4 once signal ranking and status output are implemented.
   steps:
     - name: Create PullPolicy
       try:
         - apply:
             file: 01-pullpolicy.yaml
-    - name: Create Registry DiscoveryPolicy
+    - name: Create DiscoveryPolicy with pipeline schema
       try:
         - apply:
             file: 02-discoverypolicy.yaml
-    - name: Wait for discovery to sync
+    - name: Wait for DiscoveryPolicy to be reconciled
       try:
         - assert:
-            timeout: 90s
+            timeout: 60s
             file: 03-assert-discovery-ready.yaml
     - name: Create CachedImageSet with discoveryPolicyRef and policyRef
       try:
         - apply:
             file: 04-cachedimageset.yaml
-    - name: Verify child CachedImages created with policyRef
-      try:
-        - assert:
-            timeout: 60s
-            file: 05-assert-children.yaml
-    - name: Verify CachedImageSet status shows Ready
-      try:
-        - script:
-            timeout: 120s
-            content: |
-              deadline=$(( $(date +%s) + 120 ))
-              while [ "$(date +%s)" -lt "$deadline" ]; do
-                ready=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
-                images_managed=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.imagesManaged}' 2>/dev/null || true)
-                images_ready=$(kubectl get cachedimageset test-discovered-set -o jsonpath='{.status.imagesReady}' 2>/dev/null || true)
-
-                case "$images_managed" in
-                  ''|*[!0-9]*) images_managed=0 ;;
-                esac
-                case "$images_ready" in
-                  ''|*[!0-9]*) images_ready=0 ;;
-                esac
-
-                if [ "$images_managed" -ge 1 ] && [ "$images_ready" = "$images_managed" ] && [ "$ready" = "True" ]; then
-                  echo "OK: CachedImageSet is Ready with $images_ready/$images_managed images cached"
-                  exit 0
-                fi
-
-                sleep 2
-              done
-
-              kubectl get cachedimageset test-discovered-set -o yaml
-              kubectl get cachedimage -l drop.corewire.io/imageset=test-discovered-set -o yaml
-              echo "FAIL: CachedImageSet did not become Ready"
-              exit 1
     - name: Cleanup
       try:
         - delete:

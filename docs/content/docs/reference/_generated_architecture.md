@@ -26,7 +26,6 @@ graph TD
 graph LR
   cmd/main.go --> internal/controller
   internal/controller --> api/v1alpha1
-  internal/controller --> internal/discovery
   internal/controller --> internal/metrics
   internal/controller --> internal/pacing
   internal/controller --> internal/podbuilder

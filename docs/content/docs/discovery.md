@@ -5,10 +5,10 @@ aliases:
   - /drop/docs/discovery/
 description: Automatic image discovery with DiscoveryPolicy.
 llmsDescription: |
-  DiscoveryPolicy CRD enables automatic image discovery from Prometheus metrics
-  or OCI registries. Referenced by CachedImageSet via discoveryPolicyRef.
-  Discovered images are materialized as CachedImage resources. Supports
-  filtering, deduplication, and periodic re-discovery.
+  DiscoveryPolicy CRD enables automatic image discovery using a three-stage pipeline:
+  queries → signals → ranking. Referenced by CachedImageSet via discoveryPolicyRef.
+  Discovered images are materialized as CachedImage resources. Supports filtering,
+  time-weighted scoring, weighted ranking, and periodic re-discovery.
 ---
 
 The DiscoveryPolicy CRD enables automatic image discovery from external sources. When referenced by a CachedImageSet, discovered images are automatically materialized as CachedImage resources.
@@ -22,241 +22,456 @@ Discovery came from operational pain:
 - Hand-maintained image lists became stale and missed newly hot images
 - Node rotation (e.g. Cluster API MachineDeployments rolling new nodes daily or weekly) means fresh nodes start with empty image caches — every rotation triggers a full re-pull of all active images
 
-This last point is especially painful in CI clusters: if your build nodes are managed by Cluster API and regularly replaced (scaling events, OS upgrades, spot instance recycling), every new node must pull the same large build images from scratch. Discovery combined with pre-caching ensures that the most relevant images are warmed immediately after a node joins, eliminating the cold-start penalty from node rotation.
+With DiscoveryPolicy, image candidates are continuously sourced from real usage signals (metrics), ranked by configurable strategies, and consumed by CachedImageSet.
 
-With DiscoveryPolicy, image candidates are continuously sourced from real usage signals (metrics) or registry data, then consumed by CachedImageSet.
-
-## How It Works
+## Pipeline Overview
 
 ```
-DiscoveryPolicy → queries sources → writes to status.discoveredImages
-                                          ↓
+queries → signals → ranking → selected images
+```
+
+The pipeline has three stages:
+
+1. **Queries** fetch raw observations from systems such as Prometheus or Loki.
+2. **Signals** derive named per-image metrics from query results (e.g. `total-usage`, `peak-concurrency`).
+3. **Ranking** combines one or more signals into the final ordered image list.
+
+```
+DiscoveryPolicy → runs pipeline → writes to status.discoveredImages
+                                         ↓
 CachedImageSet → reads discoveredImages → creates/deletes CachedImage children
 ```
 
-1. The DiscoveryPolicy reconciler queries all configured sources at the specified interval
-2. Results are normalized to `{image, score}` pairs, merged, deduplicated, filtered, and sorted by score
-3. Top results (capped by `maxImages`) are written to `status.discoveredImages`
-4. The CachedImageSet reconciler watches DiscoveryPolicy status changes
-5. It diffs the desired images against existing CachedImage children
-6. New CachedImages are created; orphaned ones are deleted via ownerReference GC
+## Stage 1 — Queries
 
-## Prometheus Source
+A query fetches raw observations and is referenced by name from signals.
 
-### Query Contract
+### Prometheus Query
 
-Your Prometheus query **must** return an `image` label. The metric value becomes the ranking score (higher = more important).
-
-In practice this means each result series should look like:
-
-- Labels include `image="<registry>/<repo>:<tag>"` (or equivalent image ref like `registry.example.com/team/app@sha256:...`)
-- Value is numeric and used for ranking
-
-**Example:** Find the 30 most-used images in a namespace:
-
-```promql
-count(container_memory_working_set_bytes{
-  container!="",
-  container!="POD",
-  namespace="build-stuff"
-}) by (image)
+```yaml
+queries:
+  - name: runner-image-usage
+    type: prometheus
+    prometheus:
+      endpoint: https://mimir.example.com
+      queryType: range        # range | instant (default: range)
+      lookback: 168h          # time window for range queries
+      step: 1m                # range resolution (default: 5m)
+      query: |
+        count(
+          container_memory_working_set_bytes{
+            container!="", container!="POD",
+            namespace="gitlab-runner", pod=~"runner-.*"
+          }
+        ) by (image)
 ```
 
-### War Story Example: Top GitLab Runner Images (last 7 days)
+The PromQL result **must** carry an `image` label. That label value is the discovered image reference.
 
-Hand-maintained image lists do not keep up in environments where automation (for example Renovate) ships new image versions every day. A practical pattern is to rank images by observed CI usage over a rolling window.
+### Loki Query
 
-The `queryType` field controls whether Drop sends an instant or range query (default: `range`). When set to `range`, the `lookback` field defines the time window and `aggregationMethod` controls how the returned data points are combined into a single score per image.
+```yaml
+queries:
+  - name: image-pull-events
+    type: loki
+    loki:
+      endpoint: https://loki.example.com
+      queryType: range
+      lookback: 168h
+      query: |
+        {job="kubernetes-events", namespace="gitlab-runner"}
+        | json
+        | involvedObject_name =~ "runner-.*"
+        | reason =~ "Pulling|Pulled|Failed|BackOff"
+      parser:
+        type: kubernetesEvents
+        podField: involvedObject_name
+        reasonField: reason
+        messageField: message
+        imageField: message
+```
 
-#### Query Types
+### Auth / TLS
 
-{{< figure src="/drop/images/query-type-range.svg" alt="Range query: multiple data points over a lookback window" >}}
+Both query types support a `secretRef` for authentication and TLS:
 
-{{< figure src="/drop/images/query-type-instant.svg" alt="Instant query: single point-in-time value used as score" >}}
+```yaml
+queries:
+  - name: runner-image-usage
+    type: prometheus
+    prometheus:
+      endpoint: https://mimir.example.com
+      query: ...
+    secretRef:
+      name: prometheus-creds  # Secret in the drop-system namespace
+```
 
-#### Aggregation Methods
+Supported Secret keys: `token`, `username`, `password`, `ca.crt`, `tls.crt`, `tls.key`, `headers.<name>`.
 
-When using `queryType: range`, the `aggregationMethod` field determines how the returned data points are reduced into a single score:
+## Stage 2 — Signals
 
-{{< figure src="/drop/images/aggregation-methods.svg" alt="Aggregation methods: nil (last value), sum, count, avg, max" >}}
+A signal derives a named per-image value from exactly one query.
 
-| Method | Behavior | Use when |
-|--------|----------|----------|
-| *(not set)* | Uses the last data-point value directly | Your PromQL already aggregates (e.g. `count_over_time`, `topk`) |
-| `sum` | Adds all data-point values over the window | Total cumulative usage matters (e.g. total memory consumed) |
-| `count` | Counts the number of data points returned | You want to rank by how frequently an image appears |
-| `avg` | Arithmetic mean of all data-point values | Average magnitude matters regardless of sample count |
-| `max` | Highest single data-point value | Peak usage is more relevant than cumulative |
+### `aggregate`
+
+Aggregates all samples per image using a single method.
+
+```yaml
+signals:
+  - name: total-usage
+    queryRef: runner-image-usage
+    type: aggregate
+    aggregate:
+      method: sum    # sum | max | avg | count | min
+
+  - name: peak-concurrency
+    queryRef: runner-image-usage
+    type: aggregate
+    aggregate:
+      method: max
+```
+
+### `timeWeightedAggregate`
+
+Multiplies each sample value by a per-hour window weight before aggregation.
+
+```yaml
+signals:
+  - name: developer-weighted-usage
+    queryRef: runner-image-usage
+    type: timeWeightedAggregate
+    timeWeightedAggregate:
+      method: sum
+      timezone: Europe/Berlin
+      defaultWeight: "0"
+      windows:
+        - startHour: 7
+          endHour: 9
+          weight: "300m"    # 0.3 (resource.Quantity format)
+        - startHour: 9
+          endHour: 17
+          weight: "1"       # 1.0 — full weight during core hours
+        - startHour: 17
+          endHour: 20
+          weight: "300m"
+```
+
+### `windowAggregate`
+
+Aggregates only the samples within a specific time sub-window.
+
+```yaml
+signals:
+  # Relative window (last N duration before now)
+  - name: recent-usage
+    queryRef: runner-image-usage
+    type: windowAggregate
+    windowAggregate:
+      method: sum
+      relativeWindow: 2h
+
+  # Wall-clock window (specific hours of day)
+  - name: pre-window-usage
+    queryRef: runner-image-usage
+    type: windowAggregate
+    windowAggregate:
+      method: sum
+      timezone: Europe/Berlin
+      window:
+        start: "00:00"
+        end: "09:00"
+```
+
+### `eventPullTime`
+
+Derives image pull-time statistics from Loki event records.
+
+```yaml
+signals:
+  - name: p50-cold-pull-time
+    queryRef: image-pull-events
+    type: eventPullTime
+    eventPullTime:
+      statistic: p50            # p50 | p90 | p95 | avg | max | count | failureCount | cacheHitCount
+      includeCacheHits: false
+      durationMode: eventPair   # eventPair | messageDuration
+```
+
+## Stage 3 — Ranking
+
+Exactly one ranking strategy per policy.
+
+### `signal`
+
+Ranks images directly by the value of a single signal.
+
+```yaml
+ranking:
+  strategy: signal
+  signal:
+    signalRef: total-usage
+```
+
+### `weightedSum`
+
+Combines normalized signals using a weighted sum.
+
+```yaml
+ranking:
+  strategy: weightedSum
+  weightedSum:
+    normalize: minMax      # only method available
+    missingSignal: zero    # zero | drop
+    terms:
+      - signalRef: total-usage
+        weight: "700m"     # 0.7 in resource.Quantity format
+      - signalRef: peak-concurrency
+        weight: "300m"     # 0.3
+```
+
+Score: `final_score(I) = Σ weight_k * normalize(signal_k(I))`
+
+`minMax` normalization: `normalized(x) = (x - min) / (max - min)` — equals 1 when all values are equal.
+
+### `modelExposure`
+
+Ranks images by expected post-rotation cold-node exposure.
+
+```yaml
+ranking:
+  strategy: modelExposure
+  modelExposure:
+    nodeCount: 100
+    preWindowUsageSignalRef: pre-window-usage
+    targetWindowUsageSignalRef: developer-window-usage
+    pullTimeSignalRef: p50-cold-pull-time
+```
+
+Score: `score(I) = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I)`
+
+## Complete Examples
+
+### Example 1: Total Usage (simplest)
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: popular-build-images
+  name: total-usage
 spec:
   syncInterval: 1h
   maxImages: 30
-  sources:
-    - type: prometheus
+
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         endpoint: https://mimir.example.com
-        queryType: range   # default — use query_range API
-        lookback: 168h   # 7 days
-        step: 5m
-        aggregationMethod: sum   # rank by total usage over 7 days (omit to use last value directly)
+        queryType: range
+        lookback: 168h
+        step: 1m
         query: |
           count(
             container_memory_working_set_bytes{
-              container!="",container!="POD",
-              namespace="gitlab-runner",pod=~"runner-.*"
+              container!="", container!="POD",
+              namespace="gitlab-runner", pod=~"runner-.*"
             }
           ) by (image)
+
+  signals:
+    - name: total-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: total-usage
 ```
 
-Use this when you want DiscoveryPolicy to continuously follow what your GitLab runner jobs really pulled in the last week.
-
-#### Field-by-field explanation
-
-- `queryType: range` — tells Drop to use the Prometheus `query_range` API. This is the default. Set to `instant` for a single point-in-time query.
-- `lookback: 168h` — defines the time window for range queries (start=now-7d, end=now). Required when `queryType` is `range`.
-- `aggregationMethod: sum` — sums all data-point values to rank by total usage. When omitted (nil), the last value is used directly — ideal for self-contained PromQL queries. Other options: `count` to rank by number of appearances, `avg` for average magnitude, or `max` for peak value.
-- `step: 5m` — resolution step for the range query (controls how many data points Prometheus returns).
-- `count(...) by (image)` — counts the number of running containers per image to rank by popularity.
-- `container_memory_working_set_bytes{...}` — source metric used to observe running containers.
-- `container!=""` — ignore empty image labels.
-- `container!="POD"` — ignore sandbox/pause container noise.
-- `namespace="gitlab-runner"` — scope discovery to CI jobs in that namespace.
-- `pod=~"runner-.*"` — further scope to runner pods only.
-
-#### How score is calculated
-
-For each unique `image` label, Drop uses the Prometheus query result value as the score.
-
-When `queryType` is `range` (the default), Drop uses a range query (`/api/v1/query_range`) over the `lookback` window and aggregates data points using the `aggregationMethod`. When `queryType` is `instant`, Drop sends an instant query (`/api/v1/query`) and uses the returned value directly:
-
-- *(not set)*: uses the last data-point value — ideal when your PromQL already contains aggregation functions like `count_over_time` or `topk`
-- `sum`: adds all data-point values — images with higher cumulative usage score higher
-- `count`: counts the number of data points — images that appear more frequently score higher
-- `avg`: averages data-point values — images with higher average value score higher
-- `max`: takes the peak value — images with the highest single observation score higher
-
-The example above uses `queryType: range` with `lookback: 168h` so Drop handles the 7-day windowing via the API — no need to embed `[7d]` in PromQL.
-
-If Prometheus returns:
-
-| image | value returned by query | meaning |
-|---|---:|---|
-| `registry.example.com/ci/build:1.0.3` | 4200 | seen most frequently in the 7-day window |
-| `registry.example.com/ci/test:2.4.1` | 2500 | medium usage |
-| `registry.example.com/ci/lint:1.8.0` | 900 | lower usage |
-
-Drop stores the returned values as `{image, score}` pairs in memory and then applies `spec.maxImages` as the final cap when writing `status.discoveredImages`.
-
-So the flow is:
-
-1. Prometheus query returns per-image counts to Drop.
-2. Drop ranks by score and applies `spec.maxImages` as the final list size.
-
-```
-score
-4200 | build ██████████████████████████
-2500 | test  ████████████████
-900  | lint  ██████
-      (bar length indicates score)
-```
-
-### Production Patterns
-
-- Use `maxImages` to cap churn and focus on the highest-impact images
-- Use `imageFilter` to exclude mirrors or registries you do not want to pre-cache
-- Start with one high-traffic namespace/team first, then expand source scope
-
-### Full Example
+### Example 2: Hybrid Usage + Peak Concurrency
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: popular-build-images
+  name: gitlab-hybrid-usage-concurrency
 spec:
   syncInterval: 1h
   maxImages: 30
-  imageFilter: "^(?!.*ecr\\..*amazonaws\\.com).*$"  # Exclude ECR images
-  sources:
-    - type: prometheus
+
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         endpoint: https://mimir.example.com
-        queryType: instant
+        queryType: range
+        lookback: 168h
+        step: 1m
         query: |
-          count(container_memory_working_set_bytes{
-            container!="", container!="POD",
-            namespace="build-stuff", cluster="mycluster"
-          }) by (image)
-      secretRef:
-        name: prometheus-creds
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: prometheus-creds
-  namespace: drop-system
-type: Opaque
-stringData:
-  username: admin
-  password: my-prometheus-password
+          count(
+            container_memory_working_set_bytes{
+              container!="", container!="POD",
+              namespace="gitlab-runner", pod=~"runner-.*"
+            }
+          ) by (image)
+
+  signals:
+    - name: total-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+
+    - name: peak-concurrency
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: max
+
+  ranking:
+    strategy: weightedSum
+    weightedSum:
+      normalize: minMax
+      missingSignal: zero
+      terms:
+        - signalRef: total-usage
+          weight: "700m"
+        - signalRef: peak-concurrency
+          weight: "300m"
 ```
 
-## Registry Source
-
-### Use Case: GitLab Runner Helper Images
-
-The registry source uses OCI Distribution API tag listing. Combined with `imageTemplate`, it handles complex tag patterns like GitLab Runner helpers:
+### Example 3: Developer-Time Weighted Usage
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: gitlab-helpers
+  name: gitlab-developer-and-burst
 spec:
-  syncInterval: 6h
-  maxImages: 10
-  sources:
-    - type: registry
-      registry:
-        url: https://registry.gitlab.com
-        repositories:
-          - gitlab-org/gitlab-runner/gitlab-runner-helper
-        tagFilter: "^v\\d+\\.\\d+\\.\\d+$"
-        topX: 5
-        imageTemplate: "registry.gitlab.com/{{ .Repository }}:x86_64-{{ .Tag }}"
+  syncInterval: 1h
+  maxImages: 30
+
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: |
+          count(
+            container_memory_working_set_bytes{
+              container!="", container!="POD",
+              namespace="gitlab-runner", pod=~"runner-.*"
+            }
+          ) by (image)
+
+  signals:
+    - name: developer-weighted-usage
+      queryRef: runner-image-usage
+      type: timeWeightedAggregate
+      timeWeightedAggregate:
+        method: sum
+        timezone: Europe/Berlin
+        defaultWeight: "0"
+        windows:
+          - startHour: 7
+            endHour: 9
+            weight: "300m"
+          - startHour: 9
+            endHour: 17
+            weight: "1"
+          - startHour: 17
+            endHour: 20
+            weight: "300m"
+
+    - name: peak-concurrency
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: max
+
+  ranking:
+    strategy: weightedSum
+    weightedSum:
+      normalize: minMax
+      missingSignal: zero
+      terms:
+        - signalRef: developer-weighted-usage
+          weight: "700m"
+        - signalRef: peak-concurrency
+          weight: "300m"
 ```
 
-This replaces the legacy bash script that curled the GitLab API and constructed image refs manually.
+## Status and Observability
 
-### Additional Example: Stable App Tags from Private Registry
+The controller exposes per-query, per-signal, and per-image ranking detail in status:
 
 ```yaml
-apiVersion: drop.corewire.io/v1alpha1
-kind: DiscoveryPolicy
-metadata:
-  name: platform-apps
-spec:
-  syncInterval: 2h
-  maxImages: 20
-  imageFilter: "^registry\\.example\\.com/platform/.*$"
-  sources:
-    - type: registry
-      registry:
-        url: https://registry.example.com
-        repositories:
-          - platform/api
-          - platform/web
-        tagFilter: "^v\\d+\\.\\d+\\.\\d+$"
-        topX: 10
+status:
+  lastSyncTime: "2026-06-18T10:00:00Z"
+
+  queryResults:
+    - name: runner-image-usage
+      type: prometheus
+      series: 30
+      samples: 60480
+      status: success
+
+  signalResults:
+    - name: total-usage
+      images: 30
+      status: success
+    - name: peak-concurrency
+      images: 30
+      status: success
+
+  discoveredImages:
+    - image: registry.example.com/ci/java-gradle:21
+      rank: 1
+      finalScore: "0.8768"
+      selected: true
+      signals:
+        - name: total-usage
+          rawValue: "8210"
+          normalizedValue: "0.824"
+        - name: peak-concurrency
+          rawValue: "96"
+          normalizedValue: "1.0"
+      ranking:
+        strategy: weightedSum
+        terms:
+          - signal: total-usage
+            weight: "0.7"
+            contribution: "0.5768"
+          - signal: peak-concurrency
+            weight: "0.3"
+            contribution: "0.3"
 ```
+
+> **Note:** Pipeline execution is not yet implemented. The controller currently sets
+> `Ready=False, reason=NotImplemented` and will populate status once execution is
+> available in a future release (Issues 2–10 in the implementation sequence).
+
+## Discovery Strategies Reference
+
+| # | Strategy | Score formula | Signals needed |
+|---|----------|---------------|----------------|
+| 1 | Total usage | `Σ count_I(t)` over W | `total-usage` |
+| 2 | Peak same-image concurrency | `max count_I(t)` over W | `peak-concurrency` |
+| 3 | Developer-time weighted usage | `Σ weight(t)·count_I(t)` | `developer-weighted-usage` |
+| 4 | Recent usage | `Σ count_I(t)` over recent window | `recent-usage` |
+| 5 | Hybrid usage + peak | `α·norm(total) + (1-α)·norm(peak)` | `total-usage`, `peak-concurrency` |
+| 6 | Hybrid dev-time + peak | `α·norm(dev) + (1-α)·norm(peak)` | `developer-weighted-usage`, `peak-concurrency` |
+| 7 | Count × pull time | `total_usage(I) · p_hat(I)` | `total-usage`, `p50-cold-pull-time` |
+| 9 | Model-aware exposure | `J_target · (1-1/N)^J_pre · p_hat` | `pre-window-usage`, `target-window-usage`, `p50-cold-pull-time` |
 
 ## Error Handling
 
 - On transient failures, the operator keeps the **last known good** discovery results
 - Source health is tracked via conditions on the DiscoveryPolicy status
-- Each source is queried independently — one failing source doesn't block others
+- Each query is executed independently — one failing query does not block others

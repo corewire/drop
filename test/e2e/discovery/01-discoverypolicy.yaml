@@ -3,12 +3,24 @@ kind: DiscoveryPolicy
 metadata:
   name: e2e-prometheus
 spec:
-  sources:
-    - type: prometheus
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
-        query: 'count(container_memory_working_set_bytes{container!="", namespace="build-stuff"}) by (image)'
+        queryType: range
         lookback: 24h
         step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", namespace="build-stuff"}) by (image)'
+  signals:
+    - name: total-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: total-usage
   syncInterval: 30s
   maxImages: 10

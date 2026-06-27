@@ -68,82 +68,96 @@ spec:
   policyRef:
     name: dev-conservative
   discoveryPolicyRef:
-    name: dev-registry
+    name: dev-prometheus
 ---
-# === DiscoveryPolicy: healthy (Prometheus range query) ===
+# === DiscoveryPolicy: Prometheus range query with total-usage signal ===
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: dev-prometheus
 spec:
-  sources:
-    - type: prometheus
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
-        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
         queryType: range
         lookback: 24h
         step: 5m
-        aggregationMethod: sum
+        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
+  signals:
+    - name: total-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: total-usage
   syncInterval: 30s
   maxImages: 10
 ---
-# === DiscoveryPolicy: healthy (registry tag listing) ===
+# === DiscoveryPolicy: Prometheus with hybrid weightedSum ranking ===
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: dev-registry
+  name: dev-hybrid
 spec:
-  sources:
-    - type: registry
-      registry:
-        url: "http://registry.e2e-infra.svc.cluster.local:5000"
-        repositories:
-          - "test/myapp"
-        topX: 3
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 24h
+        step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
+  signals:
+    - name: total-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+    - name: peak-concurrency
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: max
+  ranking:
+    strategy: weightedSum
+    weightedSum:
+      normalize: minMax
+      missingSignal: zero
+      terms:
+        - signalRef: total-usage
+          weight: "700m"
+        - signalRef: peak-concurrency
+          weight: "300m"
   syncInterval: 30s
   maxImages: 10
 ---
-# === DiscoveryPolicy: broken (DNS error → DNSError) ===
+# === DiscoveryPolicy: broken Prometheus endpoint (DNS error) ===
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
   name: test-broken-prom
 spec:
-  sources:
-    - type: prometheus
+  queries:
+    - name: broken-query
+      type: prometheus
       prometheus:
         endpoint: "http://nonexistent-prometheus:9090"
         query: "up{}"
-  syncInterval: 30m
-  maxImages: 10
----
-# === DiscoveryPolicy: broken (DNS error → DNSError) ===
-apiVersion: drop.corewire.io/v1alpha1
-kind: DiscoveryPolicy
-metadata:
-  name: test-broken-registry
-spec:
-  sources:
-    - type: registry
-      registry:
-        url: "http://nonexistent-registry:5000"
-        repositories:
-          - "test/nope"
-  syncInterval: 30m
-  maxImages: 10
----
-# === DiscoveryPolicy: broken (repo doesn't exist → NotFound) ===
-apiVersion: drop.corewire.io/v1alpha1
-kind: DiscoveryPolicy
-metadata:
-  name: test-notfound-repo
-spec:
-  sources:
-    - type: registry
-      registry:
-        url: "http://registry.e2e-infra.svc.cluster.local:5000"
-        repositories:
-          - "this/does-not-exist"
+  signals:
+    - name: total-usage
+      queryRef: broken-query
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: total-usage
   syncInterval: 30m
   maxImages: 10

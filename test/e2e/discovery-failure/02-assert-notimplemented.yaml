@@ -1,0 +1,10 @@
+# Assert that DiscoveryPolicy with the new pipeline schema gets NotImplemented condition.
+# Pipeline execution is not yet implemented; DNS error testing will be re-enabled in Issue 2.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-broken-prom
+status:
+  (conditions[?type == 'Ready']):
+    - status: "False"
+      reason: NotImplemented

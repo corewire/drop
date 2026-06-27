@@ -2,37 +2,23 @@
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
-  name: discovery-prometheus
+  name: discovery
 spec:
   description: |
-    Verify that a DiscoveryPolicy with a Prometheus source discovers images
-    from seeded metrics, and a CachedImageSet referencing it creates child CachedImages.
+    Verify that a DiscoveryPolicy with the new query/signal/ranking schema is accepted
+    and the controller sets a NotImplemented condition until pipeline execution is implemented.
   steps:
-    - name: Create DiscoveryPolicy with Prometheus source
+    - name: Create DiscoveryPolicy with query/signal/ranking pipeline
       try:
         - apply:
             file: 01-discoverypolicy.yaml
-    - name: Wait for discovered images in status
-      try:
-        - assert:
-            timeout: 90s
-            file: 02-assert-discovery-status.yaml
-    - name: Create CachedImageSet referencing the DiscoveryPolicy
-      try:
-        - apply:
-            file: 03-cachedimageset-discovery.yaml
-    - name: Verify child CachedImages are created from discovered images
+    - name: Assert NotImplemented condition is set
       try:
         - assert:
             timeout: 60s
-            file: 04-assert-children.yaml
+            file: 02-assert-discovery-status.yaml
     - name: Cleanup
       try:
-        - delete:
-            ref:
-              apiVersion: drop.corewire.io/v1alpha1
-              kind: CachedImageSet
-              name: discovered-set
         - delete:
             ref:
               apiVersion: drop.corewire.io/v1alpha1

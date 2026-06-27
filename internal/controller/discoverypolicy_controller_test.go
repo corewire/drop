@@ -40,10 +40,11 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 						Name: resourceName,
 					},
 					Spec: dropv1alpha1.DiscoveryPolicySpec{
-						Sources: []dropv1alpha1.DiscoverySource{
+						Queries: []dropv1alpha1.DiscoveryQuery{
 							{
-								Type: "prometheus",
-								Prometheus: &dropv1alpha1.PrometheusSource{
+								Name: "test-query",
+								Type: dropv1alpha1.DiscoveryQueryTypePrometheus,
+								Prometheus: &dropv1alpha1.DiscoveryPrometheusQuery{
 									Endpoint: "http://localhost:9090",
 									Query:    "test_query",
 								},
@@ -74,9 +75,19 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
 			})
-			// Discovery will fail to connect to prometheus, but should not panic
-			// The reconciler handles errors gracefully
-			_ = err
+			// The stub reconciler sets a NotImplemented condition and does not return an error.
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify the NotImplemented condition is set in status.
+			updated := &dropv1alpha1.DiscoveryPolicy{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, updated)).To(Succeed())
+			var readyReason string
+			for _, c := range updated.Status.Conditions {
+				if c.Type == "Ready" {
+					readyReason = c.Reason
+				}
+			}
+			Expect(readyReason).To(Equal("NotImplemented"))
 		})
 
 		It("uses the configured secret namespace for discovery source credentials", func() {
