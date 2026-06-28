@@ -30,6 +30,8 @@ With DiscoveryPolicy, image candidates are continuously sourced from real usage 
 queries → signals → ranking → selected images
 ```
 
+![DiscoveryPolicy pipeline: queries feed signals, signals feed a single ranking strategy, the ranked list is written to status.discoveredImages and consumed by CachedImageSet to create CachedImage resources that nodes pull.](/images/discovery-pipeline.svg)
+
 The pipeline has three stages:
 
 1. **Queries** fetch raw observations from systems such as Prometheus or Loki.
@@ -201,6 +203,8 @@ signals:
 
 Exactly one ranking strategy per policy.
 
+![The three ranking strategies side by side: signal orders by a single signal, weightedSum blends normalized signals, and modelExposure models post-rotation cold-node exposure.](/images/ranking-strategies.svg)
+
 ### `signal`
 
 Ranks images directly by the value of a single signal.
@@ -233,6 +237,14 @@ Score: `final_score(I) = Σ weight_k * normalize(signal_k(I))`
 
 `minMax` normalization: `normalized(x) = (x - min) / (max - min)` — equals 1 when all values are equal.
 
+$$
+\mathrm{final\_score}(I) = \sum_k w_k \cdot \mathrm{normalize}(s_k(I))
+$$
+
+$$
+\mathrm{minMax}(x) = \frac{x - x_{\min}}{x_{\max} - x_{\min}}
+$$
+
 ### `modelExposure`
 
 Ranks images by expected post-rotation cold-node exposure.
@@ -248,6 +260,10 @@ ranking:
 ```
 
 Score: `score(I) = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I)`
+
+$$
+\mathrm{score}(I) = J_{\mathrm{target}}(I) \cdot \left(1 - \frac{1}{N}\right)^{J_{\mathrm{pre}}(I)} \cdot \hat{p}(I)
+$$
 
 ## Complete Examples
 
@@ -409,53 +425,40 @@ spec:
 
 ## Status and Observability
 
-The controller exposes per-query, per-signal, and per-image ranking detail in status:
+Status records query execution outcomes and the final ordered image list used by
+`CachedImageSet`.
 
 ```yaml
 status:
   lastSyncTime: "2026-06-18T10:00:00Z"
+  imageCount: 2
+
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Synced
+      message: "Discovered 2 images."
 
   queryResults:
     - name: runner-image-usage
       type: prometheus
-      series: 30
-      samples: 60480
-      status: success
-
-  signalResults:
-    - name: total-usage
-      images: 30
-      status: success
-    - name: peak-concurrency
-      images: 30
-      status: success
+      status: success         # success | failed (message set on failure)
 
   discoveredImages:
     - image: registry.example.com/ci/java-gradle:21
       rank: 1
       finalScore: "0.8768"
-      selected: true
-      signals:
-        - name: total-usage
-          rawValue: "8210"
-          normalizedValue: "0.824"
-        - name: peak-concurrency
-          rawValue: "96"
-          normalizedValue: "1.0"
-      ranking:
-        strategy: weightedSum
-        terms:
-          - signal: total-usage
-            weight: "0.7"
-            contribution: "0.5768"
-          - signal: peak-concurrency
-            weight: "0.3"
-            contribution: "0.3"
+    - image: registry.example.com/ci/node:20
+      rank: 2
+      finalScore: "0.5210"
 ```
 
-> **Note:** Pipeline execution is not yet implemented. The controller currently sets
-> `Ready=False, reason=NotImplemented` and will populate status once execution is
-> available in a future release (Issues 2–10 in the implementation sequence).
+| Field | Meaning |
+|-------|---------|
+| `conditions[Ready]` | `reason=Synced` once the pipeline runs successfully; `message` summarizes the result |
+| `imageCount` | Number of discovered images (also a print column) |
+| `queryResults[]` | Per-query `name` · `type` · `status` · `message` (on failure) |
+| `discoveredImages[]` | Ordered result: `image` · `rank` (1 = highest) · `finalScore` |
 
 ## Discovery Strategies Reference
 

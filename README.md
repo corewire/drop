@@ -115,18 +115,19 @@ spec:
   maxImages: 20
   # Only keep images from your internal registry (regex filter, optional)
   imageFilter: "registry.example.com/.*"
-  sources:
-    - type: prometheus
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         # Any Prometheus-compatible API (Prometheus, Thanos, Mimir, VictoriaMetrics)
         endpoint: https://mimir.example.com
         # Aggregate over the last 7 days using query_range; counts container
         # instances per image across the window to produce a usage score
+        queryType: range
         lookback: 168h
         # Resolution step for range queries (default: 5m)
         step: 5m
         # PromQL query — MUST return results with an "image" label.
-        # The result value becomes the ranking score (higher = cached first).
         query: |
           count(
             container_memory_working_set_bytes{
@@ -138,6 +139,16 @@ spec:
       # Supported keys: token, username, password, ca.crt, tls.crt, tls.key
       secretRef:
         name: prometheus-creds
+  signals:
+    - name: total-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: total-usage
 ---
 # --- 3. CachedImageSet: ties discovery + policy together, targets nodes ---
 apiVersion: drop.corewire.io/v1alpha1
@@ -304,18 +315,19 @@ spec:
   maxImages: 30
   # Only keep images matching this regex (optional)
   imageFilter: "registry.example.com/.*"
-  sources:
-    - type: prometheus
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         # Any Prometheus-compatible API (Prometheus, Thanos, Mimir, VictoriaMetrics)
         endpoint: https://mimir.example.com
         # Aggregate over the last 7 days (uses query_range, sums values per image)
         # Omit for a point-in-time instant query instead
+        queryType: range
         lookback: 168h
         # Resolution step for range queries (default: 5m)
         step: 5m
         # PromQL query — MUST return results with an "image" label.
-        # The result value becomes the ranking score (higher = cached first).
         query: |
           count(
             container_memory_working_set_bytes{
@@ -327,6 +339,16 @@ spec:
       # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
         name: prometheus-creds
+  signals:
+    - name: total-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: total-usage
 ---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
@@ -362,8 +384,9 @@ metadata:
 spec:
   syncInterval: 15m
   maxImages: 10
-  sources:
-    - type: registry
+  queries:
+    - name: registry-tags
+      type: registry
       registry:
         # Registry base URL
         url: https://registry.example.com
@@ -380,6 +403,16 @@ spec:
       # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
         name: registry-api-creds
+  signals:
+    - name: recent-tag-count
+      queryRef: registry-tags
+      type: aggregate
+      aggregate:
+        method: count
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: recent-tag-count
 ---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
@@ -442,16 +475,16 @@ dev-set    AllReady    3/3     3         dev-registry   1h
 web-apps   Degraded    1/3     3                        10m
 
 $ kubectl get discoverypolicies
-NAME             STATUS              SOURCES   IMAGES   LASTSYNC   AGE
-dev-registry     Synced              1         3        30s        1h
-broken-prom      ConnectionRefused   1         0                   5m
-bad-auth         Unauthorized        1         0                   2m
+NAME             STATUS              IMAGES   LASTSYNC   AGE
+dev-registry     Synced              3        30s        1h
+broken-prom      ConnectionRefused   0                   5m
+bad-auth         Unauthorized        0                   2m
 ```
 
 ## Development
 
 ```bash
-# Prerequisites: Go 1.23+, Kind, Tilt, Helm
+# Prerequisites: Go 1.26+, Kind, Tilt, Helm
 make generate      # deepcopy
 make manifests     # CRDs + RBAC
 go build ./...     # compile
