@@ -24,4 +24,4 @@ spec:
             ref:
               apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
-              name: e2e-loki
+              name: e2e-discovery-loki

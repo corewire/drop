@@ -31,14 +31,14 @@ spec:
             ref:
               apiVersion: drop.corewire.io/v1alpha1
               kind: CachedImageSet
-              name: test-discovered-set
+              name: test-cachedimageset-discovered-set
         - delete:
             ref:
               apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
-              name: test-registry-discovery
+              name: test-cachedimageset-prometheus-discovery
         - delete:
             ref:
               apiVersion: drop.corewire.io/v1alpha1
               kind: PullPolicy
-              name: test-set-policy
+              name: test-cachedimageset-set-policy

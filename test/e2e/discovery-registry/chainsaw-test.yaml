@@ -23,4 +23,4 @@ spec:
             ref:
               apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
-              name: e2e-registry
+              name: e2e-discovery-registry

@@ -5,10 +5,9 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: e2e-registry
+  name: e2e-discovery-registry
 status:
   (conditions[?type == 'Ready']):
     - status: "True"
       reason: Synced
-  (queryCount == `1`): true
   (imageCount > `0`): true

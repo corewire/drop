@@ -1,7 +1,7 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: e2e-prometheus
+  name: e2e-discovery-prometheus
 spec:
   queries:
     - name: runner-image-usage

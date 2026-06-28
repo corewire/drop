@@ -32,9 +32,9 @@ spec:
             ref:
               apiVersion: drop.corewire.io/v1alpha1
               kind: CachedImageSet
-              name: discovered-set
+              name: e2e-discovery-set
         - delete:
             ref:
               apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
-              name: e2e-prometheus
+              name: e2e-discovery-prometheus

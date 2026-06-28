@@ -1,7 +1,7 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: test-registry-discovery
+  name: test-cachedimageset-prometheus-discovery
 spec:
   queries:
     - name: runner-image-usage

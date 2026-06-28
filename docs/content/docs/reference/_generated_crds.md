@@ -119,10 +119,8 @@ DiscoveryPolicy automatically discovers images from registries or Prometheus met
 |-------|------|-------------|
 | `lastSyncTime` | `*metav1.Time` | LastSyncTime is the timestamp of the last reconciliation attempt. |
 | `queryResults` | `[]QueryResult` | QueryResults reports the outcome of each named query execution. |
-| `signalResults` | `[]SignalResult` | SignalResults reports the outcome of each signal derivation. |
-| `discoveredImages` | `[]DiscoveredImage` | DiscoveredImages is the ordered list of discovered and ranked images. Only images with selected=true are propagated to dependent CachedImageSet resources. |
-| `imageCount` | `int32` | ImageCount is the number of selected discovered images. |
-| `queryCount` | `int32` | QueryCount is the number of configured queries. |
+| `discoveredImages` | `[]DiscoveredImage` | DiscoveredImages is the ordered list of discovered and ranked images. |
+| `imageCount` | `int32` | ImageCount is the number of discovered images. |
 | `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. |
 
 ---
@@ -173,9 +171,6 @@ DiscoveredImage represents a single discovered and ranked image.
 | `image` | `string` | Yes | — | Image is the fully qualified image reference. |
 | `rank` | `int32` | Yes | — | Rank is the position of this image in the final ordered list (1 = highest score). |
 | `finalScore` | `string` | Yes | — | FinalScore is the computed ranking score as a decimal string. |
-| `selected` | `bool` | Yes | — | Selected is true when this image is within the maxImages cap and will be propagated to dependent CachedImageSet resources. |
-| `signals` | `[]ImageSignalValue` | No | — | Signals lists the per-signal values used during ranking (for observability). |
-| `ranking` | `*ImageRankingDetail` | No | — | Ranking explains how the final score was computed. |
 
 ### DiscoveryLokiQuery
 
@@ -216,9 +211,10 @@ DiscoveryQuery defines a named raw-data source referenced by signals.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `name` | `string` | Yes | — | Name is the unique identifier for this query within the policy. Signals reference queries by this name via queryRef. |
-| `type` | `DiscoveryQueryType` | Yes | — | Type selects the backend. Must be "prometheus" or "loki". |
+| `type` | `DiscoveryQueryType` | Yes | — | Type selects the backend. Must be "prometheus", "loki", or "registry". |
 | `prometheus` | `*DiscoveryPrometheusQuery` | No | — | Prometheus contains the configuration when type=prometheus. |
 | `loki` | `*DiscoveryLokiQuery` | No | — | Loki contains the configuration when type=loki. |
+| `registry` | `*DiscoveryRegistryQuery` | No | — | Registry contains the configuration when type=registry. |
 | `secretRef` | `*corev1.LocalObjectReference` | No | — | SecretRef references a Secret in the pod namespace (default "drop-system") for auth/TLS. Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>. |
 
 ### DiscoveryRanking
@@ -231,6 +227,18 @@ DiscoveryRanking defines how signals are combined into the final ordered image l
 | `signal` | `*SignalRankingConfig` | No | — | Signal is required when strategy=signal. |
 | `weightedSum` | `*WeightedSumRankingConfig` | No | — | WeightedSum is required when strategy=weightedSum. |
 | `modelExposure` | `*ModelExposureRankingConfig` | No | — | ModelExposure is required when strategy=modelExposure. |
+
+### DiscoveryRegistryQuery
+
+DiscoveryRegistryQuery defines OCI registry tag listing configuration for image discovery.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `url` | `string` | Yes | — | URL is the registry base URL (without repository path). Example: "https://registry.example.com", "https://ghcr.io" |
+| `repositories` | `[]string` | Yes | — | Repositories is the list of repository paths to list tags from. Example: ["team/app", "team/worker", "infra/tools"] |
+| `tagFilter` | `string` | No | — | TagFilter is a regex applied to tag names. Only matching tags are discovered. Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds) |
+| `topX` | `int32` | No | — | TopX limits the number of tags kept per repository after tagFilter is applied. The registry API does not guarantee ordering; Drop keeps the last N tags returned by the registry. Example: 3 (keep the last 3 matching tags returned per repo) |
+| `imageTemplate` | `string` | No | — | ImageTemplate is a Go text/template for constructing the full image reference from discovered tags. Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}} Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}" Example: "registry.example.com/{{.Repository}}:{{.Tag}}" |
 
 ### DiscoverySignal
 
@@ -265,25 +273,6 @@ ImageEntry defines a single image to include in a set.
 | `image` | `string` | Yes | — | Image is the fully qualified image reference without tag or digest. Example: "docker.io/library/nginx", "registry.example.com/team/app" |
 | `tag` | `string` | No | — | Tag to pull. Mutually exclusive with Digest. Example: "1.25-alpine", "v2.4.1" |
 | `digest` | `string` | No | — | Digest to pull as an immutable reference. Mutually exclusive with Tag. Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" |
-
-### ImageRankingDetail
-
-ImageRankingDetail explains how the final score was computed for one image.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `strategy` | `string` | Yes | — | Strategy is the ranking strategy that produced this detail. |
-| `terms` | `[]RankingTerm` | No | — | Terms lists the per-signal contributions (populated for weightedSum and modelExposure). |
-
-### ImageSignalValue
-
-ImageSignalValue records the raw and normalized value of a signal for one image.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | `string` | Yes | — | Name is the signal name. |
-| `rawValue` | `string` | Yes | — | RawValue is the unscaled signal value as a decimal string. |
-| `normalizedValue` | `string` | No | — | NormalizedValue is the normalized value (after minMax or other normalization) as a decimal string. Only populated for signals used in a weightedSum ranking. |
 
 ### LokiParser
 
@@ -323,22 +312,9 @@ QueryResult reports the outcome of a single named query execution.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `name` | `string` | Yes | — | Name matches the queries[].name that produced this result. |
-| `type` | `DiscoveryQueryType` | Yes | — | Type is the query backend type (prometheus or loki). |
-| `series` | `*int32` | No | — | Series is the number of time-series returned (Prometheus queries only). |
-| `samples` | `*int64` | No | — | Samples is the total number of data points across all series (Prometheus range queries only). |
-| `records` | `*int64` | No | — | Records is the number of log records returned (Loki queries only). |
+| `type` | `DiscoveryQueryType` | Yes | — | Type is the query backend type (prometheus, loki, or registry). |
 | `status` | `QueryResultStatus` | Yes | — | Status is "success" or "failed". |
 | `message` | `string` | No | — | Message describes the failure reason when status=failed. |
-
-### RankingTerm
-
-RankingTerm records the contribution of one signal to the final score of an image.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `signal` | `string` | Yes | — | Signal is the signal name. |
-| `weight` | `string` | Yes | — | Weight is the configured weight as a decimal string. |
-| `contribution` | `string` | Yes | — | Contribution is weight * normalizedValue as a decimal string. |
 
 ### SignalRankingConfig
 
@@ -347,17 +323,6 @@ SignalRankingConfig configures the signal ranking strategy.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `signalRef` | `string` | Yes | — | SignalRef is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy. |
-
-### SignalResult
-
-SignalResult reports the outcome of a single signal derivation.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | `string` | Yes | — | Name matches the signals[].name that produced this result. |
-| `images` | `int32` | Yes | — | Images is the number of images for which this signal produced a value. |
-| `status` | `string` | Yes | — | Status is "success" or "failed". |
-| `message` | `string` | No | — | Message describes the failure reason when status=failed. |
 
 ### TimeOfDayWindow
 

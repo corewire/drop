@@ -3,7 +3,6 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: test-registry-discovery
+  name: test-cachedimageset-prometheus-discovery
 status:
   (conditions[?type == 'Ready'] | length(@) > `0`): true
-  (queryCount == `1`): true

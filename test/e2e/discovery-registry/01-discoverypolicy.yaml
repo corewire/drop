@@ -1,7 +1,7 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: e2e-registry
+  name: e2e-discovery-registry
 spec:
   queries:
     - name: registry-tags

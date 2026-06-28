@@ -1,10 +1,10 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: e2e-loki
+  name: e2e-discovery-loki
 spec:
   queries:
-    - name: image-pull-events
+    - name: discovery-loki-image-pull-events
       type: loki
       loki:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
@@ -16,7 +16,7 @@ spec:
   signals:
     # Median cold-pull time derived from the "Successfully pulled ... in Xs" messages.
     - name: p50-cold-pull-time
-      queryRef: image-pull-events
+      queryRef: discovery-loki-image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: p50
@@ -24,7 +24,7 @@ spec:
         includeCacheHits: false
     # Number of pull failures per image.
     - name: pull-failures
-      queryRef: image-pull-events
+      queryRef: discovery-loki-image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: failureCount

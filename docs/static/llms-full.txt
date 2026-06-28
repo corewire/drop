@@ -96,10 +96,8 @@ Controller: internal/controller/discoverypolicy_controller.go | Test: internal/c
 |-------|------|------|-------------|
 | LastSyncTime | `lastSyncTime` | `*metav1.Time` | LastSyncTime is the timestamp of the last reconciliation attempt. |
 | QueryResults | `queryResults` | `[]QueryResult` | QueryResults reports the outcome of each named query execution. |
-| SignalResults | `signalResults` | `[]SignalResult` | SignalResults reports the outcome of each signal derivation. |
-| DiscoveredImages | `discoveredImages` | `[]DiscoveredImage` | DiscoveredImages is the ordered list of discovered and ranked images. Only images with selected=true are propagated to dependent CachedImageSet resources. |
-| ImageCount | `imageCount` | `int32` | ImageCount is the number of selected discovered images. |
-| QueryCount | `queryCount` | `int32` | QueryCount is the number of configured queries. |
+| DiscoveredImages | `discoveredImages` | `[]DiscoveredImage` | DiscoveredImages is the ordered list of discovered and ranked images. |
+| ImageCount | `imageCount` | `int32` | ImageCount is the number of discovered images. |
 | Conditions | `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. |
 
 
@@ -147,9 +145,6 @@ DiscoveredImage represents a single discovered and ranked image.
 | Image | `image` | `string` | ✓ |  | Image is the fully qualified image reference. |
 | Rank | `rank` | `int32` | ✓ |  | Rank is the position of this image in the final ordered list (1 = highest score). |
 | FinalScore | `finalScore` | `string` | ✓ |  | FinalScore is the computed ranking score as a decimal string. |
-| Selected | `selected` | `bool` | ✓ |  | Selected is true when this image is within the maxImages cap and will be propagated to dependent CachedImageSet resources. |
-| Signals | `signals` | `[]ImageSignalValue` | — |  | Signals lists the per-signal values used during ranking (for observability). |
-| Ranking | `ranking` | `*ImageRankingDetail` | — |  | Ranking explains how the final score was computed. |
 
 ### DiscoveryLokiQuery
 
@@ -190,9 +185,10 @@ DiscoveryQuery defines a named raw-data source referenced by signals.
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
 | Name | `name` | `string` | ✓ |  | Name is the unique identifier for this query within the policy. Signals reference queries by this name via queryRef. |
-| Type | `type` | `DiscoveryQueryType` | ✓ |  | Type selects the backend. Must be "prometheus" or "loki". Enum: `prometheus`,`loki` |
+| Type | `type` | `DiscoveryQueryType` | ✓ |  | Type selects the backend. Must be "prometheus", "loki", or "registry". Enum: `prometheus`,`loki`,`registry` |
 | Prometheus | `prometheus` | `*DiscoveryPrometheusQuery` | — |  | Prometheus contains the configuration when type=prometheus. |
 | Loki | `loki` | `*DiscoveryLokiQuery` | — |  | Loki contains the configuration when type=loki. |
+| Registry | `registry` | `*DiscoveryRegistryQuery` | — |  | Registry contains the configuration when type=registry. |
 | SecretRef | `secretRef` | `*corev1.LocalObjectReference` | — |  | SecretRef references a Secret in the pod namespace (default "drop-system") for auth/TLS. Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>. |
 
 ### DiscoveryRanking
@@ -205,6 +201,18 @@ DiscoveryRanking defines how signals are combined into the final ordered image l
 | Signal | `signal` | `*SignalRankingConfig` | — |  | Signal is required when strategy=signal. |
 | WeightedSum | `weightedSum` | `*WeightedSumRankingConfig` | — |  | WeightedSum is required when strategy=weightedSum. |
 | ModelExposure | `modelExposure` | `*ModelExposureRankingConfig` | — |  | ModelExposure is required when strategy=modelExposure. |
+
+### DiscoveryRegistryQuery
+
+DiscoveryRegistryQuery defines OCI registry tag listing configuration for image discovery.
+
+| Field | JSON | Type | Required | Default | Description |
+|-------|------|------|----------|---------|-------------|
+| URL | `url` | `string` | ✓ |  | URL is the registry base URL (without repository path). Example: "https://registry.example.com", "https://ghcr.io" |
+| Repositories | `repositories` | `[]string` | ✓ |  | Repositories is the list of repository paths to list tags from. Example: ["team/app", "team/worker", "infra/tools"] |
+| TagFilter | `tagFilter` | `string` | — |  | TagFilter is a regex applied to tag names. Only matching tags are discovered. Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds) |
+| TopX | `topX` | `int32` | — |  | TopX limits the number of tags kept per repository after tagFilter is applied. The registry API does not guarantee ordering; Drop keeps the last N tags returned by the registry. Example: 3 (keep the last 3 matching tags returned per repo) |
+| ImageTemplate | `imageTemplate` | `string` | — |  | ImageTemplate is a Go text/template for constructing the full image reference from discovered tags. Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}} Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}" Example: "registry.example.com/{{.Repository}}:{{.Tag}}" |
 
 ### DiscoverySignal
 
@@ -239,25 +247,6 @@ ImageEntry defines a single image to include in a set.
 | Image | `image` | `string` | ✓ |  | Image is the fully qualified image reference without tag or digest. Example: "docker.io/library/nginx", "registry.example.com/team/app" |
 | Tag | `tag` | `string` | — |  | Tag to pull. Mutually exclusive with Digest. Example: "1.25-alpine", "v2.4.1" |
 | Digest | `digest` | `string` | — |  | Digest to pull as an immutable reference. Mutually exclusive with Tag. Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" |
-
-### ImageRankingDetail
-
-ImageRankingDetail explains how the final score was computed for one image.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| Strategy | `strategy` | `string` | ✓ |  | Strategy is the ranking strategy that produced this detail. |
-| Terms | `terms` | `[]RankingTerm` | — |  | Terms lists the per-signal contributions (populated for weightedSum and modelExposure). |
-
-### ImageSignalValue
-
-ImageSignalValue records the raw and normalized value of a signal for one image.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| Name | `name` | `string` | ✓ |  | Name is the signal name. |
-| RawValue | `rawValue` | `string` | ✓ |  | RawValue is the unscaled signal value as a decimal string. |
-| NormalizedValue | `normalizedValue` | `string` | — |  | NormalizedValue is the normalized value (after minMax or other normalization) as a decimal string. Only populated for signals used in a weightedSum ranking. |
 
 ### LokiParser
 
@@ -297,22 +286,9 @@ QueryResult reports the outcome of a single named query execution.
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
 | Name | `name` | `string` | ✓ |  | Name matches the queries[].name that produced this result. |
-| Type | `type` | `DiscoveryQueryType` | ✓ |  | Type is the query backend type (prometheus or loki). |
-| Series | `series` | `*int32` | — |  | Series is the number of time-series returned (Prometheus queries only). |
-| Samples | `samples` | `*int64` | — |  | Samples is the total number of data points across all series (Prometheus range queries only). |
-| Records | `records` | `*int64` | — |  | Records is the number of log records returned (Loki queries only). |
+| Type | `type` | `DiscoveryQueryType` | ✓ |  | Type is the query backend type (prometheus, loki, or registry). |
 | Status | `status` | `QueryResultStatus` | ✓ |  | Status is "success" or "failed". |
 | Message | `message` | `string` | — |  | Message describes the failure reason when status=failed. |
-
-### RankingTerm
-
-RankingTerm records the contribution of one signal to the final score of an image.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| Signal | `signal` | `string` | ✓ |  | Signal is the signal name. |
-| Weight | `weight` | `string` | ✓ |  | Weight is the configured weight as a decimal string. |
-| Contribution | `contribution` | `string` | ✓ |  | Contribution is weight * normalizedValue as a decimal string. |
 
 ### SignalRankingConfig
 
@@ -321,17 +297,6 @@ SignalRankingConfig configures the signal ranking strategy.
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
 | SignalRef | `signalRef` | `string` | ✓ |  | SignalRef is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy. |
-
-### SignalResult
-
-SignalResult reports the outcome of a single signal derivation.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| Name | `name` | `string` | ✓ |  | Name matches the signals[].name that produced this result. |
-| Images | `images` | `int32` | ✓ |  | Images is the number of images for which this signal produced a value. |
-| Status | `status` | `string` | ✓ |  | Status is "success" or "failed". |
-| Message | `message` | `string` | — |  | Message describes the failure reason when status=failed. |
 
 ### TimeOfDayWindow
 
@@ -417,7 +382,9 @@ graph LR
 | Degraded | CachedImageSet | N/N images cached, failing: N |  |
 | Progressing | CachedImageSet | N/N images cached |  |
 | Ready | CachedImageSet | All N images are cached |  |
-| NotImplemented | DiscoveryPolicy |  |  |
+| ConnectionRefused | DiscoveryPolicy |  |  |
+| DNSError | DiscoveryPolicy |  |  |
+| Synced | DiscoveryPolicy | Pipeline executed successfully; N images discovered. |  |
 
 ## Metrics
 
@@ -438,7 +405,27 @@ graph LR
 ## Sample CRs
 
 ```yaml
-# Dev samples: deployed by Tilt for interactive testing
+# Dev samples: deployed by Tilt for interactive testing.
+#
+# These samples exercise EVERY feature of the operator so developers can spot
+# regressions at a glance in the Tilt UI. They run against the e2e-infra stack
+# (Prometheus, Loki, and a seeded OCI registry) that Tilt brings up.
+#
+# Feature coverage:
+#   PullPolicy ............ dev-conservative
+#   CachedImage .......... dev-nginx, dev-redis (healthy), test-invalid-image (broken)
+#   CachedImageSet ....... dev-set (static), dev-set-discovered (discovery-backed)
+#   Query: prometheus .... dev-prometheus (range), dev-prometheus-instant (instant)
+#   Query: loki .......... dev-loki (kubernetesEvents parser)
+#   Query: registry ...... dev-registry
+#   Signal: aggregate .... dev-prometheus
+#   Signal: timeWeighted . dev-timeweighted
+#   Signal: windowAgg .... dev-window
+#   Signal: eventPullTime  dev-loki
+#   Ranking: signal ...... dev-prometheus
+#   Ranking: weightedSum . dev-hybrid
+#   Ranking: modelExposure dev-modelexposure
+#   Failure cases ........ test-broken-prom, test-broken-registry, test-notfound-repo
 ---
 # === PullPolicy ===
 apiVersion: drop.corewire.io/v1alpha1
@@ -577,6 +564,217 @@ spec:
   syncInterval: 30s
   maxImages: 10
 ---
+# === DiscoveryPolicy: Prometheus instant query ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-prometheus-instant
+spec:
+  queries:
+    - name: current-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: instant
+        query: 'container_memory_working_set_bytes{namespace="build-stuff"}'
+  signals:
+    - name: current
+      queryRef: current-usage
+      type: aggregate
+      aggregate:
+        method: max
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: current
+  syncInterval: 30s
+  maxImages: 10
+---
+# === DiscoveryPolicy: timeWeightedAggregate signal ===
+# Weights samples by hour-of-day before aggregating.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-timeweighted
+spec:
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 24h
+        step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
+  signals:
+    - name: business-hours-usage
+      queryRef: runner-image-usage
+      type: timeWeightedAggregate
+      timeWeightedAggregate:
+        method: sum
+        timezone: "UTC"
+        defaultWeight: "1"
+        windows:
+          - startHour: 8
+            endHour: 18
+            weight: "2"
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: business-hours-usage
+  syncInterval: 30s
+  maxImages: 10
+---
+# === DiscoveryPolicy: windowAggregate signal (relative window) ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-window
+spec:
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 24h
+        step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
+  signals:
+    - name: recent-usage
+      queryRef: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        relativeWindow: 6h
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: recent-usage
+  syncInterval: 30s
+  maxImages: 10
+---
+# === DiscoveryPolicy: Loki query + eventPullTime signals ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-loki
+spec:
+  queries:
+    - name: image-pull-events
+      type: loki
+      loki:
+        endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
+        queryType: range
+        lookback: 24h
+        query: '{job="kubelet",drop_e2e="true"}'
+        parser:
+          type: kubernetesEvents
+  signals:
+    - name: p50-cold-pull-time
+      queryRef: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: p50
+        durationMode: messageDuration
+        includeCacheHits: false
+    - name: pull-failures
+      queryRef: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: failureCount
+        durationMode: messageDuration
+        includeCacheHits: false
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: p50-cold-pull-time
+  syncInterval: 30s
+  maxImages: 10
+---
+# === DiscoveryPolicy: registry tag discovery ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-registry
+spec:
+  queries:
+    - name: registry-tags
+      type: registry
+      registry:
+        url: "http://registry.e2e-infra.svc.cluster.local:5000"
+        repositories:
+          - test/myapp
+          - test/worker
+          - test/tools
+        tagFilter: "^v"
+        topX: 5
+  signals:
+    - name: tag-recency
+      queryRef: registry-tags
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: tag-recency
+  syncInterval: 30s
+  maxImages: 20
+---
+# === DiscoveryPolicy: modelExposure ranking (multi-query) ===
+# Combines Prometheus usage signals with a Loki pull-time signal.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-modelexposure
+spec:
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 24h
+        step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
+    - name: image-pull-events
+      type: loki
+      loki:
+        endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
+        queryType: range
+        lookback: 24h
+        query: '{job="kubelet",drop_e2e="true"}'
+        parser:
+          type: kubernetesEvents
+  signals:
+    - name: pre-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+    - name: target-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: max
+    - name: pull-time
+      queryRef: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: p50
+        durationMode: messageDuration
+        includeCacheHits: false
+  ranking:
+    strategy: modelExposure
+    modelExposure:
+      nodeCount: 3
+      preWindowUsageSignalRef: pre-usage
+      targetWindowUsageSignalRef: target-usage
+      pullTimeSignalRef: pull-time
+  syncInterval: 30s
+  maxImages: 10
+---
 # === DiscoveryPolicy: broken Prometheus endpoint (DNS error) ===
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
@@ -599,6 +797,58 @@ spec:
     strategy: signal
     signal:
       signalRef: total-usage
+  syncInterval: 30m
+  maxImages: 10
+---
+# === DiscoveryPolicy: broken registry endpoint (DNS error) ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-broken-registry
+spec:
+  queries:
+    - name: broken-registry
+      type: registry
+      registry:
+        url: "http://nonexistent-registry:5000"
+        repositories:
+          - test/app
+  signals:
+    - name: tag-recency
+      queryRef: broken-registry
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: tag-recency
+  syncInterval: 30m
+  maxImages: 10
+---
+# === DiscoveryPolicy: registry repository not found (404) ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-notfound-repo
+spec:
+  queries:
+    - name: missing-repo
+      type: registry
+      registry:
+        url: "http://registry.e2e-infra.svc.cluster.local:5000"
+        repositories:
+          - test/does-not-exist
+  signals:
+    - name: tag-recency
+      queryRef: missing-repo
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: tag-recency
   syncInterval: 30m
   maxImages: 10
 
@@ -624,7 +874,7 @@ spec:
   make kind-delete	# Delete the kind cluster.
   make install	# Install CRDs into cluster.
   make uninstall	# Uninstall CRDs from cluster.
-  make e2e-infra	# Deploy Prometheus + Registry for E2E/dev.
+  make e2e-infra	# Deploy Prometheus, Loki, and Registry for E2E/dev.
   make docker-build	# Build docker image.
   make docker-push	# Push docker image.
   make kind-load	# Build and load image into kind.

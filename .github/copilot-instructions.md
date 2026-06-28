@@ -59,7 +59,7 @@ make docs-gen      # regenerate AI docs from source
 ```
 api/v1alpha1 — Package v1alpha1 contains API Schema definitions for the drop v1alpha1 API group.
 internal/controller — Package controller implements Kubernetes reconcilers for the drop CRDs (one per Kind).
-  imports: api/v1alpha1, internal/metrics, internal/pacing, internal/podbuilder
+  imports: api/v1alpha1, internal/discovery, internal/metrics, internal/pacing, internal/podbuilder
 internal/discovery — Package discovery implements image discovery from registries and Prometheus metrics.
   imports: api/v1alpha1
 internal/metrics — Package metrics registers Prometheus metrics for the drop operator.

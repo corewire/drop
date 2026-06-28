@@ -20,9 +20,6 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].reason
       name: Status
       type: string
-    - jsonPath: .status.queryCount
-      name: Queries
-      type: integer
     - jsonPath: .status.imageCount
       name: Images
       type: integer
@@ -705,9 +702,8 @@ spec:
                   type: object
                 type: array
               discoveredImages:
-                description: |-
-                  DiscoveredImages is the ordered list of discovered and ranked images.
-                  Only images with selected=true are propagated to dependent CachedImageSet resources.
+                description: DiscoveredImages is the ordered list of discovered and
+                  ranked images.
                 items:
                   description: DiscoveredImage represents a single discovered and
                     ranked image.
@@ -724,78 +720,14 @@ spec:
                         ordered list (1 = highest score).
                       format: int32
                       type: integer
-                    ranking:
-                      description: Ranking explains how the final score was computed.
-                      properties:
-                        strategy:
-                          description: Strategy is the ranking strategy that produced
-                            this detail.
-                          type: string
-                        terms:
-                          description: Terms lists the per-signal contributions (populated
-                            for weightedSum and modelExposure).
-                          items:
-                            description: RankingTerm records the contribution of one
-                              signal to the final score of an image.
-                            properties:
-                              contribution:
-                                description: Contribution is weight * normalizedValue
-                                  as a decimal string.
-                                type: string
-                              signal:
-                                description: Signal is the signal name.
-                                type: string
-                              weight:
-                                description: Weight is the configured weight as a
-                                  decimal string.
-                                type: string
-                            required:
-                            - contribution
-                            - signal
-                            - weight
-                            type: object
-                          type: array
-                      required:
-                      - strategy
-                      type: object
-                    selected:
-                      description: |-
-                        Selected is true when this image is within the maxImages cap and will be
-                        propagated to dependent CachedImageSet resources.
-                      type: boolean
-                    signals:
-                      description: Signals lists the per-signal values used during
-                        ranking (for observability).
-                      items:
-                        description: ImageSignalValue records the raw and normalized
-                          value of a signal for one image.
-                        properties:
-                          name:
-                            description: Name is the signal name.
-                            type: string
-                          normalizedValue:
-                            description: |-
-                              NormalizedValue is the normalized value (after minMax or other normalization) as a decimal string.
-                              Only populated for signals used in a weightedSum ranking.
-                            type: string
-                          rawValue:
-                            description: RawValue is the unscaled signal value as
-                              a decimal string.
-                            type: string
-                        required:
-                        - name
-                        - rawValue
-                        type: object
-                      type: array
                   required:
                   - finalScore
                   - image
                   - rank
-                  - selected
                   type: object
                 type: array
               imageCount:
-                description: ImageCount is the number of selected discovered images.
+                description: ImageCount is the number of discovered images.
                 format: int32
                 type: integer
               lastSyncTime:
@@ -803,10 +735,6 @@ spec:
                   attempt.
                 format: date-time
                 type: string
-              queryCount:
-                description: QueryCount is the number of configured queries.
-                format: int32
-                type: integer
               queryResults:
                 description: QueryResults reports the outcome of each named query
                   execution.
@@ -821,21 +749,6 @@ spec:
                       description: Name matches the queries[].name that produced this
                         result.
                       type: string
-                    records:
-                      description: Records is the number of log records returned (Loki
-                        queries only).
-                      format: int64
-                      type: integer
-                    samples:
-                      description: Samples is the total number of data points across
-                        all series (Prometheus range queries only).
-                      format: int64
-                      type: integer
-                    series:
-                      description: Series is the number of time-series returned (Prometheus
-                        queries only).
-                      format: int32
-                      type: integer
                     status:
                       description: Status is "success" or "failed".
                       enum:
@@ -843,7 +756,8 @@ spec:
                       - failed
                       type: string
                     type:
-                      description: Type is the query backend type (prometheus or loki).
+                      description: Type is the query backend type (prometheus, loki,
+                        or registry).
                       enum:
                       - prometheus
                       - loki
@@ -853,33 +767,6 @@ spec:
                   - name
                   - status
                   - type
-                  type: object
-                type: array
-              signalResults:
-                description: SignalResults reports the outcome of each signal derivation.
-                items:
-                  description: SignalResult reports the outcome of a single signal
-                    derivation.
-                  properties:
-                    images:
-                      description: Images is the number of images for which this signal
-                        produced a value.
-                      format: int32
-                      type: integer
-                    message:
-                      description: Message describes the failure reason when status=failed.
-                      type: string
-                    name:
-                      description: Name matches the signals[].name that produced this
-                        result.
-                      type: string
-                    status:
-                      description: Status is "success" or "failed".
-                      type: string
-                  required:
-                  - images
-                  - name
-                  - status
                   type: object
                 type: array
             type: object
