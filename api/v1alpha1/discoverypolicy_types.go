@@ -535,66 +535,13 @@ const (
 type QueryResult struct {
 	// Name matches the queries[].name that produced this result.
 	Name string `json:"name"`
-	// Type is the query backend type (prometheus or loki).
+	// Type is the query backend type (prometheus, loki, or registry).
 	Type DiscoveryQueryType `json:"type"`
-	// Series is the number of time-series returned (Prometheus queries only).
-	// +optional
-	Series *int32 `json:"series,omitempty"`
-	// Samples is the total number of data points across all series (Prometheus range queries only).
-	// +optional
-	Samples *int64 `json:"samples,omitempty"`
-	// Records is the number of log records returned (Loki queries only).
-	// +optional
-	Records *int64 `json:"records,omitempty"`
 	// Status is "success" or "failed".
 	Status QueryResultStatus `json:"status"`
 	// Message describes the failure reason when status=failed.
 	// +optional
 	Message string `json:"message,omitempty"`
-}
-
-// SignalResult reports the outcome of a single signal derivation.
-type SignalResult struct {
-	// Name matches the signals[].name that produced this result.
-	Name string `json:"name"`
-	// Images is the number of images for which this signal produced a value.
-	Images int32 `json:"images"`
-	// Status is "success" or "failed".
-	Status string `json:"status"`
-	// Message describes the failure reason when status=failed.
-	// +optional
-	Message string `json:"message,omitempty"`
-}
-
-// ImageSignalValue records the raw and normalized value of a signal for one image.
-type ImageSignalValue struct {
-	// Name is the signal name.
-	Name string `json:"name"`
-	// RawValue is the unscaled signal value as a decimal string.
-	RawValue string `json:"rawValue"`
-	// NormalizedValue is the normalized value (after minMax or other normalization) as a decimal string.
-	// Only populated for signals used in a weightedSum ranking.
-	// +optional
-	NormalizedValue string `json:"normalizedValue,omitempty"`
-}
-
-// RankingTerm records the contribution of one signal to the final score of an image.
-type RankingTerm struct {
-	// Signal is the signal name.
-	Signal string `json:"signal"`
-	// Weight is the configured weight as a decimal string.
-	Weight string `json:"weight"`
-	// Contribution is weight * normalizedValue as a decimal string.
-	Contribution string `json:"contribution"`
-}
-
-// ImageRankingDetail explains how the final score was computed for one image.
-type ImageRankingDetail struct {
-	// Strategy is the ranking strategy that produced this detail.
-	Strategy string `json:"strategy"`
-	// Terms lists the per-signal contributions (populated for weightedSum and modelExposure).
-	// +optional
-	Terms []RankingTerm `json:"terms,omitempty"`
 }
 
 // DiscoveredImage represents a single discovered and ranked image.
@@ -605,15 +552,6 @@ type DiscoveredImage struct {
 	Rank int32 `json:"rank"`
 	// FinalScore is the computed ranking score as a decimal string.
 	FinalScore string `json:"finalScore"`
-	// Selected is true when this image is within the maxImages cap and will be
-	// propagated to dependent CachedImageSet resources.
-	Selected bool `json:"selected"`
-	// Signals lists the per-signal values used during ranking (for observability).
-	// +optional
-	Signals []ImageSignalValue `json:"signals,omitempty"`
-	// Ranking explains how the final score was computed.
-	// +optional
-	Ranking *ImageRankingDetail `json:"ranking,omitempty"`
 }
 
 // DiscoveryPolicyStatus defines the observed state of DiscoveryPolicy.
@@ -624,19 +562,12 @@ type DiscoveryPolicyStatus struct {
 	// QueryResults reports the outcome of each named query execution.
 	// +optional
 	QueryResults []QueryResult `json:"queryResults,omitempty"`
-	// SignalResults reports the outcome of each signal derivation.
-	// +optional
-	SignalResults []SignalResult `json:"signalResults,omitempty"`
 	// DiscoveredImages is the ordered list of discovered and ranked images.
-	// Only images with selected=true are propagated to dependent CachedImageSet resources.
 	// +optional
 	DiscoveredImages []DiscoveredImage `json:"discoveredImages,omitempty"`
-	// ImageCount is the number of selected discovered images.
+	// ImageCount is the number of discovered images.
 	// +optional
 	ImageCount int32 `json:"imageCount,omitempty"`
-	// QueryCount is the number of configured queries.
-	// +optional
-	QueryCount int32 `json:"queryCount,omitempty"`
 	// Conditions represent the latest available observations.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -646,7 +577,6 @@ type DiscoveryPolicyStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,categories=drop
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
-// +kubebuilder:printcolumn:name="Queries",type=integer,JSONPath=`.status.queryCount`
 // +kubebuilder:printcolumn:name="Images",type=integer,JSONPath=`.status.imageCount`
 // +kubebuilder:printcolumn:name="LastSync",type=date,JSONPath=`.status.lastSyncTime`
 // +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1

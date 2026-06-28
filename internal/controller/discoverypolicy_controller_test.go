@@ -92,9 +92,6 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 			// Reason is one of ConnectionRefused / SyncFailed depending on OS
 			Expect(readyCondition.Reason).NotTo(BeEmpty())
-
-			// queryCount should reflect the spec
-			Expect(updated.Status.QueryCount).To(Equal(int32(1)))
 		})
 
 		It("reconciles successfully with a registry query that lists from a mock server", func() {

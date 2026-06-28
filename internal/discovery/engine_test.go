@@ -71,9 +71,6 @@ func TestExecutePipeline_PrometheusInstant(t *testing.T) {
 	if result.Images[0].Rank != 1 {
 		t.Errorf("expected rank 1, got %d", result.Images[0].Rank)
 	}
-	if !result.Images[0].Selected {
-		t.Error("top image should be selected")
-	}
 }
 
 // TestExecutePipeline_Registry verifies the full pipeline with a registry query.
@@ -212,11 +209,6 @@ func TestExecutePipeline_MaxImages(t *testing.T) {
 	if len(result.Images) != 3 {
 		t.Fatalf("expected 3 images (maxImages cap), got %d", len(result.Images))
 	}
-	for _, img := range result.Images {
-		if !img.Selected {
-			t.Errorf("image %s should be selected (within cap)", img.Image)
-		}
-	}
 }
 
 // TestExecutePipeline_QueryFailure verifies failed query results are reported correctly.
@@ -240,9 +232,7 @@ func TestExecutePipeline_QueryFailure(t *testing.T) {
 	if result.QueryResults[0].Status != dropv1alpha1.QueryResultStatusFailed {
 		t.Errorf("expected failed query result, got %s", result.QueryResults[0].Status)
 	}
-	if len(result.SignalResults) != 1 || result.SignalResults[0].Status != signalStatusFailed {
-		t.Errorf("expected failed signal result when query fails")
-	}
+
 	if len(result.Images) != 0 {
 		t.Errorf("expected no images when query fails, got %d", len(result.Images))
 	}

@@ -75,9 +75,7 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	now := metav1.Now()
 
 	dp.Status.LastSyncTime = &now
-	dp.Status.QueryCount = int32(len(dp.Spec.Queries))
 	dp.Status.QueryResults = result.QueryResults
-	dp.Status.SignalResults = result.SignalResults
 	dp.Status.DiscoveredImages = result.Images
 	dp.Status.ImageCount = int32(len(result.Images))
 
@@ -91,13 +89,6 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			healthy = 1
 		}
 		dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, string(qr.Type), qr.Name).Set(healthy)
-		if qr.Status == dropv1alpha1.QueryResultStatusSuccess {
-			images := 0
-			if qr.Series != nil {
-				images = int(*qr.Series)
-			}
-			dropmetrics.DiscoveryImagesFound.WithLabelValues(dp.Name, string(qr.Type)).Set(float64(images))
-		}
 	}
 
 	// 4. Set Ready condition

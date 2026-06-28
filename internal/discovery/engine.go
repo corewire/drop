@@ -14,11 +14,6 @@ import (
 	dropv1alpha1 "github.com/corewire/drop/api/v1alpha1"
 )
 
-const (
-	signalStatusFailed  = "failed"
-	signalStatusSuccess = "success"
-)
-
 // QueryRawData holds raw per-image samples from a single query execution.
 // For prometheus range queries each image may have multiple samples.
 // For prometheus instant and registry queries each image has exactly one sample.
@@ -38,9 +33,8 @@ type TimedSample struct {
 
 // PipelineResult is the output of a full pipeline execution.
 type PipelineResult struct {
-	QueryResults  []dropv1alpha1.QueryResult
-	SignalResults []dropv1alpha1.SignalResult
-	Images        []dropv1alpha1.DiscoveredImage
+	QueryResults []dropv1alpha1.QueryResult
+	Images       []dropv1alpha1.DiscoveredImage
 }
 
 // HTTPClientFunc builds an HTTP client for a query (used by the controller to inject auth/TLS).
@@ -48,10 +42,8 @@ type HTTPClientFunc func(ctx context.Context, queryName string) (*http.Client, e
 
 // scoredItem is an intermediate ranked image used during the ranking stage.
 type scoredItem struct {
-	image   string
-	score   float64
-	signals []dropv1alpha1.ImageSignalValue
-	ranking *dropv1alpha1.ImageRankingDetail
+	image string
+	score float64
 }
 
 // ExecutePipeline runs all stages of the discovery pipeline and returns a PipelineResult.
@@ -98,21 +90,14 @@ func ExecutePipeline(
 	// Stage 2 — Derive signals
 	// ──────────────────────────────────────────────────────────
 	signalValues := make(map[string]map[string]float64, len(spec.Signals))
-	sResults := make([]dropv1alpha1.SignalResult, 0, len(spec.Signals))
 
 	for _, sig := range spec.Signals {
 		raw, ok := rawByQuery[sig.QueryRef]
 		if !ok {
-			sResults = append(sResults, dropv1alpha1.SignalResult{
-				Name:    sig.Name,
-				Status:  signalStatusFailed,
-				Message: fmt.Sprintf("query %q did not produce results (query failed or missing)", sig.QueryRef),
-			})
 			continue
 		}
 
-		values, sr := deriveSignal(sig, raw)
-		sResults = append(sResults, sr)
+		values := deriveSignal(sig, raw)
 		if values != nil {
 			signalValues[sig.Name] = values
 		}
@@ -144,17 +129,13 @@ func ExecutePipeline(
 	if maxImages <= 0 {
 		maxImages = 50
 	}
-	for i := range discovered {
-		discovered[i].Selected = i < maxImages
-	}
 	if len(discovered) > maxImages {
 		discovered = discovered[:maxImages]
 	}
 
 	return PipelineResult{
-		QueryResults:  qResults,
-		SignalResults: sResults,
-		Images:        discovered,
+		QueryResults: qResults,
+		Images:       discovered,
 	}
 }
 
@@ -175,10 +156,6 @@ func executeQuery(ctx context.Context, q dropv1alpha1.DiscoveryQuery, httpClient
 			qr.Message = err.Error()
 			return nil, qr
 		}
-		total := countSamples(raw.Samples)
-		series := int32(len(raw.Samples))
-		qr.Series = &series
-		qr.Samples = &total
 		qr.Status = dropv1alpha1.QueryResultStatusSuccess
 		return raw, qr
 
@@ -194,8 +171,6 @@ func executeQuery(ctx context.Context, q dropv1alpha1.DiscoveryQuery, httpClient
 			qr.Message = err.Error()
 			return nil, qr
 		}
-		series := int32(len(raw.Samples))
-		qr.Series = &series
 		qr.Status = dropv1alpha1.QueryResultStatusSuccess
 		return raw, qr
 
@@ -211,8 +186,6 @@ func executeQuery(ctx context.Context, q dropv1alpha1.DiscoveryQuery, httpClient
 			qr.Message = err.Error()
 			return nil, qr
 		}
-		records := countSamples(raw.Samples)
-		qr.Records = &records
 		qr.Status = dropv1alpha1.QueryResultStatusSuccess
 		return raw, qr
 
@@ -285,68 +258,42 @@ func executeLokiQuery(ctx context.Context, cfg *dropv1alpha1.DiscoveryLokiQuery,
 }
 
 // deriveSignal computes per-image float64 values for a single signal.
-func deriveSignal(sig dropv1alpha1.DiscoverySignal, raw *QueryRawData) (map[string]float64, dropv1alpha1.SignalResult) {
-	sr := dropv1alpha1.SignalResult{Name: sig.Name}
-
+func deriveSignal(sig dropv1alpha1.DiscoverySignal, raw *QueryRawData) map[string]float64 {
 	switch sig.Type {
 	case dropv1alpha1.SignalTypeAggregate:
 		if sig.Aggregate == nil {
-			sr.Status = signalStatusFailed
-			sr.Message = "aggregate config is required when type=aggregate"
-			return nil, sr
+			return nil
 		}
-		values := aggregateSamples(raw.Samples, sig.Aggregate.Method, nil)
-		sr.Images = int32(len(values))
-		sr.Status = "success"
-		return values, sr
+		return aggregateSamples(raw.Samples, sig.Aggregate.Method, nil)
 
 	case dropv1alpha1.SignalTypeTimeWeightedAggregate:
 		if sig.TimeWeightedAggregate == nil {
-			sr.Status = signalStatusFailed
-			sr.Message = "timeWeightedAggregate config is required when type=timeWeightedAggregate"
-			return nil, sr
+			return nil
 		}
 		values, err := deriveTimeWeightedAggregate(raw.Samples, sig.TimeWeightedAggregate)
 		if err != nil {
-			sr.Status = signalStatusFailed
-			sr.Message = err.Error()
-			return nil, sr
+			return nil
 		}
-		sr.Images = int32(len(values))
-		sr.Status = "success"
-		return values, sr
+		return values
 
 	case dropv1alpha1.SignalTypeWindowAggregate:
 		if sig.WindowAggregate == nil {
-			sr.Status = signalStatusFailed
-			sr.Message = "windowAggregate config is required when type=windowAggregate"
-			return nil, sr
+			return nil
 		}
 		values, err := deriveWindowAggregate(raw.Samples, sig.WindowAggregate)
 		if err != nil {
-			sr.Status = signalStatusFailed
-			sr.Message = err.Error()
-			return nil, sr
+			return nil
 		}
-		sr.Images = int32(len(values))
-		sr.Status = "success"
-		return values, sr
+		return values
 
 	case dropv1alpha1.SignalTypeEventPullTime:
 		if sig.EventPullTime == nil {
-			sr.Status = signalStatusFailed
-			sr.Message = "eventPullTime config is required when type=eventPullTime"
-			return nil, sr
+			return nil
 		}
-		values := deriveEventPullTime(raw.Samples, sig.EventPullTime)
-		sr.Images = int32(len(values))
-		sr.Status = signalStatusSuccess
-		return values, sr
+		return deriveEventPullTime(raw.Samples, sig.EventPullTime)
 
 	default:
-		sr.Status = signalStatusFailed
-		sr.Message = fmt.Sprintf("unsupported signal type: %s", sig.Type)
-		return nil, sr
+		return nil
 	}
 }
 
@@ -530,11 +477,6 @@ func rankImages(ranking *dropv1alpha1.DiscoveryRanking, signals map[string]map[s
 			items = append(items, scoredItem{
 				image: img,
 				score: v,
-				signals: []dropv1alpha1.ImageSignalValue{{
-					Name:     ref,
-					RawValue: strconv.FormatFloat(v, 'f', -1, 64),
-				}},
-				ranking: &dropv1alpha1.ImageRankingDetail{Strategy: string(ranking.Strategy)},
 			})
 		}
 
@@ -569,8 +511,6 @@ func rankImages(ranking *dropv1alpha1.DiscoveryRanking, signals map[string]map[s
 			Image:      it.image,
 			Rank:       int32(i + 1),
 			FinalScore: strconv.FormatFloat(it.score, 'f', -1, 64),
-			Signals:    it.signals,
-			Ranking:    it.ranking,
 		}
 	}
 	return out
@@ -611,8 +551,6 @@ func weightedSumRank(cfg *dropv1alpha1.WeightedSumRankingConfig, signals map[str
 	var out []scoredItem
 	for _, img := range images {
 		var totalScore float64
-		sigVals := make([]dropv1alpha1.ImageSignalValue, 0, len(cfg.Terms))
-		terms := make([]dropv1alpha1.RankingTerm, 0, len(cfg.Terms))
 
 		drop := false
 		for _, term := range cfg.Terms {
@@ -628,31 +566,14 @@ func weightedSumRank(cfg *dropv1alpha1.WeightedSumRankingConfig, signals map[str
 			b := bounds[term.SignalRef]
 			norm := normalize(v, b)
 			wf := term.Weight.AsApproximateFloat64()
-			contribution := wf * norm
-			totalScore += contribution
-
-			sigVals = append(sigVals, dropv1alpha1.ImageSignalValue{
-				Name:            term.SignalRef,
-				RawValue:        strconv.FormatFloat(v, 'f', -1, 64),
-				NormalizedValue: strconv.FormatFloat(norm, 'f', -1, 64),
-			})
-			terms = append(terms, dropv1alpha1.RankingTerm{
-				Signal:       term.SignalRef,
-				Weight:       term.Weight.String(),
-				Contribution: strconv.FormatFloat(contribution, 'f', -1, 64),
-			})
+			totalScore += wf * norm
 		}
 		if drop {
 			continue
 		}
 		out = append(out, scoredItem{
-			image:   img,
-			score:   totalScore,
-			signals: sigVals,
-			ranking: &dropv1alpha1.ImageRankingDetail{
-				Strategy: string(dropv1alpha1.RankingStrategyWeightedSum),
-				Terms:    terms,
-			},
+			image: img,
+			score: totalScore,
 		})
 	}
 	return out
@@ -681,14 +602,6 @@ func modelExposureRank(cfg *dropv1alpha1.ModelExposureRankingConfig, signals map
 		out = append(out, scoredItem{
 			image: img,
 			score: score,
-			signals: []dropv1alpha1.ImageSignalValue{
-				{Name: cfg.PreWindowUsageSignalRef, RawValue: strconv.FormatFloat(jPre, 'f', -1, 64)},
-				{Name: cfg.TargetWindowUsageSignalRef, RawValue: strconv.FormatFloat(jTarget, 'f', -1, 64)},
-				{Name: cfg.PullTimeSignalRef, RawValue: strconv.FormatFloat(pHat, 'f', -1, 64)},
-			},
-			ranking: &dropv1alpha1.ImageRankingDetail{
-				Strategy: string(dropv1alpha1.RankingStrategyModelExposure),
-			},
 		})
 	}
 	return out
@@ -717,15 +630,6 @@ func collectImages(rawByQuery map[string]*QueryRawData) []string {
 	}
 	sort.Strings(images)
 	return images
-}
-
-// countSamples returns the total number of samples across all images.
-func countSamples(samples map[string][]TimedSample) int64 {
-	var total int64
-	for _, pts := range samples {
-		total += int64(len(pts))
-	}
-	return total
 }
 
 // deriveEventPullTime computes per-image pull-time statistics from Loki event samples.

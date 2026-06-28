@@ -18,6 +18,7 @@ import (
 
 const (
 	lokiStatusSuccess = "success"
+	lokiMessageField  = "message"
 	// lokiLimitDefault is the maximum number of log entries to fetch per query.
 	lokiLimitDefault = 5000
 	// lokiFailedSuffix is appended to image keys for pull-failure event counts.
@@ -182,8 +183,8 @@ type lokiEventRecord struct {
 func parseKubernetesEventStreams(streams []lokiStream, parser *dropv1alpha1.LokiParser) map[string][]TimedSample {
 	reasonField := lokiCoalesceField(parser.ReasonField, "reason")
 	podField := lokiCoalesceField(parser.PodField, "involvedObject_name")
-	messageField := lokiCoalesceField(parser.MessageField, "message")
-	imageField := lokiCoalesceField(parser.ImageField, "message")
+	messageField := lokiCoalesceField(parser.MessageField, lokiMessageField)
+	imageField := lokiCoalesceField(parser.ImageField, lokiMessageField)
 
 	var records []lokiEventRecord
 	for _, stream := range streams {
@@ -225,7 +226,7 @@ func parseKubernetesEventStreams(streams []lokiStream, parser *dropv1alpha1.Loki
 
 			// Determine the source string for image extraction.
 			var imgSource string
-			if imageField == messageField || imageField == "message" {
+			if imageField == messageField || imageField == lokiMessageField {
 				imgSource = rec.message
 			} else {
 				imgSource = stream.Stream[imageField]
