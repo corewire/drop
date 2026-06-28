@@ -1,4 +1,24 @@
-# Dev samples: deployed by Tilt for interactive testing
+# Dev samples: deployed by Tilt for interactive testing.
+#
+# These samples exercise EVERY feature of the operator so developers can spot
+# regressions at a glance in the Tilt UI. They run against the e2e-infra stack
+# (Prometheus, Loki, and a seeded OCI registry) that Tilt brings up.
+#
+# Feature coverage:
+#   PullPolicy ............ dev-conservative
+#   CachedImage .......... dev-nginx, dev-redis (healthy), test-invalid-image (broken)
+#   CachedImageSet ....... dev-set (static), dev-set-discovered (discovery-backed)
+#   Query: prometheus .... dev-prometheus (range), dev-prometheus-instant (instant)
+#   Query: loki .......... dev-loki (kubernetesEvents parser)
+#   Query: registry ...... dev-registry
+#   Signal: aggregate .... dev-prometheus
+#   Signal: timeWeighted . dev-timeweighted
+#   Signal: windowAgg .... dev-window
+#   Signal: eventPullTime  dev-loki
+#   Ranking: signal ...... dev-prometheus
+#   Ranking: weightedSum . dev-hybrid
+#   Ranking: modelExposure dev-modelexposure
+#   Failure cases ........ test-broken-prom, test-broken-registry, test-notfound-repo
 ---
 # === PullPolicy ===
 apiVersion: drop.corewire.io/v1alpha1
@@ -137,6 +157,217 @@ spec:
   syncInterval: 30s
   maxImages: 10
 ---
+# === DiscoveryPolicy: Prometheus instant query ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-prometheus-instant
+spec:
+  queries:
+    - name: current-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: instant
+        query: 'container_memory_working_set_bytes{namespace="build-stuff"}'
+  signals:
+    - name: current
+      queryRef: current-usage
+      type: aggregate
+      aggregate:
+        method: max
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: current
+  syncInterval: 30s
+  maxImages: 10
+---
+# === DiscoveryPolicy: timeWeightedAggregate signal ===
+# Weights samples by hour-of-day before aggregating.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-timeweighted
+spec:
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 24h
+        step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
+  signals:
+    - name: business-hours-usage
+      queryRef: runner-image-usage
+      type: timeWeightedAggregate
+      timeWeightedAggregate:
+        method: sum
+        timezone: "UTC"
+        defaultWeight: "1"
+        windows:
+          - startHour: 8
+            endHour: 18
+            weight: "2"
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: business-hours-usage
+  syncInterval: 30s
+  maxImages: 10
+---
+# === DiscoveryPolicy: windowAggregate signal (relative window) ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-window
+spec:
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 24h
+        step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
+  signals:
+    - name: recent-usage
+      queryRef: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        relativeWindow: 6h
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: recent-usage
+  syncInterval: 30s
+  maxImages: 10
+---
+# === DiscoveryPolicy: Loki query + eventPullTime signals ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-loki
+spec:
+  queries:
+    - name: image-pull-events
+      type: loki
+      loki:
+        endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
+        queryType: range
+        lookback: 24h
+        query: '{job="kubelet",drop_e2e="true"}'
+        parser:
+          type: kubernetesEvents
+  signals:
+    - name: p50-cold-pull-time
+      queryRef: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: p50
+        durationMode: messageDuration
+        includeCacheHits: false
+    - name: pull-failures
+      queryRef: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: failureCount
+        durationMode: messageDuration
+        includeCacheHits: false
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: p50-cold-pull-time
+  syncInterval: 30s
+  maxImages: 10
+---
+# === DiscoveryPolicy: registry tag discovery ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-registry
+spec:
+  queries:
+    - name: registry-tags
+      type: registry
+      registry:
+        url: "http://registry.e2e-infra.svc.cluster.local:5000"
+        repositories:
+          - test/myapp
+          - test/worker
+          - test/tools
+        tagFilter: "^v"
+        topX: 5
+  signals:
+    - name: tag-recency
+      queryRef: registry-tags
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: tag-recency
+  syncInterval: 30s
+  maxImages: 20
+---
+# === DiscoveryPolicy: modelExposure ranking (multi-query) ===
+# Combines Prometheus usage signals with a Loki pull-time signal.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: dev-modelexposure
+spec:
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 24h
+        step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
+    - name: image-pull-events
+      type: loki
+      loki:
+        endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
+        queryType: range
+        lookback: 24h
+        query: '{job="kubelet",drop_e2e="true"}'
+        parser:
+          type: kubernetesEvents
+  signals:
+    - name: pre-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+    - name: target-usage
+      queryRef: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: max
+    - name: pull-time
+      queryRef: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: p50
+        durationMode: messageDuration
+        includeCacheHits: false
+  ranking:
+    strategy: modelExposure
+    modelExposure:
+      nodeCount: 3
+      preWindowUsageSignalRef: pre-usage
+      targetWindowUsageSignalRef: target-usage
+      pullTimeSignalRef: pull-time
+  syncInterval: 30s
+  maxImages: 10
+---
 # === DiscoveryPolicy: broken Prometheus endpoint (DNS error) ===
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
@@ -159,5 +390,57 @@ spec:
     strategy: signal
     signal:
       signalRef: total-usage
+  syncInterval: 30m
+  maxImages: 10
+---
+# === DiscoveryPolicy: broken registry endpoint (DNS error) ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-broken-registry
+spec:
+  queries:
+    - name: broken-registry
+      type: registry
+      registry:
+        url: "http://nonexistent-registry:5000"
+        repositories:
+          - test/app
+  signals:
+    - name: tag-recency
+      queryRef: broken-registry
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: tag-recency
+  syncInterval: 30m
+  maxImages: 10
+---
+# === DiscoveryPolicy: registry repository not found (404) ===
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: test-notfound-repo
+spec:
+  queries:
+    - name: missing-repo
+      type: registry
+      registry:
+        url: "http://registry.e2e-infra.svc.cluster.local:5000"
+        repositories:
+          - test/does-not-exist
+  signals:
+    - name: tag-recency
+      queryRef: missing-repo
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal:
+      signalRef: tag-recency
   syncInterval: 30m
   maxImages: 10
