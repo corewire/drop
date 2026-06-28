@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" font-family="system-ui, -apple-system, sans-serif" font-size="12">
+  <!-- Background -->
+  <rect width="760" height="420" fill="#fafafa" rx="8"/>
+
+  <!-- Title -->
+  <text x="380" y="26" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">Ranking Strategies</text>
+  <text x="380" y="44" text-anchor="middle" font-size="11" fill="#666">How signals are combined into the final ordered image list (one strategy per policy)</text>
+
+  <!-- ================= signal ================= -->
+  <g transform="translate(20,66)">
+    <rect x="0" y="0" width="232" height="320" rx="8" fill="#fff" stroke="#d81159" stroke-width="1.5"/>
+    <rect x="0" y="0" width="232" height="34" rx="8" fill="#d81159" fill-opacity="0.1"/>
+    <text x="116" y="22" text-anchor="middle" font-size="13" font-weight="bold" fill="#d81159">signal</text>
+    <text x="116" y="52" text-anchor="middle" font-size="10" fill="#666">Rank directly by one signal.</text>
+
+    <!-- single signal bar chart -->
+    <text x="116" y="78" text-anchor="middle" font-size="9" fill="#999">signalRef: total-usage</text>
+    <g>
+      <rect x="40" y="110" width="34" height="70" rx="3" fill="#d81159" fill-opacity="0.75"/>
+      <rect x="98" y="92"  width="34" height="88" rx="3" fill="#d81159" fill-opacity="0.75"/>
+      <rect x="156" y="140" width="34" height="40" rx="3" fill="#d81159" fill-opacity="0.75"/>
+      <line x1="30" y1="180" x2="200" y2="180" stroke="#999" stroke-width="1"/>
+      <text x="57"  y="194" text-anchor="middle" font-size="9" fill="#666">img A</text>
+      <text x="115" y="194" text-anchor="middle" font-size="9" fill="#666">img B</text>
+      <text x="173" y="194" text-anchor="middle" font-size="9" fill="#666">img C</text>
+    </g>
+
+    <!-- result order -->
+    <text x="116" y="224" text-anchor="middle" font-size="9" fill="#999">final order</text>
+    <g font-size="10" fill="#1a1a2e">
+      <rect x="46" y="234" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.12"/>
+      <text x="56" y="248">1. img B</text>
+      <rect x="46" y="260" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.08"/>
+      <text x="56" y="274">2. img A</text>
+      <rect x="46" y="286" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.05"/>
+      <text x="56" y="300">3. img C</text>
+    </g>
+  </g>
+
+  <!-- ================= weightedSum ================= -->
+  <g transform="translate(264,66)">
+    <rect x="0" y="0" width="232" height="320" rx="8" fill="#fff" stroke="#d81159" stroke-width="1.5"/>
+    <rect x="0" y="0" width="232" height="34" rx="8" fill="#d81159" fill-opacity="0.1"/>
+    <text x="116" y="22" text-anchor="middle" font-size="13" font-weight="bold" fill="#d81159">weightedSum</text>
+    <text x="116" y="52" text-anchor="middle" font-size="10" fill="#666">Blend normalized signals.</text>
+
+    <!-- formula -->
+    <rect x="20" y="64" width="192" height="24" rx="4" fill="#d81159" fill-opacity="0.06"/>
+    <text x="116" y="80" text-anchor="middle" font-size="10" fill="#1a1a2e">score = Σ wₖ · minMax(signalₖ)</text>
+
+    <!-- two stacked weighted bars -->
+    <g>
+      <text x="40" y="106" font-size="9" fill="#7209b7">w=0.7 total-usage</text>
+      <text x="40" y="186" font-size="9" fill="#4361ee">w=0.3 peak-concurrency</text>
+
+      <!-- img A -->
+      <text x="40" y="124" font-size="9" fill="#666">img A</text>
+      <rect x="78" y="116" width="84" height="12" rx="2" fill="#7209b7" fill-opacity="0.7"/>
+      <rect x="162" y="116" width="30" height="12" rx="2" fill="#4361ee" fill-opacity="0.7"/>
+      <!-- img B -->
+      <text x="40" y="146" font-size="9" fill="#666">img B</text>
+      <rect x="78" y="138" width="60" height="12" rx="2" fill="#7209b7" fill-opacity="0.7"/>
+      <rect x="138" y="138" width="54" height="12" rx="2" fill="#4361ee" fill-opacity="0.7"/>
+      <!-- img C -->
+      <text x="40" y="168" font-size="9" fill="#666">img C</text>
+      <rect x="78" y="160" width="36" height="12" rx="2" fill="#7209b7" fill-opacity="0.7"/>
+      <rect x="114" y="160" width="18" height="12" rx="2" fill="#4361ee" fill-opacity="0.7"/>
+    </g>
+
+    <text x="116" y="224" text-anchor="middle" font-size="9" fill="#999">final order (by blended score)</text>
+    <g font-size="10" fill="#1a1a2e">
+      <rect x="46" y="234" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.12"/>
+      <text x="56" y="248">1. img A</text>
+      <rect x="46" y="260" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.08"/>
+      <text x="56" y="274">2. img B</text>
+      <rect x="46" y="286" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.05"/>
+      <text x="56" y="300">3. img C</text>
+    </g>
+  </g>
+
+  <!-- ================= modelExposure ================= -->
+  <g transform="translate(508,66)">
+    <rect x="0" y="0" width="232" height="320" rx="8" fill="#fff" stroke="#d81159" stroke-width="1.5"/>
+    <rect x="0" y="0" width="232" height="34" rx="8" fill="#d81159" fill-opacity="0.1"/>
+    <text x="116" y="22" text-anchor="middle" font-size="13" font-weight="bold" fill="#d81159">modelExposure</text>
+    <text x="116" y="52" text-anchor="middle" font-size="10" fill="#666">Model cold-node exposure.</text>
+
+    <!-- formula -->
+    <rect x="14" y="64" width="204" height="24" rx="4" fill="#d81159" fill-opacity="0.06"/>
+    <text x="116" y="80" text-anchor="middle" font-size="9.5" fill="#1a1a2e">J_target · (1 − 1/N)^J_pre · p̂</text>
+
+    <!-- three inputs -->
+    <g font-size="9">
+      <rect x="20" y="100" width="192" height="22" rx="4" fill="#7209b7" fill-opacity="0.08"/>
+      <text x="30" y="115" fill="#1a1a2e">J_target — target-window usage</text>
+      <rect x="20" y="128" width="192" height="22" rx="4" fill="#4361ee" fill-opacity="0.08"/>
+      <text x="30" y="143" fill="#1a1a2e">J_pre — pre-window usage</text>
+      <rect x="20" y="156" width="192" height="22" rx="4" fill="#0b7a4b" fill-opacity="0.08"/>
+      <text x="30" y="171" fill="#1a1a2e">p̂ — cold pull time (loki)</text>
+    </g>
+    <text x="116" y="196" text-anchor="middle" font-size="8.5" fill="#999">N = nodeCount · favors slow, post-rotation hot images</text>
+
+    <text x="116" y="224" text-anchor="middle" font-size="9" fill="#999">final order (by exposure)</text>
+    <g font-size="10" fill="#1a1a2e">
+      <rect x="46" y="234" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.12"/>
+      <text x="56" y="248">1. img C</text>
+      <rect x="46" y="260" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.08"/>
+      <text x="56" y="274">2. img A</text>
+      <rect x="46" y="286" width="140" height="20" rx="4" fill="#d81159" fill-opacity="0.05"/>
+      <text x="56" y="300">3. img B</text>
+    </g>
+  </g>
+
+  <!-- Footer -->
+  <text x="380" y="406" text-anchor="middle" font-size="10" fill="#999">Top maxImages entries become status.discoveredImages and are materialized as CachedImage resources.</text>
+</svg>
