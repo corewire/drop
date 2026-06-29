@@ -143,6 +143,69 @@ docs-gen-check: docs-gen ## Verify generated AI docs are up to date.
 	@git diff --exit-code knowledge.yaml llms.txt llms-full.txt docs/static/llms-full.txt .github/copilot-instructions.md .cursorrules AGENTS.md docs/content/docs/reference/_generated_*.md || \
 		(echo "ERROR: generated docs are out of date — run 'make docs-gen'" && exit 1)
 
+##@ Research
+
+RESEARCH_TEX_DIR ?= research/tex
+RESEARCH_TEX_FILE ?= paper.tex
+RESEARCH_BENCH_DIR ?= research/benchmark/evaluator
+RESEARCH_BENCH_VENV ?= $(RESEARCH_BENCH_DIR)/.venv
+RESEARCH_BENCH_RESULTS_DIR ?= research/benchmark/results
+RESEARCH_BENCH_RESULTS_DISCOVERY_20RUNS ?= $(RESEARCH_BENCH_RESULTS_DIR)/discovery-strategy-20runs
+RESEARCH_BENCH_RESULTS_ORACLE_20RUNS ?= $(RESEARCH_BENCH_RESULTS_DIR)/oracle-gap-strategy-20runs
+RESEARCH_BENCH_RESULTS_CACHE_20RUNS ?= $(RESEARCH_BENCH_RESULTS_DIR)/ci-image-cache-20runs
+
+.PHONY: research-tex-build
+research-tex-build: ## Build research PDF from TeX source (override RESEARCH_TEX_FILE=<file.tex>).
+	@cd $(RESEARCH_TEX_DIR) && \
+	if command -v latexmk >/dev/null 2>&1; then \
+		latexmk -pdf -interaction=nonstopmode -halt-on-error $(RESEARCH_TEX_FILE); \
+	elif command -v pdflatex >/dev/null 2>&1; then \
+		pdflatex -interaction=nonstopmode -halt-on-error $(RESEARCH_TEX_FILE) && \
+		pdflatex -interaction=nonstopmode -halt-on-error $(RESEARCH_TEX_FILE); \
+	else \
+		echo "ERROR: latexmk/pdflatex not found"; exit 1; \
+	fi
+
+.PHONY: research-bench-setup
+research-bench-setup: ## Create benchmark venv and install Python dependencies.
+	@cd $(RESEARCH_BENCH_DIR) && \
+	python3 -m venv .venv && \
+	. .venv/bin/activate && \
+	pip install -r requirements.txt
+
+.PHONY: research-bench-generate
+research-bench-generate: ## Generate synthetic benchmark dataset.
+	@cd $(RESEARCH_BENCH_DIR) && \
+	. .venv/bin/activate && \
+	python generate_synthetic_day.py --out data --jobs 25000 --nodes 100 --images 30 --seed 20260621
+
+.PHONY: research-bench-replay
+research-bench-replay: ## Run replay policy evaluation from benchmark data.
+	@cd $(RESEARCH_BENCH_DIR) && \
+	. .venv/bin/activate && \
+	python evaluate_replay.py --data data --out outputs
+
+.PHONY: research-bench-discovery
+research-bench-discovery: ## Evaluate discovery strategies from benchmark data.
+	@cd $(RESEARCH_BENCH_DIR) && \
+	. .venv/bin/activate && \
+	python evaluate_discovery_strategies.py --data data --out outputs/strategy_eval
+
+.PHONY: research-bench-plot
+research-bench-plot: ## Render example pipeline Gantt figure.
+	@cd $(RESEARCH_BENCH_DIR) && \
+	. .venv/bin/activate && \
+	python plot_pipeline_gantt.py --modeled-jobs outputs/modeled_jobs_no_prewarming.csv --out figures/example_gantt.png
+
+.PHONY: research-bench-20runs
+research-bench-20runs: ## Run 20-run discovery strategy benchmark batch.
+	@cd $(RESEARCH_BENCH_DIR) && \
+	. .venv/bin/activate && \
+	python run_discovery_strategy_20runs.py
+
+.PHONY: research-bench-all
+research-bench-all: research-bench-generate research-bench-replay research-bench-discovery research-bench-plot ## Run full synthetic benchmark workflow.
+
 .PHONY: tools
 tools: ## Install local tooling and check optional docs/chart binaries.
 	@$(MAKE) kustomize controller-gen setup-envtest golangci-lint chainsaw
