@@ -14,5 +14,4 @@ status:
   (queryResults[?name == 'discovery-loki-image-pull-events'] | [0].status): success
   (queryResults[?name == 'discovery-loki-image-pull-events'] | [0].type): loki
   (length(discoveredImages[?contains(image, 'test/myapp:v1')]) > `0`): true
-  (length(discoveredImages[?contains(image, 'test/worker:v2')]) > `0`): true
-  (length(discoveredImages[?contains(image, 'test/tools:v1')]) > `0`): true
+  (length(discoveredImages[?contains(image, 'e2e-loki-invalid:nope')]) > `0`): true

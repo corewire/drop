@@ -10,9 +10,13 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{job="kubelet",drop_e2e="true"}'
+        query: '{drop_e2e="true"} | json | reason=~"Pulling|Pulled|Failed|BackOff" | name=~"e2e-loki-(success|failure)-pod"'
         parser:
           type: kubernetesEvents
+          podField: name
+          reasonField: reason
+          messageField: msg
+          imageField: msg
   signals:
     # Median cold-pull time derived from the "Successfully pulled ... in Xs" messages.
     - name: p50-cold-pull-time
@@ -27,7 +31,8 @@ spec:
       query: discovery-loki-image-pull-events
       type: eventPullTime
       eventPullTime:
-        statistic: failureCount
+        metric: failure
+        statistic: count
         durationMode: messageDuration
         includeCacheHits: false
   ranking:

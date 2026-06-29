@@ -10,7 +10,7 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{drop_e2e="true"} | json | reason=~"Pulling|Failed|BackOff" | name="e2e-alloy-failing-pod"'
+        query: '{drop_e2e="true"} | json | reason=~"Pulling|Pulled|Failed|BackOff" | name=~"e2e-alloy-(success|failing)-pod"'
         parser:
           type: kubernetesEvents
           podField: name
@@ -22,7 +22,8 @@ spec:
       query: alloy-k8s-events
       type: eventPullTime
       eventPullTime:
-        statistic: failureCount
+        metric: failure
+        statistic: count
         durationMode: messageDuration
         includeCacheHits: false
   ranking:

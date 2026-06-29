@@ -7,8 +7,12 @@ spec:
   description: |
     Verify that a DiscoveryPolicy with a Loki query and the kubernetesEvents
     parser derives eventPullTime signals (cold-pull time and failure count) from
-    seeded image-pull events and populates status.discoveredImages.
+    real image-pull events ingested by Alloy and populates status.discoveredImages.
   steps:
+    - name: Create real pods to generate kubelet pull events
+      try:
+        - apply:
+            file: 00-real-pods.yaml
     - name: Create DiscoveryPolicy with a Loki query and eventPullTime signals
       try:
         - apply:
@@ -20,6 +24,8 @@ spec:
             file: 02-assert-discovery-status.yaml
     - name: Cleanup
       try:
+        - delete:
+            file: 00-real-pods.yaml
         - delete:
             ref:
               apiVersion: drop.corewire.io/v1alpha1

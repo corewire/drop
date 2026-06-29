@@ -7,9 +7,9 @@ spec:
   description: |
     Verify Loki discovery from real Kubernetes events shipped by Grafana Alloy
     (loki.source.kubernetes_events with log_format=json). This exercises parser
-    fields name/msg/reason, not only seeded raw text events.
+    fields name/msg/reason using real pull events from test pods.
   steps:
-    - name: Create a pod that triggers pull failures/events
+    - name: Create real pods that trigger pull success/failure events
       try:
         - apply:
             file: 00-failing-pod.yaml
@@ -22,3 +22,12 @@ spec:
         - assert:
             timeout: 120s
             file: 02-assert-discovery-status.yaml
+    - name: Cleanup
+      try:
+        - delete:
+            file: 00-failing-pod.yaml
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-discovery-loki-alloy

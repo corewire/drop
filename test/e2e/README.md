@@ -25,5 +25,5 @@ make test-e2e
 | `cachedimageset-discovery/` | CachedImageSet backed by a DiscoveryPolicy |
 | `discovery/` | DiscoveryPolicy with mock Prometheus |
 | `discovery-failure/` | DiscoveryPolicy with unreachable Prometheus endpoint |
-| `discovery-loki/` | DiscoveryPolicy with mock Loki + eventPullTime signals |
+| `discovery-loki/` | DiscoveryPolicy with real Alloy-ingested Loki events + eventPullTime signals |
 | `discovery-registry/` | DiscoveryPolicy listing tags from a mock registry |

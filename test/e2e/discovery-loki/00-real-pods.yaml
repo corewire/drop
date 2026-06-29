@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: e2e-alloy-success-pod
+  name: e2e-loki-success-pod
   namespace: default
 spec:
   restartPolicy: Never
@@ -14,12 +14,12 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: e2e-alloy-failing-pod
+  name: e2e-loki-failure-pod
   namespace: default
 spec:
   restartPolicy: Never
   containers:
     - name: bad-image
-      image: registry.invalid.local:9999/e2e-alloy-invalid:nope
+      image: registry.invalid.local:9999/e2e-loki-invalid:nope
       imagePullPolicy: Always
       command: ["/bin/sh", "-c", "echo should-not-run && sleep 60"]
