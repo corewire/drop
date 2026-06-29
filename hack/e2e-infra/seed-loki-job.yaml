@@ -40,32 +40,40 @@ spec:
               BASE="$(date +%s)000000000"
               n=0
               ENTRIES=""
-              add() {
-                # add <message>
+              add_line() {
+                # add_line <json_line>
                 TS=$(( BASE + n * 1000000000 ))
                 n=$(( n + 1 ))
-                MSG=$(printf '%s' "$1" | sed 's/"/\\"/g')
+                MSG=$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')
                 if [ -n "$ENTRIES" ]; then ENTRIES="$ENTRIES,"; fi
                 ENTRIES="$ENTRIES[ \"$TS\", \"$MSG\" ]"
               }
 
+              add_event() {
+                # add_event <pod_name> <reason> <message>
+                POD=$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')
+                REASON=$(printf '%s' "$2" | sed 's/\\/\\\\/g; s/"/\\"/g')
+                MESSAGE=$(printf '%s' "$3" | sed 's/\\/\\\\/g; s/"/\\"/g')
+                add_line "{\"kind\":\"Pod\",\"name\":\"$POD\",\"involvedObject_name\":\"$POD\",\"reason\":\"$REASON\",\"sourcecomponent\":\"kubelet\",\"reportingcontroller\":\"kubelet\",\"msg\":\"$MESSAGE\"}"
+              }
+
               # myapp:v1 — three cold pulls (3s, 4s, 5s) → avg 4s, plus a cache hit.
-              add "Pulling image \"$REGISTRY/test/myapp:v1\""
-              add "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 3.0s (3.0s including waiting)"
-              add "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 4.0s (4.0s including waiting)"
-              add "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 5.0s (5.0s including waiting)"
-              add "Container image \"$REGISTRY/test/myapp:v1\" already present on machine"
+              add_event "seed-myapp-pod" "Pulling" "Pulling image \"$REGISTRY/test/myapp:v1\""
+              add_event "seed-myapp-pod" "Pulled" "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 3.0s (3.0s including waiting)"
+              add_event "seed-myapp-pod" "Pulled" "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 4.0s (4.0s including waiting)"
+              add_event "seed-myapp-pod" "Pulled" "Successfully pulled image \"$REGISTRY/test/myapp:v1\" in 5.0s (5.0s including waiting)"
+              add_event "seed-myapp-pod" "AlreadyPresent" "Container image \"$REGISTRY/test/myapp:v1\" already present on machine"
 
               # worker:v2 — one slow cold pull (12s) and one pull failure.
-              add "Pulling image \"$REGISTRY/test/worker:v2\""
-              add "Successfully pulled image \"$REGISTRY/test/worker:v2\" in 12.0s (12.0s including waiting)"
-              add "Failed to pull image \"$REGISTRY/test/worker:v2\": rpc error: code = Unknown"
+              add_event "seed-worker-pod" "Pulling" "Pulling image \"$REGISTRY/test/worker:v2\""
+              add_event "seed-worker-pod" "Pulled" "Successfully pulled image \"$REGISTRY/test/worker:v2\" in 12.0s (12.0s including waiting)"
+              add_event "seed-worker-pod" "Failed" "Failed to pull image \"$REGISTRY/test/worker:v2\": rpc error: code = Unknown"
 
               # tools:v1 — two quick cold pulls (1s, 2s).
-              add "Successfully pulled image \"$REGISTRY/test/tools:v1\" in 1.0s (1.0s including waiting)"
-              add "Successfully pulled image \"$REGISTRY/test/tools:v1\" in 2.0s (2.0s including waiting)"
+              add_event "seed-tools-pod" "Pulled" "Successfully pulled image \"$REGISTRY/test/tools:v1\" in 1.0s (1.0s including waiting)"
+              add_event "seed-tools-pod" "Pulled" "Successfully pulled image \"$REGISTRY/test/tools:v1\" in 2.0s (2.0s including waiting)"
 
-              PAYLOAD="{\"streams\":[{\"stream\":{\"job\":\"kubelet\",\"namespace\":\"default\",\"drop_e2e\":\"true\"},\"values\":[$ENTRIES]}]}"
+              PAYLOAD="{\"streams\":[{\"stream\":{\"job\":\"kubernetes-events\",\"namespace\":\"default\",\"drop_e2e\":\"true\"},\"values\":[$ENTRIES]}]}"
 
               echo "Pushing image-pull events to Loki..."
               RESP_FILE=$(mktemp)
@@ -87,7 +95,7 @@ spec:
               echo "Verifying seed events..."
               for i in $(seq 1 30); do
                 RESULT=$(curl -s -G "$LOKI/loki/api/v1/query_range" \
-                  --data-urlencode 'query={job="kubelet",drop_e2e="true"}' \
+                  --data-urlencode 'query={job="kubernetes-events",drop_e2e="true"}' \
                   --data-urlencode 'limit=10' 2>/dev/null || echo "")
                 if echo "$RESULT" | grep -q "Successfully pulled"; then
                   echo "Seed events are queryable!"

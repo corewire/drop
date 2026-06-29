@@ -72,7 +72,7 @@ echo "[e2e-infra] Seeding Prometheus with image metrics..."
 kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/seed-metrics-job.yaml"
 kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-metrics --timeout=60s 2>/dev/null || true
 
-# --- Seed Loki with image-pull events ---
+# --- Seed Loki with image-pull events (Alloy-style JSON structure) ---
 echo "[e2e-infra] Seeding Loki with image-pull events..."
 kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/seed-loki-job.yaml"
 kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-loki --timeout=180s

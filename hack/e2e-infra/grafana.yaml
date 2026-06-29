@@ -80,6 +80,11 @@ data:
         url: http://prometheus.e2e-infra.svc.cluster.local:9090
         isDefault: true
         editable: true
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki.e2e-infra.svc.cluster.local:3100
+        editable: true
 ---
 apiVersion: v1
 kind: ConfigMap

@@ -256,7 +256,7 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{job="kubelet",drop_e2e="true"}'
+        query: '{job="kubernetes-events",drop_e2e="true"}'
         parser:
           type: kubernetesEvents
   signals:
@@ -271,7 +271,16 @@ spec:
       query: image-pull-events
       type: eventPullTime
       eventPullTime:
-        statistic: failureCount
+        metric: failure
+        statistic: count
+        durationMode: messageDuration
+        includeCacheHits: false
+    - name: avg-image-size
+      query: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        metric: imageSize
+        statistic: avg
         durationMode: messageDuration
         includeCacheHits: false
   ranking:
@@ -331,7 +340,7 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{job="kubelet",drop_e2e="true"}'
+        query: '{job="kubernetes-events",drop_e2e="true"}'
         parser:
           type: kubernetesEvents
   signals:

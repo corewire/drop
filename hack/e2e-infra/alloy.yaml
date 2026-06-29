@@ -39,12 +39,12 @@ data:
     // Tail real Kubernetes events from all namespaces and ship them to Loki.
     // log_format=json so the kubernetesEvents parser can extract name/reason/message.
     loki.source.kubernetes_events "events" {
-      job_name   = "kubelet"
+      job_name   = "kubernetes-events"
       log_format = "json"
       forward_to = [loki.write.local.receiver]
     }
 
-    // Tag every line with drop_e2e=true so discovery queries can scope to seed data.
+    // Tag every line with drop_e2e=true so discovery queries can scope to e2e data.
     loki.write "local" {
       external_labels = { drop_e2e = "true" }
       endpoint {
