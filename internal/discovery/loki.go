@@ -25,6 +25,8 @@ const (
 	lokiFailedSuffix = ":failed"
 	// lokiCacheHitSuffix is appended to image keys for cache-hit event counts.
 	lokiCacheHitSuffix = ":cache_hit"
+	// lokiSizeBytesSuffix is appended to image keys for extracted image-size samples.
+	lokiSizeBytesSuffix = ":size_bytes"
 )
 
 // rePulledDuration matches the pull duration in Pulled event messages.
@@ -34,6 +36,10 @@ var rePulledDuration = regexp.MustCompile(`\bin\s+(\d+(?:\.\d+)?)(ms|s|m|h)\b`)
 // reImageRef matches an image reference in log messages.
 // Handles: Pulling image "nginx:1.25"  /  image "nginx:1.25"
 var reImageRef = regexp.MustCompile(`(?:image|Image)\s+"([^"]+)"`)
+
+// reImageSizeBytes matches image size in Pulled messages.
+// Example: "Image size: 20461242 bytes"
+var reImageSizeBytes = regexp.MustCompile(`(?i)\bimage\s+size:\s*(\d+)\s+bytes\b`)
 
 // lokiResponse is the top-level Loki query_range API response.
 type lokiResponse struct {
@@ -176,6 +182,7 @@ type lokiEventRecord struct {
 //   - samples[image] → pull duration in seconds for each Pulled event
 //   - samples[image+":failed"] → 1.0 per pull-failure event
 //   - samples[image+":cache_hit"] → 1.0 per already-present event
+//   - samples[image+":size_bytes"] → image size in bytes per Pulled event (if present)
 //
 // Durations are derived from the "in Xs" pattern in Pulled messages (messageDuration).
 // When no duration is present in the message, a Pulling→Pulled event-pair duration
@@ -259,6 +266,7 @@ func parseKubernetesEventStreams(streams []lokiStream, parser *dropv1alpha1.Loki
 		case "pulled":
 			// Primary: parse duration from message ("in Xs").
 			dur := lokiParsePullDuration(rec.message)
+			sizeBytes := lokiParseImageSizeBytes(rec.message)
 			// Fallback: event-pair (Pulling → Pulled timestamp delta).
 			if dur == 0 {
 				if pullStart, ok := pullingMap[rec.pod+":"+rec.image]; ok {
@@ -269,6 +277,12 @@ func parseKubernetesEventStreams(streams []lokiStream, parser *dropv1alpha1.Loki
 			}
 			if dur > 0 {
 				out[rec.image] = append(out[rec.image], TimedSample{Timestamp: rec.timestamp, Value: dur})
+			}
+			if sizeBytes > 0 {
+				out[rec.image+lokiSizeBytesSuffix] = append(
+					out[rec.image+lokiSizeBytesSuffix],
+					TimedSample{Timestamp: rec.timestamp, Value: sizeBytes},
+				)
 			}
 			delete(pullingMap, rec.pod+":"+rec.image)
 
@@ -320,6 +334,20 @@ func lokiParsePullDuration(msg string) float64 {
 	default: // "s"
 		return v
 	}
+}
+
+// lokiParseImageSizeBytes extracts image size in bytes from a Pulled event message.
+// Example: "... Image size: 20461242 bytes."
+func lokiParseImageSizeBytes(msg string) float64 {
+	m := reImageSizeBytes.FindStringSubmatch(msg)
+	if len(m) < 2 {
+		return 0
+	}
+	v, err := strconv.ParseInt(m[1], 10, 64)
+	if err != nil || v <= 0 {
+		return 0
+	}
+	return float64(v)
 }
 
 // lokiInferReasonFromMessage infers a Kubernetes Event reason from a plain-text log message.

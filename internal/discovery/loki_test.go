@@ -185,7 +185,7 @@ func TestLokiSource_FetchRaw_KubernetesEvents_AlloyJSON(t *testing.T) {
 		{
 			Stream: map[string]string{"namespace": "default", "job": "kubelet"},
 			Values: [][]string{{nanoStringLoki(now.Add(-2 * time.Second)),
-				`{"reason":"Pulled","name":"runner-abc","msg":"Successfully pulled image \"nginx:1.25\" in 740ms"}`}},
+				`{"reason":"Pulled","name":"runner-abc","msg":"Successfully pulled image \"nginx:1.25\" in 740ms (740ms including waiting). Image size: 20461242 bytes."}`}},
 		},
 		{
 			Stream: map[string]string{"namespace": "default", "job": "kubelet"},
@@ -214,6 +214,12 @@ func TestLokiSource_FetchRaw_KubernetesEvents_AlloyJSON(t *testing.T) {
 	}
 	if got := samples["nginx:1.25"][0].Value; got < 0.73 || got > 0.75 {
 		t.Errorf("expected ~0.74s duration, got %f", got)
+	}
+	if len(samples["nginx:1.25"+lokiSizeBytesSuffix]) != 1 {
+		t.Fatalf("expected 1 size sample for nginx:1.25, got %d", len(samples["nginx:1.25"+lokiSizeBytesSuffix]))
+	}
+	if got := samples["nginx:1.25"+lokiSizeBytesSuffix][0].Value; got != 20461242 {
+		t.Errorf("expected image size 20461242, got %f", got)
 	}
 	if len(samples["broken:v1"+lokiFailedSuffix]) != 1 {
 		t.Errorf("expected 1 failure sample for broken:v1, got %d", len(samples["broken:v1"+lokiFailedSuffix]))
@@ -269,6 +275,25 @@ func TestLokiParsePullDuration(t *testing.T) {
 	}
 	for _, tt := range tests {
 		got := lokiParsePullDuration(tt.msg)
+		if got != tt.want {
+			t.Errorf("msg=%q: got %f, want %f", tt.msg, got, tt.want)
+		}
+	}
+}
+
+// TestLokiParseImageSizeBytes verifies image size parsing from Pulled event messages.
+func TestLokiParseImageSizeBytes(t *testing.T) {
+	tests := []struct {
+		msg  string
+		want float64
+	}{
+		{`Successfully pulled image "nginx:1.25" in 2.5s. Image size: 20461242 bytes.`, 20461242},
+		{`Successfully pulled image "redis:7" in 1s (1s including waiting). image size: 123 bytes.`, 123},
+		{`Successfully pulled image "alpine:3.19" in 800ms`, 0},
+		{`Image size: bad bytes`, 0},
+	}
+	for _, tt := range tests {
+		got := lokiParseImageSizeBytes(tt.msg)
 		if got != tt.want {
 			t.Errorf("msg=%q: got %f, want %f", tt.msg, got, tt.want)
 		}

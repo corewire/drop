@@ -615,6 +615,8 @@ func collectImages(rawByQuery map[string]*QueryRawData) []string {
 				seen[strings.TrimSuffix(img, lokiFailedSuffix)] = struct{}{}
 			case strings.HasSuffix(img, lokiCacheHitSuffix):
 				seen[strings.TrimSuffix(img, lokiCacheHitSuffix)] = struct{}{}
+			case strings.HasSuffix(img, lokiSizeBytesSuffix):
+				seen[strings.TrimSuffix(img, lokiSizeBytesSuffix)] = struct{}{}
 			default:
 				seen[img] = struct{}{}
 			}
@@ -628,12 +630,15 @@ func collectImages(rawByQuery map[string]*QueryRawData) []string {
 	return images
 }
 
-// deriveEventPullTime computes per-image pull-time statistics from Loki event samples.
+// deriveEventPullTime computes per-image statistics from Loki event samples.
 //
 // The samples map is expected to come from a Loki kubernetesEvents query:
 //   - samples[image]              → pull duration values in seconds (from Pulled events)
 //   - samples[image+":failed"]    → count of pull-failure events (value=1.0 each)
 //   - samples[image+":cache_hit"] → count of already-present events (value=1.0 each)
+//   - samples[image+":size_bytes"]→ image size values in bytes (from Pulled event messages)
+//
+// cfg.Metric selects which series to aggregate; cfg.Statistic selects how.
 func deriveEventPullTime(samples map[string][]TimedSample, cfg *dropv1alpha1.EventPullTimeSignalConfig) map[string]float64 {
 	imageSet := make(map[string]struct{})
 	for key := range samples {
@@ -642,66 +647,69 @@ func deriveEventPullTime(samples map[string][]TimedSample, cfg *dropv1alpha1.Eve
 			imageSet[strings.TrimSuffix(key, lokiFailedSuffix)] = struct{}{}
 		case strings.HasSuffix(key, lokiCacheHitSuffix):
 			imageSet[strings.TrimSuffix(key, lokiCacheHitSuffix)] = struct{}{}
+		case strings.HasSuffix(key, lokiSizeBytesSuffix):
+			imageSet[strings.TrimSuffix(key, lokiSizeBytesSuffix)] = struct{}{}
 		default:
 			imageSet[key] = struct{}{}
 		}
 	}
 
+	metric := cfg.Metric
+	if metric == "" {
+		metric = dropv1alpha1.EventMetricPullTime
+	}
+
 	out := make(map[string]float64, len(imageSet))
 	for img := range imageSet {
-		var v float64
-		switch cfg.Statistic {
-		case dropv1alpha1.EventPullTimeStatisticFailureCount:
-			v = float64(len(samples[img+lokiFailedSuffix]))
-		case dropv1alpha1.EventPullTimeStatisticCacheHitCount:
-			v = float64(len(samples[img+lokiCacheHitSuffix]))
-		case dropv1alpha1.EventPullTimeStatisticCount:
-			pts := append([]TimedSample(nil), samples[img]...)
+		var pts []TimedSample
+		switch metric {
+		case dropv1alpha1.EventMetricImageSize:
+			pts = samples[img+lokiSizeBytesSuffix]
+		case dropv1alpha1.EventMetricFailure:
+			pts = samples[img+lokiFailedSuffix]
+		case dropv1alpha1.EventMetricCacheHit:
+			pts = samples[img+lokiCacheHitSuffix]
+		default: // pullTime
+			pts = append([]TimedSample(nil), samples[img]...)
 			if cfg.IncludeCacheHits {
 				pts = append(pts, samples[img+lokiCacheHitSuffix]...)
 			}
-			v = float64(len(pts))
-		default:
-			// Duration statistics: p50, p90, p95, avg, max.
-			pts := append([]TimedSample(nil), samples[img]...)
-			if cfg.IncludeCacheHits {
-				pts = append(pts, samples[img+lokiCacheHitSuffix]...)
-			}
-			if len(pts) == 0 {
-				continue
-			}
-			durations := make([]float64, len(pts))
-			for i, pt := range pts {
-				durations[i] = pt.Value
-			}
-			v = computeEventPullTimeStat(durations, cfg.Statistic)
 		}
-		out[img] = v
+		if len(pts) == 0 {
+			continue
+		}
+		vals := make([]float64, len(pts))
+		for i, pt := range pts {
+			vals[i] = pt.Value
+		}
+		out[img] = computeEventStat(vals, cfg.Statistic)
 	}
 	return out
 }
 
-// computeEventPullTimeStat computes a duration statistic over a non-empty slice.
-func computeEventPullTimeStat(vals []float64, stat dropv1alpha1.EventPullTimeStatistic) float64 {
+// computeEventStat aggregates a non-empty slice using the configured statistic.
+func computeEventStat(vals []float64, stat dropv1alpha1.EventStatistic) float64 {
 	sorted := make([]float64, len(vals))
 	copy(sorted, vals)
 	sort.Float64s(sorted)
 
 	switch stat {
-	case dropv1alpha1.EventPullTimeStatisticP50:
+	case dropv1alpha1.EventStatisticP50:
 		return durationPercentile(sorted, 50)
-	case dropv1alpha1.EventPullTimeStatisticP90:
+	case dropv1alpha1.EventStatisticP90:
 		return durationPercentile(sorted, 90)
-	case dropv1alpha1.EventPullTimeStatisticP95:
+	case dropv1alpha1.EventStatisticP95:
 		return durationPercentile(sorted, 95)
-	case dropv1alpha1.EventPullTimeStatisticAvg:
+	case dropv1alpha1.EventStatisticAvg:
 		var sum float64
 		for _, v := range sorted {
 			sum += v
 		}
 		return sum / float64(len(sorted))
-	case dropv1alpha1.EventPullTimeStatisticMax:
+	case dropv1alpha1.EventStatisticMax:
 		return sorted[len(sorted)-1]
+	case dropv1alpha1.EventStatisticCount:
+		return float64(len(sorted))
 	default:
 		return 0
 	}

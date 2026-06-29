@@ -403,7 +403,7 @@ func TestExecutePipeline_Loki(t *testing.T) {
 				Name:          "pull-time",
 				Query:         "pull-events",
 				Type:          dropv1alpha1.SignalTypeEventPullTime,
-				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventPullTimeStatisticAvg, DurationMode: dropv1alpha1.DurationModeMessageDuration},
+				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventStatisticAvg, DurationMode: dropv1alpha1.DurationModeMessageDuration},
 			},
 		},
 		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "pull-time"},
@@ -471,7 +471,7 @@ func TestExecutePipeline_LokiFailureCount(t *testing.T) {
 				Name:          "failures",
 				Query:         "pull-events",
 				Type:          dropv1alpha1.SignalTypeEventPullTime,
-				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventPullTimeStatisticFailureCount, DurationMode: dropv1alpha1.DurationModeMessageDuration},
+				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Metric: dropv1alpha1.EventMetricFailure, Statistic: dropv1alpha1.EventStatisticCount, DurationMode: dropv1alpha1.DurationModeMessageDuration},
 			},
 		},
 		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "failures"},
@@ -493,6 +493,62 @@ func TestExecutePipeline_LokiFailureCount(t *testing.T) {
 	}
 }
 
+// TestExecutePipeline_LokiImageSize verifies ranking by image size (bytes) extracted from Pulled events.
+func TestExecutePipeline_LokiImageSize(t *testing.T) {
+	now := time.Now()
+	nanoStr := func(t time.Time) string {
+		return strconv.FormatInt(t.UnixNano(), 10)
+	}
+
+	streams := []lokiStream{
+		{
+			Stream: map[string]string{"app": "kubelet"},
+			Values: [][]string{
+				{nanoStr(now.Add(-7 * time.Second)), `Successfully pulled image "nginx:1.25" in 730ms. Image size: 20461242 bytes.`},
+				{nanoStr(now.Add(-2 * time.Second)), `Successfully pulled image "redis:7.0" in 3s. Image size: 5000000 bytes.`},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(lokiStreamHandler(streams))
+	defer srv.Close()
+
+	spec := dropv1alpha1.DiscoveryPolicySpec{
+		Queries: []dropv1alpha1.DiscoveryQuery{
+			{
+				Name: "pull-events",
+				Type: dropv1alpha1.DiscoveryQueryTypeLoki,
+				Loki: &dropv1alpha1.DiscoveryLokiQuery{
+					Endpoint: srv.URL,
+					Query:    `{app="kubelet"}`,
+					Parser:   &dropv1alpha1.LokiParser{Type: dropv1alpha1.LokiParserTypeKubernetesEvents, MessageField: "message"},
+				},
+			},
+		},
+		Signals: []dropv1alpha1.DiscoverySignal{
+			{
+				Name:          "image-size",
+				Query:         "pull-events",
+				Type:          dropv1alpha1.SignalTypeEventPullTime,
+				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Metric: dropv1alpha1.EventMetricImageSize, Statistic: dropv1alpha1.EventStatisticMax},
+			},
+		},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "image-size"},
+		MaxImages: 10,
+	}
+
+	clientFn := func(_ context.Context, _ string) (*http.Client, error) { return srv.Client(), nil }
+	result := ExecutePipeline(context.Background(), spec, clientFn)
+
+	if len(result.Images) != 2 {
+		t.Fatalf("expected 2 images, got %d: %v", len(result.Images), result.Images)
+	}
+	// Largest image ranks first.
+	if result.Images[0].Image != "nginx:1.25" || result.Images[0].FinalScore != "20461242" {
+		t.Errorf("expected nginx:1.25 with size 20461242 first, got %s=%s", result.Images[0].Image, result.Images[0].FinalScore)
+	}
+}
+
 // TestDeriveEventPullTime_Percentiles verifies p50/p90/p95 computation.
 func TestDeriveEventPullTime_Percentiles(t *testing.T) {
 	// 10 duration samples: 1,2,3,4,5,6,7,8,9,10 seconds
@@ -503,15 +559,15 @@ func TestDeriveEventPullTime_Percentiles(t *testing.T) {
 	samples := map[string][]TimedSample{"nginx:1.25": pts}
 
 	tests := []struct {
-		stat dropv1alpha1.EventPullTimeStatistic
+		stat dropv1alpha1.EventStatistic
 		want float64
 	}{
-		{dropv1alpha1.EventPullTimeStatisticP50, 5.5},
-		{dropv1alpha1.EventPullTimeStatisticP90, 9.1},
-		{dropv1alpha1.EventPullTimeStatisticP95, 9.55},
-		{dropv1alpha1.EventPullTimeStatisticAvg, 5.5},
-		{dropv1alpha1.EventPullTimeStatisticMax, 10},
-		{dropv1alpha1.EventPullTimeStatisticCount, 10},
+		{dropv1alpha1.EventStatisticP50, 5.5},
+		{dropv1alpha1.EventStatisticP90, 9.1},
+		{dropv1alpha1.EventStatisticP95, 9.55},
+		{dropv1alpha1.EventStatisticAvg, 5.5},
+		{dropv1alpha1.EventStatisticMax, 10},
+		{dropv1alpha1.EventStatisticCount, 10},
 	}
 	for _, tt := range tests {
 		cfg := &dropv1alpha1.EventPullTimeSignalConfig{Statistic: tt.stat}

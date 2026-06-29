@@ -425,15 +425,28 @@ spec:
                           - enum:
                             - eventPair
                             - messageDuration
-                          description: DurationMode controls how pull duration is
-                            extracted from event records.
+                          description: |-
+                            DurationMode controls how pull duration is extracted from event records.
+                            Only applies when metric=pullTime.
                           type: string
                         includeCacheHits:
                           default: false
                           description: |-
                             IncludeCacheHits controls whether "already present on machine" events are included
                             in cold-pull duration statistics. Set to false to exclude cache hits.
+                            Only applies when metric=pullTime.
                           type: boolean
+                        metric:
+                          default: pullTime
+                          description: |-
+                            Metric selects which per-image quantity to aggregate. Defaults to pullTime,
+                            which correlates strongly with cold-start cost. Use imageSize to rank by bytes.
+                          enum:
+                          - pullTime
+                          - imageSize
+                          - failure
+                          - cacheHit
+                          type: string
                         statistic:
                           allOf:
                           - enum:
@@ -443,8 +456,6 @@ spec:
                             - avg
                             - max
                             - count
-                            - failureCount
-                            - cacheHitCount
                           - enum:
                             - p50
                             - p90
@@ -452,10 +463,8 @@ spec:
                             - avg
                             - max
                             - count
-                            - failureCount
-                            - cacheHitCount
-                          description: Statistic selects which pull-time metric to
-                            compute.
+                          description: Statistic selects how the metric's samples
+                            are aggregated per image.
                           type: string
                       required:
                       - durationMode

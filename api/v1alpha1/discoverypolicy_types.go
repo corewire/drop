@@ -351,27 +351,38 @@ type TimeOfDayWindow struct {
 	End string `json:"end"`
 }
 
-// EventPullTimeStatistic defines which pull-time statistic to derive from event records.
-// +kubebuilder:validation:Enum=p50;p90;p95;avg;max;count;failureCount;cacheHitCount
-type EventPullTimeStatistic string
+// EventMetric selects which per-image quantity an event signal measures.
+// +kubebuilder:validation:Enum=pullTime;imageSize;failure;cacheHit
+type EventMetric string
 
 const (
-	// EventPullTimeStatisticP50 is the median cold-pull duration.
-	EventPullTimeStatisticP50 EventPullTimeStatistic = "p50"
-	// EventPullTimeStatisticP90 is the 90th-percentile cold-pull duration.
-	EventPullTimeStatisticP90 EventPullTimeStatistic = "p90"
-	// EventPullTimeStatisticP95 is the 95th-percentile cold-pull duration.
-	EventPullTimeStatisticP95 EventPullTimeStatistic = "p95"
-	// EventPullTimeStatisticAvg is the mean cold-pull duration.
-	EventPullTimeStatisticAvg EventPullTimeStatistic = "avg"
-	// EventPullTimeStatisticMax is the maximum observed cold-pull duration.
-	EventPullTimeStatisticMax EventPullTimeStatistic = "max"
-	// EventPullTimeStatisticCount is the total number of cold-pull events.
-	EventPullTimeStatisticCount EventPullTimeStatistic = "count"
-	// EventPullTimeStatisticFailureCount is the total number of pull failures.
-	EventPullTimeStatisticFailureCount EventPullTimeStatistic = "failureCount"
-	// EventPullTimeStatisticCacheHitCount is the number of cache-hit events.
-	EventPullTimeStatisticCacheHitCount EventPullTimeStatistic = "cacheHitCount"
+	// EventMetricPullTime measures cold-pull duration in seconds (from Pulled events).
+	EventMetricPullTime EventMetric = "pullTime"
+	// EventMetricImageSize measures image size in bytes (from Pulled event messages).
+	EventMetricImageSize EventMetric = "imageSize"
+	// EventMetricFailure measures pull-failure events.
+	EventMetricFailure EventMetric = "failure"
+	// EventMetricCacheHit measures already-present (cache-hit) events.
+	EventMetricCacheHit EventMetric = "cacheHit"
+)
+
+// EventStatistic defines the aggregation applied to the selected metric's samples.
+// +kubebuilder:validation:Enum=p50;p90;p95;avg;max;count
+type EventStatistic string
+
+const (
+	// EventStatisticP50 is the median sample value.
+	EventStatisticP50 EventStatistic = "p50"
+	// EventStatisticP90 is the 90th-percentile sample value.
+	EventStatisticP90 EventStatistic = "p90"
+	// EventStatisticP95 is the 95th-percentile sample value.
+	EventStatisticP95 EventStatistic = "p95"
+	// EventStatisticAvg is the mean sample value.
+	EventStatisticAvg EventStatistic = "avg"
+	// EventStatisticMax is the maximum sample value.
+	EventStatisticMax EventStatistic = "max"
+	// EventStatisticCount is the number of samples.
+	EventStatisticCount EventStatistic = "count"
 )
 
 // DurationMode defines how pull duration is extracted from event records.
@@ -388,16 +399,24 @@ const (
 )
 
 // EventPullTimeSignalConfig configures the eventPullTime signal type.
-// The referenced query must be a Loki query.
+// The referenced query must be a Loki query. Pull duration and image size are
+// extracted from the same Pulled events; metric selects which one to rank on.
 type EventPullTimeSignalConfig struct {
-	// Statistic selects which pull-time metric to compute.
-	// +kubebuilder:validation:Enum=p50;p90;p95;avg;max;count;failureCount;cacheHitCount
-	Statistic EventPullTimeStatistic `json:"statistic"`
+	// Metric selects which per-image quantity to aggregate. Defaults to pullTime,
+	// which correlates strongly with cold-start cost. Use imageSize to rank by bytes.
+	// +kubebuilder:default=pullTime
+	// +optional
+	Metric EventMetric `json:"metric,omitempty"`
+	// Statistic selects how the metric's samples are aggregated per image.
+	// +kubebuilder:validation:Enum=p50;p90;p95;avg;max;count
+	Statistic EventStatistic `json:"statistic"`
 	// IncludeCacheHits controls whether "already present on machine" events are included
 	// in cold-pull duration statistics. Set to false to exclude cache hits.
+	// Only applies when metric=pullTime.
 	// +kubebuilder:default=false
 	IncludeCacheHits bool `json:"includeCacheHits"`
 	// DurationMode controls how pull duration is extracted from event records.
+	// Only applies when metric=pullTime.
 	// +kubebuilder:validation:Enum=eventPair;messageDuration
 	DurationMode DurationMode `json:"durationMode"`
 }
