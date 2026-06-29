@@ -117,9 +117,9 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 					},
 					Signals: []dropv1alpha1.DiscoverySignal{
 						{
-							Name:     "tag-score",
-							QueryRef: "reg-query",
-							Type:     dropv1alpha1.SignalTypeAggregate,
+							Name:  "tag-score",
+							Query: "reg-query",
+							Type:  dropv1alpha1.SignalTypeAggregate,
 							Aggregate: &dropv1alpha1.AggregateSignalConfig{
 								Method: dropv1alpha1.AggregationSum,
 							},
@@ -127,9 +127,7 @@ var _ = Describe("DiscoveryPolicy Controller", func() {
 					},
 					Ranking: &dropv1alpha1.DiscoveryRanking{
 						Strategy: dropv1alpha1.RankingStrategySignal,
-						Signal: &dropv1alpha1.SignalRankingConfig{
-							SignalRef: "tag-score",
-						},
+						Signal:   "tag-score",
 					},
 				},
 			}

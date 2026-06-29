@@ -61,7 +61,7 @@ const (
 // DiscoveryQuery defines a named raw-data source referenced by signals.
 type DiscoveryQuery struct {
 	// Name is the unique identifier for this query within the policy.
-	// Signals reference queries by this name via queryRef.
+	// Signals reference queries by this name via query.
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Type selects the backend. Must be "prometheus", "loki", or "registry".
@@ -257,10 +257,10 @@ type DiscoverySignal struct {
 	// Ranking configurations reference signals by this name.
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-	// QueryRef is the name of the query that provides raw data for this signal.
+	// Query is the name of the query that provides raw data for this signal.
 	// Must match a queries[].name within the same policy.
 	// +kubebuilder:validation:MinLength=1
-	QueryRef string `json:"queryRef"`
+	Query string `json:"query"`
 	// Type selects the signal derivation method.
 	// +kubebuilder:validation:Enum=aggregate;timeWeightedAggregate;windowAggregate;eventPullTime
 	Type SignalType `json:"type"`
@@ -424,23 +424,16 @@ type DiscoveryRanking struct {
 	// Strategy selects the ranking algorithm.
 	// +kubebuilder:validation:Enum=signal;weightedSum;modelExposure
 	Strategy RankingStrategy `json:"strategy"`
-	// Signal is required when strategy=signal.
+	// Signal is the name of the signal whose values determine image rank.
+	// Must match a signals[].name within the same policy. Required when strategy=signal.
 	// +optional
-	Signal *SignalRankingConfig `json:"signal,omitempty"`
+	Signal string `json:"signal,omitempty"`
 	// WeightedSum is required when strategy=weightedSum.
 	// +optional
 	WeightedSum *WeightedSumRankingConfig `json:"weightedSum,omitempty"`
 	// ModelExposure is required when strategy=modelExposure.
 	// +optional
 	ModelExposure *ModelExposureRankingConfig `json:"modelExposure,omitempty"`
-}
-
-// SignalRankingConfig configures the signal ranking strategy.
-type SignalRankingConfig struct {
-	// SignalRef is the name of the signal whose values determine image rank.
-	// Must match a signals[].name within the same policy.
-	// +kubebuilder:validation:MinLength=1
-	SignalRef string `json:"signalRef"`
 }
 
 // NormalizeMethod defines how signal values are normalized before weighted combination.
@@ -466,10 +459,10 @@ const (
 
 // WeightedSumTerm defines one signal contribution in a weightedSum ranking.
 type WeightedSumTerm struct {
-	// SignalRef is the name of the signal to include in the weighted sum.
+	// Signal is the name of the signal to include in the weighted sum.
 	// Must match a signals[].name within the same policy.
 	// +kubebuilder:validation:MinLength=1
-	SignalRef string `json:"signalRef"`
+	Signal string `json:"signal"`
 	// Weight is the factor applied to the normalized signal value.
 	// All weights should be non-negative; they do not need to sum to 1.
 	// Example: "0.7"
@@ -502,18 +495,18 @@ type ModelExposureRankingConfig struct {
 	// NodeCount is the number of eligible CI nodes (N in the exposure formula).
 	// +kubebuilder:validation:Minimum=1
 	NodeCount int32 `json:"nodeCount"`
-	// PreWindowUsageSignalRef is the name of the signal representing usage before the target window.
+	// PreWindowUsageSignal is the name of the signal representing usage before the target window.
 	// Must match a signals[].name within the same policy.
 	// +kubebuilder:validation:MinLength=1
-	PreWindowUsageSignalRef string `json:"preWindowUsageSignalRef"`
-	// TargetWindowUsageSignalRef is the name of the signal representing usage during the target window.
+	PreWindowUsageSignal string `json:"preWindowUsageSignal"`
+	// TargetWindowUsageSignal is the name of the signal representing usage during the target window.
 	// Must match a signals[].name within the same policy.
 	// +kubebuilder:validation:MinLength=1
-	TargetWindowUsageSignalRef string `json:"targetWindowUsageSignalRef"`
-	// PullTimeSignalRef is the name of the signal providing per-image pull-time estimates.
+	TargetWindowUsageSignal string `json:"targetWindowUsageSignal"`
+	// PullTimeSignal is the name of the signal providing per-image pull-time estimates.
 	// Must match a signals[].name within the same policy.
 	// +kubebuilder:validation:MinLength=1
-	PullTimeSignalRef string `json:"pullTimeSignalRef"`
+	PullTimeSignal string `json:"pullTimeSignal"`
 }
 
 // ============================================================

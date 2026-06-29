@@ -92,7 +92,7 @@ func ExecutePipeline(
 	signalValues := make(map[string]map[string]float64, len(spec.Signals))
 
 	for _, sig := range spec.Signals {
-		raw, ok := rawByQuery[sig.QueryRef]
+		raw, ok := rawByQuery[sig.Query]
 		if !ok {
 			continue
 		}
@@ -467,11 +467,7 @@ func rankImages(ranking *dropv1alpha1.DiscoveryRanking, signals map[string]map[s
 
 	switch ranking.Strategy {
 	case dropv1alpha1.RankingStrategySignal:
-		ref := ""
-		if ranking.Signal != nil {
-			ref = ranking.Signal.SignalRef
-		}
-		sigMap := signals[ref]
+		sigMap := signals[ranking.Signal]
 		for _, img := range images {
 			v := sigMap[img]
 			items = append(items, scoredItem{
@@ -522,7 +518,7 @@ func weightedSumRank(cfg *dropv1alpha1.WeightedSumRankingConfig, signals map[str
 	type minMax struct{ min, max float64 }
 	bounds := make(map[string]minMax, len(cfg.Terms))
 	for _, term := range cfg.Terms {
-		sigMap := signals[term.SignalRef]
+		sigMap := signals[term.Signal]
 		var mn, mx float64
 		first := true
 		for _, img := range images {
@@ -538,7 +534,7 @@ func weightedSumRank(cfg *dropv1alpha1.WeightedSumRankingConfig, signals map[str
 			}
 			first = false
 		}
-		bounds[term.SignalRef] = minMax{min: mn, max: mx}
+		bounds[term.Signal] = minMax{min: mn, max: mx}
 	}
 
 	normalize := func(v float64, b minMax) float64 {
@@ -554,7 +550,7 @@ func weightedSumRank(cfg *dropv1alpha1.WeightedSumRankingConfig, signals map[str
 
 		drop := false
 		for _, term := range cfg.Terms {
-			sigMap := signals[term.SignalRef]
+			sigMap := signals[term.Signal]
 			v, ok := sigMap[img]
 			if !ok {
 				if cfg.MissingSignal == dropv1alpha1.MissingSignalBehaviorDrop {
@@ -563,7 +559,7 @@ func weightedSumRank(cfg *dropv1alpha1.WeightedSumRankingConfig, signals map[str
 				}
 				v = 0
 			}
-			b := bounds[term.SignalRef]
+			b := bounds[term.Signal]
 			norm := normalize(v, b)
 			wf := term.Weight.AsApproximateFloat64()
 			totalScore += wf * norm
@@ -587,9 +583,9 @@ func modelExposureRank(cfg *dropv1alpha1.ModelExposureRankingConfig, signals map
 	}
 	oneMinusInvN := 1.0 - 1.0/n
 
-	preMap := signals[cfg.PreWindowUsageSignalRef]
-	targetMap := signals[cfg.TargetWindowUsageSignalRef]
-	pullMap := signals[cfg.PullTimeSignalRef]
+	preMap := signals[cfg.PreWindowUsageSignal]
+	targetMap := signals[cfg.TargetWindowUsageSignal]
+	pullMap := signals[cfg.PullTimeSignal]
 
 	out := make([]scoredItem, 0, len(images))
 	for _, img := range images {

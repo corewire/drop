@@ -149,7 +149,7 @@ spec:
                     name:
                       description: |-
                         Name is the unique identifier for this query within the policy.
-                        Signals reference queries by this name via queryRef.
+                        Signals reference queries by this name via query.
                       minLength: 1
                       type: string
                     prometheus:
@@ -279,42 +279,35 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
-                      preWindowUsageSignalRef:
+                      preWindowUsageSignal:
                         description: |-
-                          PreWindowUsageSignalRef is the name of the signal representing usage before the target window.
+                          PreWindowUsageSignal is the name of the signal representing usage before the target window.
                           Must match a signals[].name within the same policy.
                         minLength: 1
                         type: string
-                      pullTimeSignalRef:
+                      pullTimeSignal:
                         description: |-
-                          PullTimeSignalRef is the name of the signal providing per-image pull-time estimates.
+                          PullTimeSignal is the name of the signal providing per-image pull-time estimates.
                           Must match a signals[].name within the same policy.
                         minLength: 1
                         type: string
-                      targetWindowUsageSignalRef:
+                      targetWindowUsageSignal:
                         description: |-
-                          TargetWindowUsageSignalRef is the name of the signal representing usage during the target window.
+                          TargetWindowUsageSignal is the name of the signal representing usage during the target window.
                           Must match a signals[].name within the same policy.
                         minLength: 1
                         type: string
                     required:
                     - nodeCount
-                    - preWindowUsageSignalRef
-                    - pullTimeSignalRef
-                    - targetWindowUsageSignalRef
+                    - preWindowUsageSignal
+                    - pullTimeSignal
+                    - targetWindowUsageSignal
                     type: object
                   signal:
-                    description: Signal is required when strategy=signal.
-                    properties:
-                      signalRef:
-                        description: |-
-                          SignalRef is the name of the signal whose values determine image rank.
-                          Must match a signals[].name within the same policy.
-                        minLength: 1
-                        type: string
-                    required:
-                    - signalRef
-                    type: object
+                    description: |-
+                      Signal is the name of the signal whose values determine image rank.
+                      Must match a signals[].name within the same policy. Required when strategy=signal.
+                    type: string
                   strategy:
                     allOf:
                     - enum:
@@ -360,9 +353,9 @@ spec:
                           description: WeightedSumTerm defines one signal contribution
                             in a weightedSum ranking.
                           properties:
-                            signalRef:
+                            signal:
                               description: |-
-                                SignalRef is the name of the signal to include in the weighted sum.
+                                Signal is the name of the signal to include in the weighted sum.
                                 Must match a signals[].name within the same policy.
                               minLength: 1
                               type: string
@@ -377,7 +370,7 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           required:
-                          - signalRef
+                          - signal
                           - weight
                           type: object
                         minItems: 1
@@ -475,9 +468,9 @@ spec:
                         Ranking configurations reference signals by this name.
                       minLength: 1
                       type: string
-                    queryRef:
+                    query:
                       description: |-
-                        QueryRef is the name of the query that provides raw data for this signal.
+                        Query is the name of the query that provides raw data for this signal.
                         Must match a queries[].name within the same policy.
                       minLength: 1
                       type: string
@@ -630,7 +623,7 @@ spec:
                       type: object
                   required:
                   - name
-                  - queryRef
+                  - query
                   - type
                   type: object
                 type: array

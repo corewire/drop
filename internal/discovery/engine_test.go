@@ -46,9 +46,9 @@ func TestExecutePipeline_PrometheusInstant(t *testing.T) {
 			},
 		},
 		Signals: []dropv1alpha1.DiscoverySignal{
-			{Name: "score", QueryRef: "usage", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
+			{Name: "score", Query: "usage", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
 		},
-		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "score"}},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "score"},
 		MaxImages: 10,
 	}
 
@@ -97,9 +97,9 @@ func TestExecutePipeline_Registry(t *testing.T) {
 			},
 		},
 		Signals: []dropv1alpha1.DiscoverySignal{
-			{Name: "tag-score", QueryRef: "tags", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
+			{Name: "tag-score", Query: "tags", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
 		},
-		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "tag-score"}},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "tag-score"},
 		MaxImages: 10,
 	}
 
@@ -147,8 +147,8 @@ func TestExecutePipeline_WeightedSum(t *testing.T) {
 			{Name: "q2", Type: dropv1alpha1.DiscoveryQueryTypePrometheus, Prometheus: &dropv1alpha1.DiscoveryPrometheusQuery{Endpoint: srv2.URL, Query: "test", QueryType: dropv1alpha1.QueryTypeInstant}},
 		},
 		Signals: []dropv1alpha1.DiscoverySignal{
-			{Name: "sig1", QueryRef: "q1", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
-			{Name: "sig2", QueryRef: "q2", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
+			{Name: "sig1", Query: "q1", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
+			{Name: "sig2", Query: "q2", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
 		},
 		Ranking: &dropv1alpha1.DiscoveryRanking{
 			Strategy: dropv1alpha1.RankingStrategyWeightedSum,
@@ -156,8 +156,8 @@ func TestExecutePipeline_WeightedSum(t *testing.T) {
 				Normalize:     dropv1alpha1.NormalizeMethodMinMax,
 				MissingSignal: dropv1alpha1.MissingSignalBehaviorZero,
 				Terms: []dropv1alpha1.WeightedSumTerm{
-					{SignalRef: "sig1", Weight: weight700m},
-					{SignalRef: "sig2", Weight: weight300m},
+					{Signal: "sig1", Weight: weight700m},
+					{Signal: "sig2", Weight: weight300m},
 				},
 			},
 		},
@@ -197,9 +197,9 @@ func TestExecutePipeline_MaxImages(t *testing.T) {
 			{Name: "q", Type: dropv1alpha1.DiscoveryQueryTypePrometheus, Prometheus: &dropv1alpha1.DiscoveryPrometheusQuery{Endpoint: srv.URL, Query: "test", QueryType: dropv1alpha1.QueryTypeInstant}},
 		},
 		Signals: []dropv1alpha1.DiscoverySignal{
-			{Name: "s", QueryRef: "q", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
+			{Name: "s", Query: "q", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
 		},
-		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "s"}},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "s"},
 		MaxImages: 3,
 	}
 
@@ -218,9 +218,9 @@ func TestExecutePipeline_QueryFailure(t *testing.T) {
 			{Name: "bad-query", Type: dropv1alpha1.DiscoveryQueryTypePrometheus, Prometheus: &dropv1alpha1.DiscoveryPrometheusQuery{Endpoint: "http://127.0.0.1:19999", Query: "test"}},
 		},
 		Signals: []dropv1alpha1.DiscoverySignal{
-			{Name: "s", QueryRef: "bad-query", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
+			{Name: "s", Query: "bad-query", Type: dropv1alpha1.SignalTypeAggregate, Aggregate: &dropv1alpha1.AggregateSignalConfig{Method: dropv1alpha1.AggregationSum}},
 		},
-		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "s"}},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "s"},
 		MaxImages: 10,
 	}
 
@@ -276,16 +276,16 @@ func TestExecutePipeline_WindowAggregate(t *testing.T) {
 		},
 		Signals: []dropv1alpha1.DiscoverySignal{
 			{
-				Name:     "recent",
-				QueryRef: "q",
-				Type:     dropv1alpha1.SignalTypeWindowAggregate,
+				Name:  "recent",
+				Query: "q",
+				Type:  dropv1alpha1.SignalTypeWindowAggregate,
 				WindowAggregate: &dropv1alpha1.WindowAggregateSignalConfig{
 					Method:         dropv1alpha1.AggregationSum,
 					RelativeWindow: &window,
 				},
 			},
 		},
-		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "recent"}},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "recent"},
 		MaxImages: 10,
 	}
 
@@ -401,12 +401,12 @@ func TestExecutePipeline_Loki(t *testing.T) {
 		Signals: []dropv1alpha1.DiscoverySignal{
 			{
 				Name:          "pull-time",
-				QueryRef:      "pull-events",
+				Query:         "pull-events",
 				Type:          dropv1alpha1.SignalTypeEventPullTime,
 				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventPullTimeStatisticAvg, DurationMode: dropv1alpha1.DurationModeMessageDuration},
 			},
 		},
-		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "pull-time"}},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "pull-time"},
 		MaxImages: 10,
 	}
 
@@ -469,12 +469,12 @@ func TestExecutePipeline_LokiFailureCount(t *testing.T) {
 		Signals: []dropv1alpha1.DiscoverySignal{
 			{
 				Name:          "failures",
-				QueryRef:      "pull-events",
+				Query:         "pull-events",
 				Type:          dropv1alpha1.SignalTypeEventPullTime,
 				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventPullTimeStatisticFailureCount, DurationMode: dropv1alpha1.DurationModeMessageDuration},
 			},
 		},
-		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: &dropv1alpha1.SignalRankingConfig{SignalRef: "failures"}},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "failures"},
 		MaxImages: 10,
 	}
 

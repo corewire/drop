@@ -26,13 +26,13 @@ spec:
 
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
 
     - name: peak-concurrency
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: max
@@ -43,7 +43,7 @@ spec:
       normalize: minMax
       missingSignal: zero
       terms:
-        - signalRef: total-usage
+        - signal: total-usage
           weight: "700m"
-        - signalRef: peak-concurrency
+        - signal: peak-concurrency
           weight: "300m"
