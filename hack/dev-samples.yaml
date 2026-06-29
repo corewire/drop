@@ -107,14 +107,13 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
   syncInterval: 30s
   maxImages: 10
 ---
@@ -135,12 +134,12 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
     - name: peak-concurrency
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: max
@@ -150,9 +149,9 @@ spec:
       normalize: minMax
       missingSignal: zero
       terms:
-        - signalRef: total-usage
+        - signal: total-usage
           weight: "700m"
-        - signalRef: peak-concurrency
+        - signal: peak-concurrency
           weight: "300m"
   syncInterval: 30s
   maxImages: 10
@@ -172,14 +171,13 @@ spec:
         query: 'container_memory_working_set_bytes{namespace="build-stuff"}'
   signals:
     - name: current
-      queryRef: current-usage
+      query: current-usage
       type: aggregate
       aggregate:
         method: max
   ranking:
     strategy: signal
-    signal:
-      signalRef: current
+    signal: current
   syncInterval: 30s
   maxImages: 10
 ---
@@ -201,7 +199,7 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
   signals:
     - name: business-hours-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: timeWeightedAggregate
       timeWeightedAggregate:
         method: sum
@@ -213,8 +211,7 @@ spec:
             weight: "2"
   ranking:
     strategy: signal
-    signal:
-      signalRef: business-hours-usage
+    signal: business-hours-usage
   syncInterval: 30s
   maxImages: 10
 ---
@@ -235,15 +232,14 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
   signals:
     - name: recent-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: windowAggregate
       windowAggregate:
         method: sum
         relativeWindow: 6h
   ranking:
     strategy: signal
-    signal:
-      signalRef: recent-usage
+    signal: recent-usage
   syncInterval: 30s
   maxImages: 10
 ---
@@ -265,14 +261,14 @@ spec:
           type: kubernetesEvents
   signals:
     - name: p50-cold-pull-time
-      queryRef: image-pull-events
+      query: image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: p50
         durationMode: messageDuration
         includeCacheHits: false
     - name: pull-failures
-      queryRef: image-pull-events
+      query: image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: failureCount
@@ -280,8 +276,7 @@ spec:
         includeCacheHits: false
   ranking:
     strategy: signal
-    signal:
-      signalRef: p50-cold-pull-time
+    signal: p50-cold-pull-time
   syncInterval: 30s
   maxImages: 10
 ---
@@ -304,14 +299,13 @@ spec:
         topX: 5
   signals:
     - name: tag-recency
-      queryRef: registry-tags
+      query: registry-tags
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: tag-recency
+    signal: tag-recency
   syncInterval: 30s
   maxImages: 20
 ---
@@ -342,17 +336,17 @@ spec:
           type: kubernetesEvents
   signals:
     - name: pre-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
     - name: target-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: max
     - name: pull-time
-      queryRef: image-pull-events
+      query: image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: p50
@@ -362,9 +356,9 @@ spec:
     strategy: modelExposure
     modelExposure:
       nodeCount: 3
-      preWindowUsageSignalRef: pre-usage
-      targetWindowUsageSignalRef: target-usage
-      pullTimeSignalRef: pull-time
+      preWindowUsageSignal: pre-usage
+      targetWindowUsageSignal: target-usage
+      pullTimeSignal: pull-time
   syncInterval: 30s
   maxImages: 10
 ---
@@ -382,14 +376,13 @@ spec:
         query: "up{}"
   signals:
     - name: total-usage
-      queryRef: broken-query
+      query: broken-query
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
   syncInterval: 30m
   maxImages: 10
 ---
@@ -408,14 +401,13 @@ spec:
           - test/app
   signals:
     - name: tag-recency
-      queryRef: broken-registry
+      query: broken-registry
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: tag-recency
+    signal: tag-recency
   syncInterval: 30m
   maxImages: 10
 ---
@@ -434,13 +426,12 @@ spec:
           - test/does-not-exist
   signals:
     - name: tag-recency
-      queryRef: missing-repo
+      query: missing-repo
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: tag-recency
+    signal: tag-recency
   syncInterval: 30m
   maxImages: 10

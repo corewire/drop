@@ -50,6 +50,9 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create", "patch"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create", "patch"]
 {{- if .Values.metrics.secureServing }}
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
