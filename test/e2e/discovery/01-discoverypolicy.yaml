@@ -14,13 +14,12 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", namespace="build-stuff"}) by (image)'
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
   syncInterval: 30s
   maxImages: 10

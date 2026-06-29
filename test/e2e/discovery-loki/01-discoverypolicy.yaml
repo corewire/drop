@@ -16,7 +16,7 @@ spec:
   signals:
     # Median cold-pull time derived from the "Successfully pulled ... in Xs" messages.
     - name: p50-cold-pull-time
-      queryRef: discovery-loki-image-pull-events
+      query: discovery-loki-image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: p50
@@ -24,7 +24,7 @@ spec:
         includeCacheHits: false
     # Number of pull failures per image.
     - name: pull-failures
-      queryRef: discovery-loki-image-pull-events
+      query: discovery-loki-image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: failureCount
@@ -32,7 +32,6 @@ spec:
         includeCacheHits: false
   ranking:
     strategy: signal
-    signal:
-      signalRef: p50-cold-pull-time
+    signal: p50-cold-pull-time
   syncInterval: 30s
   maxImages: 10

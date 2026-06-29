@@ -11,13 +11,12 @@ spec:
         query: "up{}"
   signals:
     - name: total-usage
-      queryRef: broken-query
+      query: broken-query
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
   syncInterval: 30m
   maxImages: 10

@@ -16,13 +16,12 @@ spec:
         topX: 5
   signals:
     - name: tag-recency
-      queryRef: registry-tags
+      query: registry-tags
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: tag-recency
+    signal: tag-recency
   syncInterval: 30s
   maxImages: 20
