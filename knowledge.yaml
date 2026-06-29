@@ -468,7 +468,7 @@ helperTypes:
         json: name
         type: string
         required: true
-        doc: Name is the unique identifier for this query within the policy. Signals reference queries by this name via queryRef.
+        doc: Name is the unique identifier for this query within the policy. Signals reference queries by this name via query.
       - name: Type
         json: type
         type: DiscoveryQueryType
@@ -512,9 +512,9 @@ helperTypes:
         doc: Strategy selects the ranking algorithm.
       - name: Signal
         json: signal
-        type: '*SignalRankingConfig'
+        type: string
         required: false
-        doc: Signal is required when strategy=signal.
+        doc: Signal is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy. Required when strategy=signal.
       - name: WeightedSum
         json: weightedSum
         type: '*WeightedSumRankingConfig'
@@ -561,11 +561,11 @@ helperTypes:
         type: string
         required: true
         doc: Name is the unique identifier for this signal within the policy. Ranking configurations reference signals by this name.
-      - name: QueryRef
-        json: queryRef
+      - name: Query
+        json: query
         type: string
         required: true
-        doc: QueryRef is the name of the query that provides raw data for this signal. Must match a queries[].name within the same policy.
+        doc: Query is the name of the query that provides raw data for this signal. Must match a queries[].name within the same policy.
       - name: Type
         json: type
         type: SignalType
@@ -683,21 +683,21 @@ helperTypes:
         type: int32
         required: true
         doc: NodeCount is the number of eligible CI nodes (N in the exposure formula).
-      - name: PreWindowUsageSignalRef
-        json: preWindowUsageSignalRef
+      - name: PreWindowUsageSignal
+        json: preWindowUsageSignal
         type: string
         required: true
-        doc: PreWindowUsageSignalRef is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy.
-      - name: TargetWindowUsageSignalRef
-        json: targetWindowUsageSignalRef
+        doc: PreWindowUsageSignal is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy.
+      - name: TargetWindowUsageSignal
+        json: targetWindowUsageSignal
         type: string
         required: true
-        doc: TargetWindowUsageSignalRef is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy.
-      - name: PullTimeSignalRef
-        json: pullTimeSignalRef
+        doc: TargetWindowUsageSignal is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy.
+      - name: PullTimeSignal
+        json: pullTimeSignal
         type: string
         required: true
-        doc: PullTimeSignalRef is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy.
+        doc: PullTimeSignal is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy.
   - name: PolicyReference
     doc: PolicyReference is a reference to a PullPolicy resource.
     fields:
@@ -729,14 +729,6 @@ helperTypes:
         type: string
         required: false
         doc: Message describes the failure reason when status=failed.
-  - name: SignalRankingConfig
-    doc: SignalRankingConfig configures the signal ranking strategy.
-    fields:
-      - name: SignalRef
-        json: signalRef
-        type: string
-        required: true
-        doc: SignalRef is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy.
   - name: TimeOfDayWindow
     doc: TimeOfDayWindow defines a fixed wall-clock time range within each day.
     fields:
@@ -825,11 +817,11 @@ helperTypes:
   - name: WeightedSumTerm
     doc: WeightedSumTerm defines one signal contribution in a weightedSum ranking.
     fields:
-      - name: SignalRef
-        json: signalRef
+      - name: Signal
+        json: signal
         type: string
         required: true
-        doc: SignalRef is the name of the signal to include in the weighted sum. Must match a signals[].name within the same policy.
+        doc: Signal is the name of the signal to include in the weighted sum. Must match a signals[].name within the same policy.
       - name: Weight
         json: weight
         type: resource.Quantity
@@ -1055,6 +1047,22 @@ makeTargets:
     desc: Regenerate AI agent docs (llms.txt, instructions, etc.) from source.
   - name: docs-gen-check
     desc: Verify generated AI docs are up to date.
+  - name: research-tex-build
+    desc: Build research PDF from TeX source (override RESEARCH_TEX_FILE=<file.tex>).
+  - name: research-bench-setup
+    desc: Create benchmark venv and install Python dependencies.
+  - name: research-bench-generate
+    desc: Generate synthetic benchmark dataset.
+  - name: research-bench-replay
+    desc: Run replay policy evaluation from benchmark data.
+  - name: research-bench-discovery
+    desc: Evaluate discovery strategies from benchmark data.
+  - name: research-bench-plot
+    desc: Render example pipeline Gantt figure.
+  - name: research-bench-20runs
+    desc: Run 20-run discovery strategy benchmark batch.
+  - name: research-bench-all
+    desc: Run full synthetic benchmark workflow.
   - name: tools
     desc: Install local tooling and check optional docs/chart binaries.
 samples: |
@@ -1167,14 +1175,13 @@ samples: |
           query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
     signals:
       - name: total-usage
-        queryRef: runner-image-usage
+        query: runner-image-usage
         type: aggregate
         aggregate:
           method: sum
     ranking:
       strategy: signal
-      signal:
-        signalRef: total-usage
+      signal: total-usage
     syncInterval: 30s
     maxImages: 10
   ---
@@ -1195,12 +1202,12 @@ samples: |
           query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
     signals:
       - name: total-usage
-        queryRef: runner-image-usage
+        query: runner-image-usage
         type: aggregate
         aggregate:
           method: sum
       - name: peak-concurrency
-        queryRef: runner-image-usage
+        query: runner-image-usage
         type: aggregate
         aggregate:
           method: max
@@ -1210,9 +1217,9 @@ samples: |
         normalize: minMax
         missingSignal: zero
         terms:
-          - signalRef: total-usage
+          - signal: total-usage
             weight: "700m"
-          - signalRef: peak-concurrency
+          - signal: peak-concurrency
             weight: "300m"
     syncInterval: 30s
     maxImages: 10
@@ -1232,14 +1239,13 @@ samples: |
           query: 'container_memory_working_set_bytes{namespace="build-stuff"}'
     signals:
       - name: current
-        queryRef: current-usage
+        query: current-usage
         type: aggregate
         aggregate:
           method: max
     ranking:
       strategy: signal
-      signal:
-        signalRef: current
+      signal: current
     syncInterval: 30s
     maxImages: 10
   ---
@@ -1261,7 +1267,7 @@ samples: |
           query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
     signals:
       - name: business-hours-usage
-        queryRef: runner-image-usage
+        query: runner-image-usage
         type: timeWeightedAggregate
         timeWeightedAggregate:
           method: sum
@@ -1273,8 +1279,7 @@ samples: |
               weight: "2"
     ranking:
       strategy: signal
-      signal:
-        signalRef: business-hours-usage
+      signal: business-hours-usage
     syncInterval: 30s
     maxImages: 10
   ---
@@ -1295,15 +1300,14 @@ samples: |
           query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
     signals:
       - name: recent-usage
-        queryRef: runner-image-usage
+        query: runner-image-usage
         type: windowAggregate
         windowAggregate:
           method: sum
           relativeWindow: 6h
     ranking:
       strategy: signal
-      signal:
-        signalRef: recent-usage
+      signal: recent-usage
     syncInterval: 30s
     maxImages: 10
   ---
@@ -1325,14 +1329,14 @@ samples: |
             type: kubernetesEvents
     signals:
       - name: p50-cold-pull-time
-        queryRef: image-pull-events
+        query: image-pull-events
         type: eventPullTime
         eventPullTime:
           statistic: p50
           durationMode: messageDuration
           includeCacheHits: false
       - name: pull-failures
-        queryRef: image-pull-events
+        query: image-pull-events
         type: eventPullTime
         eventPullTime:
           statistic: failureCount
@@ -1340,8 +1344,7 @@ samples: |
           includeCacheHits: false
     ranking:
       strategy: signal
-      signal:
-        signalRef: p50-cold-pull-time
+      signal: p50-cold-pull-time
     syncInterval: 30s
     maxImages: 10
   ---
@@ -1364,14 +1367,13 @@ samples: |
           topX: 5
     signals:
       - name: tag-recency
-        queryRef: registry-tags
+        query: registry-tags
         type: aggregate
         aggregate:
           method: sum
     ranking:
       strategy: signal
-      signal:
-        signalRef: tag-recency
+      signal: tag-recency
     syncInterval: 30s
     maxImages: 20
   ---
@@ -1402,17 +1404,17 @@ samples: |
             type: kubernetesEvents
     signals:
       - name: pre-usage
-        queryRef: runner-image-usage
+        query: runner-image-usage
         type: aggregate
         aggregate:
           method: sum
       - name: target-usage
-        queryRef: runner-image-usage
+        query: runner-image-usage
         type: aggregate
         aggregate:
           method: max
       - name: pull-time
-        queryRef: image-pull-events
+        query: image-pull-events
         type: eventPullTime
         eventPullTime:
           statistic: p50
@@ -1422,9 +1424,9 @@ samples: |
       strategy: modelExposure
       modelExposure:
         nodeCount: 3
-        preWindowUsageSignalRef: pre-usage
-        targetWindowUsageSignalRef: target-usage
-        pullTimeSignalRef: pull-time
+        preWindowUsageSignal: pre-usage
+        targetWindowUsageSignal: target-usage
+        pullTimeSignal: pull-time
     syncInterval: 30s
     maxImages: 10
   ---
@@ -1442,14 +1444,13 @@ samples: |
           query: "up{}"
     signals:
       - name: total-usage
-        queryRef: broken-query
+        query: broken-query
         type: aggregate
         aggregate:
           method: sum
     ranking:
       strategy: signal
-      signal:
-        signalRef: total-usage
+      signal: total-usage
     syncInterval: 30m
     maxImages: 10
   ---
@@ -1468,14 +1469,13 @@ samples: |
             - test/app
     signals:
       - name: tag-recency
-        queryRef: broken-registry
+        query: broken-registry
         type: aggregate
         aggregate:
           method: sum
     ranking:
       strategy: signal
-      signal:
-        signalRef: tag-recency
+      signal: tag-recency
     syncInterval: 30m
     maxImages: 10
   ---
@@ -1494,13 +1494,12 @@ samples: |
             - test/does-not-exist
     signals:
       - name: tag-recency
-        queryRef: missing-repo
+        query: missing-repo
         type: aggregate
         aggregate:
           method: sum
     ranking:
       strategy: signal
-      signal:
-        signalRef: tag-recency
+      signal: tag-recency
     syncInterval: 30m
     maxImages: 10

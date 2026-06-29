@@ -141,14 +141,13 @@ spec:
         name: prometheus-creds
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
 ---
 # --- 3. CachedImageSet: ties discovery + policy together, targets nodes ---
 apiVersion: drop.corewire.io/v1alpha1
@@ -341,14 +340,13 @@ spec:
         name: prometheus-creds
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
 ---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
@@ -405,14 +403,13 @@ spec:
         name: registry-api-creds
   signals:
     - name: recent-tag-count
-      queryRef: registry-tags
+      query: registry-tags
       type: aggregate
       aggregate:
         method: count
   ranking:
     strategy: signal
-    signal:
-      signalRef: recent-tag-count
+    signal: recent-tag-count
 ---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet

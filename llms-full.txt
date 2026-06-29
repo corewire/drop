@@ -184,7 +184,7 @@ DiscoveryQuery defines a named raw-data source referenced by signals.
 
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
-| Name | `name` | `string` | ✓ |  | Name is the unique identifier for this query within the policy. Signals reference queries by this name via queryRef. |
+| Name | `name` | `string` | ✓ |  | Name is the unique identifier for this query within the policy. Signals reference queries by this name via query. |
 | Type | `type` | `DiscoveryQueryType` | ✓ |  | Type selects the backend. Must be "prometheus", "loki", or "registry". Enum: `prometheus`,`loki`,`registry` |
 | Prometheus | `prometheus` | `*DiscoveryPrometheusQuery` | — |  | Prometheus contains the configuration when type=prometheus. |
 | Loki | `loki` | `*DiscoveryLokiQuery` | — |  | Loki contains the configuration when type=loki. |
@@ -198,7 +198,7 @@ DiscoveryRanking defines how signals are combined into the final ordered image l
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
 | Strategy | `strategy` | `RankingStrategy` | ✓ |  | Strategy selects the ranking algorithm. Enum: `signal`,`weightedSum`,`modelExposure` |
-| Signal | `signal` | `*SignalRankingConfig` | — |  | Signal is required when strategy=signal. |
+| Signal | `signal` | `string` | — |  | Signal is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy. Required when strategy=signal. |
 | WeightedSum | `weightedSum` | `*WeightedSumRankingConfig` | — |  | WeightedSum is required when strategy=weightedSum. |
 | ModelExposure | `modelExposure` | `*ModelExposureRankingConfig` | — |  | ModelExposure is required when strategy=modelExposure. |
 
@@ -221,7 +221,7 @@ DiscoverySignal defines a named per-image metric derived from a single query.
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
 | Name | `name` | `string` | ✓ |  | Name is the unique identifier for this signal within the policy. Ranking configurations reference signals by this name. |
-| QueryRef | `queryRef` | `string` | ✓ |  | QueryRef is the name of the query that provides raw data for this signal. Must match a queries[].name within the same policy. |
+| Query | `query` | `string` | ✓ |  | Query is the name of the query that provides raw data for this signal. Must match a queries[].name within the same policy. |
 | Type | `type` | `SignalType` | ✓ |  | Type selects the signal derivation method. Enum: `aggregate`,`timeWeightedAggregate`,`windowAggregate`,`eventPullTime` |
 | Aggregate | `aggregate` | `*AggregateSignalConfig` | — |  | Aggregate is required when type=aggregate. |
 | TimeWeightedAggregate | `timeWeightedAggregate` | `*TimeWeightedAggregateSignalConfig` | — |  | TimeWeightedAggregate is required when type=timeWeightedAggregate. |
@@ -267,9 +267,9 @@ ModelExposureRankingConfig configures the modelExposure ranking strategy. Score 
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
 | NodeCount | `nodeCount` | `int32` | ✓ |  | NodeCount is the number of eligible CI nodes (N in the exposure formula). |
-| PreWindowUsageSignalRef | `preWindowUsageSignalRef` | `string` | ✓ |  | PreWindowUsageSignalRef is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy. |
-| TargetWindowUsageSignalRef | `targetWindowUsageSignalRef` | `string` | ✓ |  | TargetWindowUsageSignalRef is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy. |
-| PullTimeSignalRef | `pullTimeSignalRef` | `string` | ✓ |  | PullTimeSignalRef is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy. |
+| PreWindowUsageSignal | `preWindowUsageSignal` | `string` | ✓ |  | PreWindowUsageSignal is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy. |
+| TargetWindowUsageSignal | `targetWindowUsageSignal` | `string` | ✓ |  | TargetWindowUsageSignal is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy. |
+| PullTimeSignal | `pullTimeSignal` | `string` | ✓ |  | PullTimeSignal is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy. |
 
 ### PolicyReference
 
@@ -289,14 +289,6 @@ QueryResult reports the outcome of a single named query execution.
 | Type | `type` | `DiscoveryQueryType` | ✓ |  | Type is the query backend type (prometheus, loki, or registry). |
 | Status | `status` | `QueryResultStatus` | ✓ |  | Status is "success" or "failed". |
 | Message | `message` | `string` | — |  | Message describes the failure reason when status=failed. |
-
-### SignalRankingConfig
-
-SignalRankingConfig configures the signal ranking strategy.
-
-| Field | JSON | Type | Required | Default | Description |
-|-------|------|------|----------|---------|-------------|
-| SignalRef | `signalRef` | `string` | ✓ |  | SignalRef is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy. |
 
 ### TimeOfDayWindow
 
@@ -344,7 +336,7 @@ WeightedSumTerm defines one signal contribution in a weightedSum ranking.
 
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
-| SignalRef | `signalRef` | `string` | ✓ |  | SignalRef is the name of the signal to include in the weighted sum. Must match a signals[].name within the same policy. |
+| Signal | `signal` | `string` | ✓ |  | Signal is the name of the signal to include in the weighted sum. Must match a signals[].name within the same policy. |
 | Weight | `weight` | `resource.Quantity` | ✓ |  | Weight is the factor applied to the normalized signal value. All weights should be non-negative; they do not need to sum to 1. Example: "0.7" |
 
 ### WindowAggregateSignalConfig
@@ -514,14 +506,13 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff", pod=~"runner-.*"}) by (image)'
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
   syncInterval: 30s
   maxImages: 10
 ---
@@ -542,12 +533,12 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
     - name: peak-concurrency
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: max
@@ -557,9 +548,9 @@ spec:
       normalize: minMax
       missingSignal: zero
       terms:
-        - signalRef: total-usage
+        - signal: total-usage
           weight: "700m"
-        - signalRef: peak-concurrency
+        - signal: peak-concurrency
           weight: "300m"
   syncInterval: 30s
   maxImages: 10
@@ -579,14 +570,13 @@ spec:
         query: 'container_memory_working_set_bytes{namespace="build-stuff"}'
   signals:
     - name: current
-      queryRef: current-usage
+      query: current-usage
       type: aggregate
       aggregate:
         method: max
   ranking:
     strategy: signal
-    signal:
-      signalRef: current
+    signal: current
   syncInterval: 30s
   maxImages: 10
 ---
@@ -608,7 +598,7 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
   signals:
     - name: business-hours-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: timeWeightedAggregate
       timeWeightedAggregate:
         method: sum
@@ -620,8 +610,7 @@ spec:
             weight: "2"
   ranking:
     strategy: signal
-    signal:
-      signalRef: business-hours-usage
+    signal: business-hours-usage
   syncInterval: 30s
   maxImages: 10
 ---
@@ -642,15 +631,14 @@ spec:
         query: 'count(container_memory_working_set_bytes{container!="", container!="POD", namespace="build-stuff"}) by (image)'
   signals:
     - name: recent-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: windowAggregate
       windowAggregate:
         method: sum
         relativeWindow: 6h
   ranking:
     strategy: signal
-    signal:
-      signalRef: recent-usage
+    signal: recent-usage
   syncInterval: 30s
   maxImages: 10
 ---
@@ -672,14 +660,14 @@ spec:
           type: kubernetesEvents
   signals:
     - name: p50-cold-pull-time
-      queryRef: image-pull-events
+      query: image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: p50
         durationMode: messageDuration
         includeCacheHits: false
     - name: pull-failures
-      queryRef: image-pull-events
+      query: image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: failureCount
@@ -687,8 +675,7 @@ spec:
         includeCacheHits: false
   ranking:
     strategy: signal
-    signal:
-      signalRef: p50-cold-pull-time
+    signal: p50-cold-pull-time
   syncInterval: 30s
   maxImages: 10
 ---
@@ -711,14 +698,13 @@ spec:
         topX: 5
   signals:
     - name: tag-recency
-      queryRef: registry-tags
+      query: registry-tags
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: tag-recency
+    signal: tag-recency
   syncInterval: 30s
   maxImages: 20
 ---
@@ -749,17 +735,17 @@ spec:
           type: kubernetesEvents
   signals:
     - name: pre-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
     - name: target-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: max
     - name: pull-time
-      queryRef: image-pull-events
+      query: image-pull-events
       type: eventPullTime
       eventPullTime:
         statistic: p50
@@ -769,9 +755,9 @@ spec:
     strategy: modelExposure
     modelExposure:
       nodeCount: 3
-      preWindowUsageSignalRef: pre-usage
-      targetWindowUsageSignalRef: target-usage
-      pullTimeSignalRef: pull-time
+      preWindowUsageSignal: pre-usage
+      targetWindowUsageSignal: target-usage
+      pullTimeSignal: pull-time
   syncInterval: 30s
   maxImages: 10
 ---
@@ -789,14 +775,13 @@ spec:
         query: "up{}"
   signals:
     - name: total-usage
-      queryRef: broken-query
+      query: broken-query
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
   syncInterval: 30m
   maxImages: 10
 ---
@@ -815,14 +800,13 @@ spec:
           - test/app
   signals:
     - name: tag-recency
-      queryRef: broken-registry
+      query: broken-registry
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: tag-recency
+    signal: tag-recency
   syncInterval: 30m
   maxImages: 10
 ---
@@ -841,14 +825,13 @@ spec:
           - test/does-not-exist
   signals:
     - name: tag-recency
-      queryRef: missing-repo
+      query: missing-repo
       type: aggregate
       aggregate:
         method: sum
   ranking:
     strategy: signal
-    signal:
-      signalRef: tag-recency
+    signal: tag-recency
   syncInterval: 30m
   maxImages: 10
 
@@ -883,5 +866,13 @@ spec:
   make docs-serve	# Serve Hugo docs locally.
   make docs-gen	# Regenerate AI agent docs (llms.txt, instructions, etc.) from source.
   make docs-gen-check	# Verify generated AI docs are up to date.
+  make research-tex-build	# Build research PDF from TeX source (override RESEARCH_TEX_FILE=<file.tex>).
+  make research-bench-setup	# Create benchmark venv and install Python dependencies.
+  make research-bench-generate	# Generate synthetic benchmark dataset.
+  make research-bench-replay	# Run replay policy evaluation from benchmark data.
+  make research-bench-discovery	# Evaluate discovery strategies from benchmark data.
+  make research-bench-plot	# Render example pipeline Gantt figure.
+  make research-bench-20runs	# Run 20-run discovery strategy benchmark batch.
+  make research-bench-all	# Run full synthetic benchmark workflow.
   make tools	# Install local tooling and check optional docs/chart binaries.
 ```
