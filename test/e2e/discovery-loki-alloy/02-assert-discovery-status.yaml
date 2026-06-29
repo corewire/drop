@@ -1,0 +1,11 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-discovery-loki-alloy
+status:
+  (conditions[?type == 'Ready'] | [0].status): "True"
+  (conditions[?type == 'Ready'] | [0].reason): Synced
+  (queryResults[?name == 'alloy-k8s-events'] | [0].status): success
+  (queryResults[?name == 'alloy-k8s-events'] | [0].type): loki
+  (imageCount > `0`): true
+  (contains(to_string(discoveredImages), 'e2e-alloy-invalid:nope')): true

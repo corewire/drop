@@ -206,13 +206,13 @@ func parseKubernetesEventStreams(streams []lokiStream, parser *dropv1alpha1.Loki
 				var parsed map[string]interface{}
 				if err := json.Unmarshal([]byte(entry[1]), &parsed); err == nil {
 					if rec.reason == "" {
-						rec.reason, _ = parsed[reasonField].(string)
+						rec.reason = lokiJSONField(parsed, reasonField, "reason")
 					}
 					if rec.pod == "" {
-						rec.pod, _ = parsed[podField].(string)
+						rec.pod = lokiJSONField(parsed, podField, "involvedObject_name", "name")
 					}
 					if rec.message == "" {
-						rec.message, _ = parsed[messageField].(string)
+						rec.message = lokiJSONField(parsed, messageField, lokiMessageField, "msg")
 					}
 				} else if rec.message == "" {
 					rec.message = entry[1]
@@ -357,4 +357,19 @@ func lokiCoalesceField(field, defaultVal string) string {
 		return field
 	}
 	return defaultVal
+}
+
+// lokiJSONField reads the first non-empty string value from a JSON event using the
+// configured key first, then common aliases (e.g. Grafana Alloy emits "msg"/"name"
+// where raw event JSON uses "message"/"involvedObject_name"). Returns "" if none match.
+func lokiJSONField(parsed map[string]interface{}, keys ...string) string {
+	for _, k := range keys {
+		if k == "" {
+			continue
+		}
+		if v, ok := parsed[k].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
 }

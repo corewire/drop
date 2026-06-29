@@ -176,6 +176,50 @@ func TestLokiSource_FetchRaw_KubernetesEvents_EventPair(t *testing.T) {
 	}
 }
 
+// TestLokiSource_FetchRaw_KubernetesEvents_AlloyJSON verifies that events shipped by
+// Grafana Alloy (loki.source.kubernetes_events, log_format=json) parse with the default
+// parser fields. Alloy emits "msg"/"name" in the JSON body, not "message"/"involvedObject_name".
+func TestLokiSource_FetchRaw_KubernetesEvents_AlloyJSON(t *testing.T) {
+	now := time.Now()
+	streams := []lokiStream{
+		{
+			Stream: map[string]string{"namespace": "default", "job": "kubelet"},
+			Values: [][]string{{nanoStringLoki(now.Add(-2 * time.Second)),
+				`{"reason":"Pulled","name":"runner-abc","msg":"Successfully pulled image \"nginx:1.25\" in 740ms"}`}},
+		},
+		{
+			Stream: map[string]string{"namespace": "default", "job": "kubelet"},
+			Values: [][]string{{nanoStringLoki(now.Add(-1 * time.Second)),
+				`{"reason":"Failed","name":"runner-def","msg":"Failed to pull image \"broken:v1\": not found"}`}},
+		},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := lokiResponse{Status: lokiStatusSuccess, Data: lokiData{ResultType: "streams", Result: streams}}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	// Default parser fields (no msg/name overrides) — relies on alias fallback.
+	src := NewLokiSource(srv.URL, `{job="kubelet"}`, time.Hour, &dropv1alpha1.LokiParser{
+		Type: dropv1alpha1.LokiParserTypeKubernetesEvents,
+	}, srv.Client())
+	samples, err := src.FetchRaw(t.Context())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(samples["nginx:1.25"]) != 1 {
+		t.Fatalf("expected 1 sample for nginx:1.25, got %d", len(samples["nginx:1.25"]))
+	}
+	if got := samples["nginx:1.25"][0].Value; got < 0.73 || got > 0.75 {
+		t.Errorf("expected ~0.74s duration, got %f", got)
+	}
+	if len(samples["broken:v1"+lokiFailedSuffix]) != 1 {
+		t.Errorf("expected 1 failure sample for broken:v1, got %d", len(samples["broken:v1"+lokiFailedSuffix]))
+	}
+}
+
 // TestLokiSource_FetchRaw_HTTPError verifies that HTTP errors are surfaced.
 func TestLokiSource_FetchRaw_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

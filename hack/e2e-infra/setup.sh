@@ -23,6 +23,10 @@ kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/prometheus.yaml"
 echo "[e2e-infra] Deploying Loki..."
 kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/loki.yaml"
 
+# --- Deploy Alloy to ship real Kubernetes events into Loki ---
+echo "[e2e-infra] Deploying Alloy (kubernetes_events -> Loki)..."
+kubectl apply -f "$SCRIPT_DIR/alloy.yaml"
+
 # --- Wait for readiness ---
 echo "[e2e-infra] Waiting for registry to be ready..."
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/registry --timeout=90s
@@ -50,6 +54,9 @@ kubectl -n "$NAMESPACE" wait --for=condition=available deployment/prometheus --t
 echo "[e2e-infra] Waiting for Loki to be ready..."
 # Loki single-binary startup can lag behind registry/prometheus in CI clusters.
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/loki --timeout=300s
+
+echo "[e2e-infra] Waiting for Alloy to be ready..."
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/alloy --timeout=120s
 
 # --- Seed the registry with a few images ---
 echo "[e2e-infra] Seeding registry with test images..."
