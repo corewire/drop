@@ -18,14 +18,14 @@ spec:
           messageField: msg
           imageField: msg
   signals:
-    - name: p50-cold-pull-time
+    - name: avg-cold-pull-time
       query: alloy-k8s-events
       type: eventPullTime
       eventPullTime:
         metric: pullTime
-        statistic: p50
+        statistic: avg
   ranking:
     strategy: signal
-    signal: p50-cold-pull-time
+    signal: avg-cold-pull-time
   syncInterval: 15s
   maxImages: 10

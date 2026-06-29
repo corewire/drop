@@ -18,15 +18,15 @@ spec:
           messageField: msg
           imageField: msg
   signals:
-    # Median cold-pull time derived from the "Successfully pulled ... in Xs" messages.
-    - name: p50-cold-pull-time
+    # Mean cold-pull time derived from the "Successfully pulled ... in Xs" messages.
+    - name: avg-cold-pull-time
       query: discovery-loki-image-pull-events
       type: eventPullTime
       eventPullTime:
         metric: pullTime
-        statistic: p50
+        statistic: avg
   ranking:
     strategy: signal
-    signal: p50-cold-pull-time
+    signal: avg-cold-pull-time
   syncInterval: 30s
   maxImages: 10
