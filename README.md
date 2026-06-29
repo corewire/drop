@@ -9,7 +9,7 @@
 </p>
 
 
-A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery. 
+A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery.
 
 ## Why
 
@@ -362,7 +362,11 @@ spec:
       tag: "3.19"
 ```
 
-### Use case: discover and cache application tags from a registry
+### Use case: discover and cache GitLab runner helper images from a registry
+
+GitLab runner helper tags carry an arch/flavor prefix (e.g. `x86_64-v17.5.0`).
+Drop extracts the embedded version automatically; `versionPattern` is shown for
+clarity but is optional here.
 
 ```yaml
 apiVersion: v1
@@ -387,29 +391,21 @@ spec:
       type: registry
       registry:
         # Registry base URL
-        url: https://registry.example.com
+        url: https://registry.gitlab.com
         # Repositories to list tags from
         repositories:
-          - team/frontend
-          - team/backend
-          - team/worker
-        # Only discover semver tags (regex on tag name)
-        tagFilter: "^v[0-9]+\\."
-        # Keep only the last 3 matching tags returned by the registry
+          - gitlab-org/gitlab-runner/gitlab-runner-helper
+        # Only discover x86_64 semver tags (regex on tag name)
+        tagFilter: "^x86_64-v[0-9]+\\."
+        # Optional: pin where the version lives in the tag (capture group 1)
+        versionPattern: "x86_64-v(.+)"
+        # Keep only the 3 newest matching tags (newest first)
         topX: 3
       # Optional: Secret in the Drop pod namespace (default: drop-system)
       # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
         name: registry-api-creds
-  signals:
-    - name: recent-tag-count
-      query: registry-tags
-      type: aggregate
-      aggregate:
-        method: count
-  ranking:
-    strategy: signal
-    signal: recent-tag-count
+  # No signals/ranking needed: registry tags are returned newest-first.
 ---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet

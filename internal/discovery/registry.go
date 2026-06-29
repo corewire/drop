@@ -6,35 +6,45 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 // RegistrySource queries OCI registries for image tags.
 type RegistrySource struct {
-	URL           string
-	Repositories  []string
-	TagFilter     string
-	TopX          int32
-	ImageTemplate string
-	HTTPClient    *http.Client
+	URL            string
+	Repositories   []string
+	TagFilter      string
+	TagSeek        string
+	TopX           int32
+	MaxScan        int32
+	ImageTemplate  string
+	VersionPattern string
+	HTTPClient     *http.Client
 }
 
 // NewRegistrySource creates a new registry discovery source.
-func NewRegistrySource(url string, repos []string, tagFilter string, topX int32, imageTemplate string, httpClient *http.Client) *RegistrySource {
+func NewRegistrySource(url string, repos []string, tagFilter, tagSeek string, topX, maxScan int32, imageTemplate, versionPattern string, httpClient *http.Client) *RegistrySource {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 	return &RegistrySource{
-		URL:           strings.TrimSuffix(url, "/"),
-		Repositories:  repos,
-		TagFilter:     tagFilter,
-		TopX:          topX,
-		ImageTemplate: imageTemplate,
-		HTTPClient:    httpClient,
+		URL:            strings.TrimSuffix(url, "/"),
+		Repositories:   repos,
+		TagFilter:      tagFilter,
+		TagSeek:        tagSeek,
+		TopX:           topX,
+		MaxScan:        maxScan,
+		ImageTemplate:  imageTemplate,
+		VersionPattern: versionPattern,
+		HTTPClient:     httpClient,
 	}
 }
 
@@ -43,6 +53,15 @@ type tagListResponse struct {
 	Name string   `json:"name"`
 	Tags []string `json:"tags"`
 }
+
+// tagListPageSize is the number of tags requested per page. Registries cap the
+// effective page size (GitLab caps at 100), so this is an upper bound.
+const tagListPageSize = 1000
+
+// defaultMaxScan bounds how many tags are fetched per repository when MaxScan is
+// unset. Registries can hold tens of thousands of tags; pair tagSeek with a
+// budget to fetch only the relevant range.
+const defaultMaxScan = 1000
 
 // Fetch queries the registry for tags and returns discovered images.
 func (rs *RegistrySource) Fetch(ctx context.Context) ([]ImageResult, error) {
@@ -64,32 +83,103 @@ func (rs *RegistrySource) Fetch(ctx context.Context) ([]ImageResult, error) {
 	return allResults, nil
 }
 
+// listTags returns up to MaxScan tags for a repository, following the OCI
+// Distribution `Link` header (rel="next") to paginate. Registries do not
+// guarantee tag ordering and many (e.g. GitLab) return only a page at a time.
+// TagSeek is passed as the `last` cursor so callers can skip irrelevant earlier
+// tags without fetching them.
+func (rs *RegistrySource) listTags(ctx context.Context, repo string) ([]string, error) {
+	budget := int(rs.MaxScan)
+	if budget <= 0 {
+		budget = defaultMaxScan
+	}
+
+	q := url.Values{}
+	q.Set("n", strconv.Itoa(tagListPageSize))
+	if rs.TagSeek != "" {
+		q.Set("last", rs.TagSeek)
+	}
+	next := fmt.Sprintf("%s/v2/%s/tags/list?%s", rs.URL, repo, q.Encode())
+
+	var tags []string
+	for next != "" && len(tags) < budget {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, next, nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+
+		resp, err := rs.HTTPClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("listing tags: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			return nil, fmt.Errorf("registry returned status %d: %s", resp.StatusCode, string(body))
+		}
+
+		var tagList tagListResponse
+		if err := json.NewDecoder(resp.Body).Decode(&tagList); err != nil {
+			_ = resp.Body.Close()
+			return nil, fmt.Errorf("decoding response: %w", err)
+		}
+		linkHeader := resp.Header.Get("Link")
+		_ = resp.Body.Close()
+
+		tags = append(tags, tagList.Tags...)
+		next = rs.nextPageURL(linkHeader)
+	}
+
+	if len(tags) > budget {
+		tags = tags[:budget]
+	}
+	return tags, nil
+}
+
+// nextPageURL parses an RFC 5988 `Link` header and returns the absolute URL of
+// the rel="next" page, or "" when there is no next page. The registry returns a
+// relative URI which is resolved against the registry base URL.
+func (rs *RegistrySource) nextPageURL(linkHeader string) string {
+	if linkHeader == "" {
+		return ""
+	}
+	for _, part := range strings.Split(linkHeader, ",") {
+		segs := strings.Split(part, ";")
+		if len(segs) < 2 {
+			continue
+		}
+		isNext := false
+		for _, p := range segs[1:] {
+			if strings.Contains(strings.ToLower(p), `rel="next"`) || strings.Contains(strings.ToLower(p), "rel=next") {
+				isNext = true
+				break
+			}
+		}
+		if !isNext {
+			continue
+		}
+		raw := strings.TrimSpace(segs[0])
+		raw = strings.TrimPrefix(raw, "<")
+		raw = strings.TrimSuffix(raw, ">")
+		if raw == "" {
+			return ""
+		}
+		if strings.HasPrefix(raw, "http://") || strings.HasPrefix(raw, "https://") {
+			return raw
+		}
+		return rs.URL + raw
+	}
+	return ""
+}
+
 func (rs *RegistrySource) fetchRepo(ctx context.Context, repo string) ([]ImageResult, error) {
-	u := fmt.Sprintf("%s/v2/%s/tags/list", rs.URL, repo)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	tags, err := rs.listTags(ctx, repo)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	resp, err := rs.HTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("listing tags: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("registry returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var tagList tagListResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tagList); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		return nil, err
 	}
 
 	// Filter tags
-	tags := tagList.Tags
 	if rs.TagFilter != "" {
 		re, err := regexp.Compile(rs.TagFilter)
 		if err != nil {
@@ -104,15 +194,24 @@ func (rs *RegistrySource) fetchRepo(ctx context.Context, repo string) ([]ImageRe
 		tags = filtered
 	}
 
-	// Limit to topX by keeping the last N tags in the slice returned by the registry.
-	// The OCI Distribution Spec does not define tag ordering, so this is best-effort:
-	// many registries return tags in push order (oldest first, newest last), which
-	// means we naturally keep the most recently pushed tags.
+	// Sort newest-first. Tags carrying a (possibly prefixed) version are ordered
+	// by version desc; tags with no parseable version fall back to push order.
+	var versionRe *regexp.Regexp
+	if rs.VersionPattern != "" {
+		re, err := regexp.Compile(rs.VersionPattern)
+		if err != nil {
+			return nil, fmt.Errorf("compiling version pattern: %w", err)
+		}
+		versionRe = re
+	}
+	tags = sortTagsNewestFirst(tags, versionRe)
+
+	// Limit to topX by keeping the first N tags (newest).
 	if rs.TopX > 0 && int32(len(tags)) > rs.TopX {
-		tags = tags[len(tags)-int(rs.TopX):]
+		tags = tags[:rs.TopX]
 	}
 
-	// Build image refs
+	// Build image refs. Higher score = newer (index 0 is newest).
 	results := make([]ImageResult, 0, len(tags))
 	for i, tag := range tags {
 		imageRef, err := rs.buildImageRef(repo, tag)
@@ -121,11 +220,79 @@ func (rs *RegistrySource) fetchRepo(ctx context.Context, repo string) ([]ImageRe
 		}
 		results = append(results, ImageResult{
 			Image: imageRef,
-			Score: int64(i + 1), // Higher index = more recent
+			Score: int64(len(tags) - i),
 		})
 	}
 
 	return results, nil
+}
+
+// reEmbeddedSemver extracts a semver-ish version from anywhere inside a tag,
+// e.g. "x86_64-v17.5.0" -> "17.5.0". This handles arch/flavor-prefixed tags
+// like GitLab runner helper images (x86_64-v17.5.0, ubuntu-x86_64-v16.11.0).
+var reEmbeddedSemver = regexp.MustCompile(`(\d+)\.(\d+)(?:\.(\d+))?(?:[-+][0-9A-Za-z.-]+)?`)
+
+// parseTagVersion tries to interpret a tag as a version. When versionRe is set,
+// its first capture group is used as the version substring. Otherwise it
+// attempts a strict semver parse, then falls back to extracting an embedded
+// semver substring. Returns nil when no version can be found.
+func parseTagVersion(tag string, versionRe *regexp.Regexp) *semver.Version {
+	if versionRe != nil {
+		m := versionRe.FindStringSubmatch(tag)
+		if len(m) >= 2 {
+			if v, err := semver.NewVersion(m[1]); err == nil {
+				return v
+			}
+		}
+		return nil
+	}
+	if v, err := semver.NewVersion(tag); err == nil {
+		return v
+	}
+	if m := reEmbeddedSemver.FindString(tag); m != "" {
+		if v, err := semver.NewVersion(m); err == nil {
+			return v
+		}
+	}
+	return nil
+}
+
+// sortTagsNewestFirst orders tags newest-first. Tags carrying a (possibly
+// prefixed) semver version sort by version descending; tags without a parseable
+// version keep their original push order (best effort) and are appended after
+// the versioned tags. versionRe, when non-nil, overrides version extraction
+// using its first capture group.
+func sortTagsNewestFirst(tags []string, versionRe *regexp.Regexp) []string {
+	type vt struct {
+		tag string
+		ver *semver.Version
+		idx int
+	}
+	parsed := make([]vt, len(tags))
+	for i, t := range tags {
+		parsed[i] = vt{tag: t, ver: parseTagVersion(t, versionRe), idx: i}
+	}
+	sort.SliceStable(parsed, func(i, j int) bool {
+		a, b := parsed[i], parsed[j]
+		if a.ver != nil && b.ver != nil {
+			if a.ver.Equal(b.ver) {
+				return a.tag < b.tag // stable tie-break for prefixed variants
+			}
+			return a.ver.GreaterThan(b.ver)
+		}
+		if a.ver != nil {
+			return true // versioned before non-versioned
+		}
+		if b.ver != nil {
+			return false
+		}
+		return a.idx > b.idx // both unversioned: push order, newest last -> reverse
+	})
+	out := make([]string, len(parsed))
+	for i, p := range parsed {
+		out[i] = p.tag
+	}
+	return out
 }
 
 // templateData provides variables for the image template.

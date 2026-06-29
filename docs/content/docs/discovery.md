@@ -161,6 +161,7 @@ spec:
       query: image-pull-events
       type: eventPullTime
       eventPullTime:
+        metric: pullTime       # default; aggregates pull duration samples
         statistic: avg          # mean pull duration per image
         includeCacheHits: false # only count true cold pulls
         durationMode: eventPair # pair Pulling→Pulled events to get the duration
@@ -233,41 +234,42 @@ spec:
     - name: registry-tags
       type: registry
       registry:
-        url: https://registry.example.com
+        url: https://registry.gitlab.com
         repositories:           # repos to enumerate tags from
-          - team/frontend
-          - team/backend
-        tagFilter: "^v[0-9]+\\."  # only tags starting v1. / v2. ...
-        topX: 3                 # keep the last 3 matching tags returned per repo
+          - gitlab-org/gitlab-runner/gitlab-runner-helper
+        tagFilter: "^x86_64-v[0-9]+\\."  # only x86_64-v1. / x86_64-v2. ...
+        versionPattern: "x86_64-v(.+)"  # capture group 1 is the version
+        topX: 3                 # keep the 3 newest matching tags per repo
         imageTemplate: "{{.Registry}}/{{.Repository}}:{{.Tag}}"  # built image ref
       secretRef:
         name: registry-api-creds   # registry auth Secret in the operator namespace
-  signals:
-    - name: recent-tag-count
-      query: registry-tags
-      type: aggregate
-      aggregate:
-        method: count           # rank by how many recent tags exist
-  ranking:
-    strategy: signal
-    signal: recent-tag-count
 ```
 
+No `signals` or `ranking` are needed: registry queries already return their
+tags newest-first, so the discovered images come out pre-ranked.
+
 How it's used: registry discovery lists tags per repository via
-`/v2/<repo>/tags/list`, applies `tagFilter`, keeps `topX`, then renders full
-image references via `imageTemplate`.
+`/v2/<repo>/tags/list`, applies `tagFilter`, sorts newest-first, keeps `topX`,
+then renders full image references via `imageTemplate`.
 
 Important behavior notes:
 - `tagFilter` is regex on tag names. Anchor explicitly (`^...$`) when needed.
-- `topX` keeps the last `N` matching tags in registry response order. It is not
-  true semver/date recency unless your registry already returns that order.
+- Tags are sorted by version descending (newest first). Strict semver tags work
+  out of the box; prefixed/suffixed tags (e.g. GitLab runner helper
+  `x86_64-v17.5.0`) are handled by extracting an embedded semver substring.
+  Tags with no parseable version fall back to registry push order. `topX` then
+  keeps the newest N.
+- `versionPattern` (optional) is a regex with one capture group that pins where
+  the version lives in the tag, e.g. `x86_64-v(.+)` for GitLab helper images.
+  Use it when the default extraction picks the wrong number.
 - `imageTemplate` variables: `{{.Registry}}`, `{{.Repository}}`, `{{.Tag}}`.
   Default: `{{.Registry}}/{{.Repository}}:{{.Tag}}`.
 
 Signal fit:
-- Great with `aggregate`/`timeWeightedAggregate`/`windowAggregate` (counts and
-  derived scores from discovered tag entries).
-- Not compatible with `eventPullTime` (which requires pull event records).
+- Registry queries are self-ranking; `signals`/`ranking` are optional and
+  ignored for ordering. Aggregation signals are a no-op (one sample per tag).
+- Not compatible with `timeWeightedAggregate`/`windowAggregate`/`eventPullTime`
+  (tag snapshots are not time series).
 
 #### What happens to our query
 
@@ -277,18 +279,19 @@ For each repository, the controller calls `/v2/<repo>/tags/list`, then applies
 Example registry payload:
 
 ```json
-{"name":"team/frontend","tags":["v1.10.0","v1.11.0","dev-123","v1.12.0","v1.13.0"]}
+{"name":"gitlab-org/gitlab-runner/gitlab-runner-helper","tags":["x86_64-v17.3.0","x86_64-v17.4.0","x86_64-latest","x86_64-v17.5.0","x86_64-v17.10.0"]}
 ```
 
-With `tagFilter: "^v[0-9]+\\."` and `topX: 3`, the kept tags are:
+With `tagFilter: "^x86_64-v[0-9]+\\."`, `versionPattern: "x86_64-v(.+)"`, and
+`topX: 3`, the newest kept tags are:
 
 | Repository | Matching tags | Kept (`topX=3`) | Rendered images |
 |-----------|----------------|-----------------|-----------------|
-| `team/frontend` | `v1.10.0`, `v1.11.0`, `v1.12.0`, `v1.13.0` | `v1.11.0`, `v1.12.0`, `v1.13.0` | `registry.example.com/team/frontend:v1.11.0` ... `:v1.13.0` |
-| `team/backend` | `v2.3.0`, `v2.4.0` | `v2.3.0`, `v2.4.0` | `registry.example.com/team/backend:v2.3.0`, `:v2.4.0` |
+| `gitlab-org/gitlab-runner/gitlab-runner-helper` | `x86_64-v17.3.0`, `x86_64-v17.4.0`, `x86_64-v17.5.0`, `x86_64-v17.10.0` | `x86_64-v17.10.0`, `x86_64-v17.5.0`, `x86_64-v17.4.0` | `registry.gitlab.com/gitlab-org/gitlab-runner/gitlab-runner-helper:x86_64-v17.10.0` ... `:x86_64-v17.4.0` |
 
-An `aggregate` signal with `method: count` then ranks by how many retained tags
-each repository contributed.
+Note `x86_64-v17.10.0` correctly ranks above `x86_64-v17.5.0` (version-aware,
+not lexical), and the non-versioned `x86_64-latest` tag is excluded by
+`tagFilter`. Images come out newest-first, so no ranking is required.
 
 ### Auth / TLS
 
@@ -331,16 +334,18 @@ A signal derives a named per-image value from exactly one query. The four types 
 | `aggregate` | One value over all samples | `method`: sum/max/avg/count/min |
 | `timeWeightedAggregate` | Weighted sum by hour-of-day | `windows`, `weight`, `timezone` |
 | `windowAggregate` | One sub-window only | `relativeWindow` or `window` start/end |
-| `eventPullTime` | Pull-time statistic | `statistic`: p50/p90/p95/avg/max |
+| `eventPullTime` | Event metric statistic | `metric`: pullTime/imageSize/failure/cacheHit, `statistic`: p50/p90/p95/avg/max/count |
 
 Signal × source compatibility:
 
 | Signal type | Prometheus | Loki | Registry |
 |-------------|------------|------|----------|
-| `aggregate` | yes | yes | yes |
-| `timeWeightedAggregate` | yes | yes | yes |
-| `windowAggregate` | yes | yes | yes |
+| `aggregate` | yes | yes | no-op |
+| `timeWeightedAggregate` | yes | yes | no |
+| `windowAggregate` | yes | yes | no |
 | `eventPullTime` | no | yes (`kubernetesEvents`) | no |
+
+Registry queries return tag snapshots, not time series, so time-windowed signals are intentionally rejected. They are already self-ranked newest-first, so `aggregate` adds nothing and signals/ranking can be omitted entirely.
 
 All Prometheus examples below run on this 48h dataset (sampled every 6h, both days identical):
 
@@ -560,10 +565,14 @@ This signal ignores the 48h volume dataset — it reads Loki pull durations inst
 | `avg` | mean pull | 730 | 1830 | overall cost (skewed by outliers) |
 | `max` | slowest pull | 730 | 4100 | absolute worst pull |
 | `count` | cold-pull events | 1 | 3 | how often pulled cold |
-| `failureCount` | pull failures | 0 | 0 | flaky / broken images |
-| `cacheHitCount` | already-present hits | 0 | 0 | nodes already warm |
 
 Two extra knobs: `includeCacheHits` (default `false`) adds "already present" events to duration stats; `durationMode` is `eventPair` (Pulled−Pulling timestamps) or `messageDuration` (parse "in 42.3s" from the message).
+
+`eventPullTime` now uses `metric + statistic`:
+- `metric: pullTime` (default) with `statistic: p50|p90|p95|avg|max|count`
+- `metric: imageSize` with `statistic: p50|p90|p95|avg|max|count` (bytes from `Image size: N bytes`)
+- `metric: failure` with `statistic: count`
+- `metric: cacheHit` with `statistic: count`
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
@@ -595,12 +604,30 @@ spec:
       query: image-pull-events
       type: eventPullTime
       eventPullTime:
-        statistic: avg            # p50 | p90 | p95 | avg | max | count | failureCount | cacheHitCount
+        metric: pullTime          # pullTime (default) | imageSize | failure | cacheHit
+        statistic: avg            # p50 | p90 | p95 | avg | max | count
         includeCacheHits: false   # ignore already-cached pulls in latency stats
         durationMode: eventPair   # eventPair (Pulling→Pulled) | messageDuration parsing
   ranking:
     strategy: signal
     signal: avg-cold-pull-time
+```
+
+Rank by image size (bytes) from the same Pulled events:
+
+```yaml
+signals:
+  - name: avg-image-size
+    query: image-pull-events
+    type: eventPullTime
+    eventPullTime:
+      metric: imageSize
+      statistic: avg
+      durationMode: messageDuration
+
+ranking:
+  strategy: signal
+  signal: avg-image-size
 ```
 
 ## Stage 3 — Ranking
@@ -757,6 +784,7 @@ spec:
       query: image-pull-events
       type: eventPullTime
       eventPullTime:
+        metric: pullTime
         statistic: avg
         includeCacheHits: false
         durationMode: eventPair
@@ -1002,6 +1030,7 @@ spec:
       query: image-pull-events
       type: eventPullTime
       eventPullTime:
+        metric: pullTime
         statistic: avg          # mean latency signal; use p95 if you need tail sensitivity
         includeCacheHits: false
         durationMode: eventPair

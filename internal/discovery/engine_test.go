@@ -123,6 +123,96 @@ func TestExecutePipeline_Registry(t *testing.T) {
 	}
 }
 
+// TestExecutePipeline_RegistryNoRanking verifies registry queries rank
+// newest-first by semver without any signals or ranking configured.
+func TestExecutePipeline_RegistryNoRanking(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := tagListResponse{Name: "team/app", Tags: []string{"v1.0", "v2.0", "v1.5"}}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	spec := dropv1alpha1.DiscoveryPolicySpec{
+		Queries: []dropv1alpha1.DiscoveryQuery{{
+			Name: "tags",
+			Type: dropv1alpha1.DiscoveryQueryTypeRegistry,
+			Registry: &dropv1alpha1.DiscoveryRegistryQuery{
+				URL:          srv.URL,
+				Repositories: []string{"team/app"},
+				TopX:         2,
+			},
+		}},
+		MaxImages: 10,
+	}
+
+	clientFn := func(_ context.Context, _ string) (*http.Client, error) { return srv.Client(), nil }
+	result := ExecutePipeline(context.Background(), spec, clientFn)
+
+	if len(result.Images) != 2 {
+		t.Fatalf("expected top 2 images, got %d: %v", len(result.Images), result.Images)
+	}
+	host := srv.URL[len("http://"):]
+	if result.Images[0].Image != host+"/team/app:v2.0" {
+		t.Errorf("expected v2.0 first, got %s", result.Images[0].Image)
+	}
+	if result.Images[1].Image != host+"/team/app:v1.5" {
+		t.Errorf("expected v1.5 second, got %s", result.Images[1].Image)
+	}
+}
+
+// TestExecutePipeline_RegistryWindowAggregateIncompatible verifies that
+// windowAggregate is rejected for registry queries (tag snapshots are not time series).
+func TestExecutePipeline_RegistryWindowAggregateIncompatible(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := tagListResponse{Name: "team/app", Tags: []string{"v1.0", "v1.1"}}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	window := metav1.Duration{Duration: 2 * time.Hour}
+	spec := dropv1alpha1.DiscoveryPolicySpec{
+		Queries: []dropv1alpha1.DiscoveryQuery{{
+			Name: "tags",
+			Type: dropv1alpha1.DiscoveryQueryTypeRegistry,
+			Registry: &dropv1alpha1.DiscoveryRegistryQuery{
+				URL:          srv.URL,
+				Repositories: []string{"team/app"},
+			},
+		}},
+		Signals: []dropv1alpha1.DiscoverySignal{{
+			Name:  "recent-tags",
+			Query: "tags",
+			Type:  dropv1alpha1.SignalTypeWindowAggregate,
+			WindowAggregate: &dropv1alpha1.WindowAggregateSignalConfig{
+				Method:         dropv1alpha1.AggregationSum,
+				RelativeWindow: &window,
+			},
+		}},
+		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "recent-tags"},
+		MaxImages: 10,
+	}
+
+	clientFn := func(_ context.Context, _ string) (*http.Client, error) { return srv.Client(), nil }
+	result := ExecutePipeline(context.Background(), spec, clientFn)
+
+	if len(result.QueryResults) != 1 {
+		t.Fatalf("expected 1 query result, got %d", len(result.QueryResults))
+	}
+	if result.QueryResults[0].Status != dropv1alpha1.QueryResultStatusFailed {
+		t.Fatalf("expected failed query result, got %s", result.QueryResults[0].Status)
+	}
+	if result.QueryResults[0].Message == "" {
+		t.Fatalf("expected incompatibility message, got empty")
+	}
+	// Registry images still surface via fallback registry-order ranking even
+	// though the bogus signal is ignored.
+	if len(result.Images) != 2 {
+		t.Fatalf("expected 2 registry images via fallback ranking, got %d", len(result.Images))
+	}
+}
+
 // TestExecutePipeline_WeightedSum verifies weighted sum ranking.
 func TestExecutePipeline_WeightedSum(t *testing.T) {
 	// Two queries with different image sets

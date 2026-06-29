@@ -45,6 +45,11 @@ spec:
               test/myapp:v1|test/tools:v1
               test/myapp:v1|test/tools:v2
               test/myapp:v1|test/tools:v3
+              test/myapp:v1|test/gitlab-runner-helper:x86_64-v18.5.0
+              test/myapp:v1|test/gitlab-runner-helper:x86_64-v18.10.0
+              test/myapp:v1|test/gitlab-runner-helper:x86_64-v19.0.0
+              test/myapp:v1|test/gitlab-runner-helper:x86_64-latest
+              test/myapp:v1|test/gitlab-runner-helper:3.18-arm-v17.8.0
               "
 
               for ENTRY in $TAGS; do
@@ -56,7 +61,7 @@ spec:
 
               echo ""
               echo "Verifying tags..."
-              for REPO in "test/myapp" "test/worker" "test/tools"; do
+              for REPO in "test/myapp" "test/worker" "test/tools" "test/gitlab-runner-helper"; do
                 TAGS=$(regctl tag ls "${REGISTRY}/${REPO}" 2>/dev/null || echo "FAILED")
                 echo "  ${REPO}: ${TAGS}"
               done

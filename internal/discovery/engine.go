@@ -90,10 +90,32 @@ func ExecutePipeline(
 	// Stage 2 — Derive signals
 	// ──────────────────────────────────────────────────────────
 	signalValues := make(map[string]map[string]float64, len(spec.Signals))
+	qResultIndex := make(map[string]int, len(qResults))
+	for i := range qResults {
+		qResultIndex[qResults[i].Name] = i
+	}
 
 	for _, sig := range spec.Signals {
 		raw, ok := rawByQuery[sig.Query]
 		if !ok {
+			continue
+		}
+
+		if !isSignalCompatibleWithQueryType(sig.Type, raw.QueryType) {
+			if idx, found := qResultIndex[sig.Query]; found {
+				msg := fmt.Sprintf(
+					"signal %q type=%s is not compatible with query %q type=%s",
+					sig.Name, sig.Type, sig.Query, raw.QueryType,
+				)
+				if qResults[idx].Status == dropv1alpha1.QueryResultStatusSuccess {
+					qResults[idx].Status = dropv1alpha1.QueryResultStatusFailed
+					qResults[idx].Message = msg
+				} else if qResults[idx].Message == "" {
+					qResults[idx].Message = msg
+				} else {
+					qResults[idx].Message = qResults[idx].Message + "; " + msg
+				}
+			}
 			continue
 		}
 
@@ -122,7 +144,7 @@ func ExecutePipeline(
 		}
 	}
 
-	discovered := rankImages(spec.Ranking, signalValues, allImages)
+	discovered := rankImages(spec.Ranking, signalValues, allImages, defaultScores(rawByQuery))
 
 	// Apply maxImages cap; mark selected
 	maxImages := int(spec.MaxImages)
@@ -136,6 +158,21 @@ func ExecutePipeline(
 	return PipelineResult{
 		QueryResults: qResults,
 		Images:       discovered,
+	}
+}
+
+// isSignalCompatibleWithQueryType enforces meaningful signal/query combinations.
+func isSignalCompatibleWithQueryType(sigType dropv1alpha1.SignalType, qType dropv1alpha1.DiscoveryQueryType) bool {
+	switch sigType {
+	case dropv1alpha1.SignalTypeAggregate:
+		return true
+	case dropv1alpha1.SignalTypeTimeWeightedAggregate, dropv1alpha1.SignalTypeWindowAggregate:
+		// Registry queries fetch tag snapshots, not time series.
+		return qType != dropv1alpha1.DiscoveryQueryTypeRegistry
+	case dropv1alpha1.SignalTypeEventPullTime:
+		return qType == dropv1alpha1.DiscoveryQueryTypeLoki
+	default:
+		return false
 	}
 }
 
@@ -222,7 +259,7 @@ func executePrometheusQuery(ctx context.Context, cfg *dropv1alpha1.DiscoveryProm
 
 // executeRegistryQuery lists tags from an OCI registry and returns raw samples.
 func executeRegistryQuery(ctx context.Context, cfg *dropv1alpha1.DiscoveryRegistryQuery, httpClient *http.Client) (*QueryRawData, error) {
-	src := NewRegistrySource(cfg.URL, cfg.Repositories, cfg.TagFilter, cfg.TopX, cfg.ImageTemplate, httpClient)
+	src := NewRegistrySource(cfg.URL, cfg.Repositories, cfg.TagFilter, cfg.TagSeek, cfg.TopX, cfg.MaxScan, cfg.ImageTemplate, cfg.VersionPattern, httpClient)
 	results, err := src.Fetch(ctx)
 	if err != nil {
 		return nil, err
@@ -453,12 +490,26 @@ func parseTimeOfDay(hhmm string, ref time.Time) (time.Time, error) {
 }
 
 // rankImages converts per-signal values into an ordered DiscoveredImage slice.
-func rankImages(ranking *dropv1alpha1.DiscoveryRanking, signals map[string]map[string]float64, images []string) []dropv1alpha1.DiscoveredImage {
-	if ranking == nil || len(images) == 0 {
-		// No ranking configured: return images in alphabetical order with score 0.
-		out := make([]dropv1alpha1.DiscoveredImage, len(images))
-		for i, img := range images {
-			out[i] = dropv1alpha1.DiscoveredImage{Image: img, Rank: int32(i + 1), FinalScore: "0"}
+func rankImages(ranking *dropv1alpha1.DiscoveryRanking, signals map[string]map[string]float64, images []string, fallback map[string]float64) []dropv1alpha1.DiscoveredImage {
+	if ranking == nil || ranking.Strategy == "" || len(images) == 0 {
+		// No ranking configured: order by the per-query score (registry source
+		// already returns its tags newest-first), then alphabetically. This lets
+		// registry queries work without an explicit signal+ranking dance.
+		sorted := append([]string(nil), images...)
+		sort.Slice(sorted, func(i, j int) bool {
+			si, sj := fallback[sorted[i]], fallback[sorted[j]]
+			if si != sj {
+				return si > sj
+			}
+			return sorted[i] < sorted[j]
+		})
+		out := make([]dropv1alpha1.DiscoveredImage, len(sorted))
+		for i, img := range sorted {
+			out[i] = dropv1alpha1.DiscoveredImage{
+				Image:      img,
+				Rank:       int32(i + 1),
+				FinalScore: strconv.FormatFloat(fallback[img], 'f', -1, 64),
+			}
 		}
 		return out
 	}
@@ -628,6 +679,29 @@ func collectImages(rawByQuery map[string]*QueryRawData) []string {
 	}
 	sort.Strings(images)
 	return images
+}
+
+// defaultScores derives a fallback per-image score used when no ranking is
+// configured. Each image is scored by the max value of its non-suffixed
+// samples (registry queries store newest-first scores there), so registry
+// queries rank correctly without an explicit signal+ranking definition.
+func defaultScores(rawByQuery map[string]*QueryRawData) map[string]float64 {
+	out := make(map[string]float64)
+	for _, raw := range rawByQuery {
+		for key, samples := range raw.Samples {
+			if strings.HasSuffix(key, lokiFailedSuffix) ||
+				strings.HasSuffix(key, lokiCacheHitSuffix) ||
+				strings.HasSuffix(key, lokiSizeBytesSuffix) {
+				continue
+			}
+			for _, s := range samples {
+				if cur, ok := out[key]; !ok || s.Value > cur {
+					out[key] = s.Value
+				}
+			}
+		}
+	}
+	return out
 }
 
 // deriveEventPullTime computes per-image statistics from Loki event samples.

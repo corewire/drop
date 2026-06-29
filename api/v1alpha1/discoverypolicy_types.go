@@ -96,12 +96,38 @@ type DiscoveryRegistryQuery struct {
 	// Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds)
 	// +optional
 	TagFilter string `json:"tagFilter,omitempty"`
+	// TagSeek is a pagination cursor passed to the registry as the `last` query
+	// parameter. The registry lists tags lexically after this value, letting you
+	// skip large numbers of irrelevant earlier tags without fetching them. It is
+	// not a real tag name — any string works.
+	// Example: "x86_64-u~" jumps straight to the "x86_64-v*" tags on a repo with
+	// tens of thousands of digest tags (GitLab runner helper).
+	// +optional
+	TagSeek string `json:"tagSeek,omitempty"`
 	// TopX limits the number of tags kept per repository after tagFilter is applied.
-	// The registry API does not guarantee ordering; Drop keeps the last N tags returned by the registry.
-	// Example: 3 (keep the last 3 matching tags returned per repo)
+	// Tags are sorted newest-first (by version) before this cap is applied, so the
+	// newest N tags are kept.
+	// Example: 3 (keep the 3 newest matching tags per repo)
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	TopX int32 `json:"topX,omitempty"`
+	// MaxScan caps how many tags are fetched per repository before filtering.
+	// Registries can hold tens of thousands of tags; this bounds the work. Pair
+	// it with tagSeek to fetch only the relevant range. Defaults to 1000 when unset.
+	// Example: 500
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxScan int32 `json:"maxScan,omitempty"`
+	// VersionPattern is a regex with a single capture group that extracts the
+	// version substring from each tag for newest-first sorting. Use it when tags
+	// carry a prefix/suffix around the version, e.g. GitLab runner helper tags
+	// like "x86_64-v17.5.0" (pattern "x86_64-v(.+)").
+	// When unset, Drop tries a strict semver parse, then falls back to extracting
+	// an embedded semver substring. Tags with no parseable version keep registry
+	// push order and sort after versioned tags.
+	// Example: "x86_64-v(.+)"
+	// +optional
+	VersionPattern string `json:"versionPattern,omitempty"`
 	// ImageTemplate is a Go text/template for constructing the full image reference from discovered tags.
 	// Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}}
 	// Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}"
