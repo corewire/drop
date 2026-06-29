@@ -36,7 +36,7 @@
   "timezone": "browser",
   "title": "Drop Operator",
   "uid": "drop-operator",
-  "version": 2,
+  "version": 3,
   "refresh": "10s",
   "panels": [
     {
@@ -412,6 +412,36 @@
       "datasource": "Prometheus",
       "targets": [{ "expr": "sum by (image, node) (drop_images_cached_total{image=~\"$image\"})", "format": "table", "instant": true }],
       "transformations": [{ "id": "organize", "options": { "excludeByName": { "Time": true } } }]
+    },
+    {
+      "id": 106,
+      "title": "Operator Resources",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 70,
+      "title": "Operator CPU (cores)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 61 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(process_cpu_seconds_total{job=\"drop-operator\"}[5m]))", "legendFormat": "cpu" }],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 3, "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 71,
+      "title": "Operator Memory (RSS)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 61 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "process_resident_memory_bytes{job=\"drop-operator\"}", "legendFormat": "rss" }],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
+      }
     }
   ]
 }
