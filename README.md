@@ -399,6 +399,10 @@ spec:
         tagFilter: "^x86_64-v[0-9]+\\."
         # Optional: pin where the version lives in the tag (capture group 1)
         versionPattern: "x86_64-v(.+)"
+        # Optional: skip straight to the x86_64-v* tags (registry `last` cursor)
+        tagSeek: "x86_64-u~"
+        # Optional: cap tags fetched per repo before filtering (default 1000)
+        maxScan: 2000
         # Keep only the 3 newest matching tags (newest first)
         topX: 3
       # Optional: Secret in the Drop pod namespace (default: drop-system)

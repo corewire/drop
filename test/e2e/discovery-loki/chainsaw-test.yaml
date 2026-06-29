@@ -6,8 +6,8 @@ metadata:
 spec:
   description: |
     Verify that a DiscoveryPolicy with a Loki query and the kubernetesEvents
-    parser derives eventPullTime signals (cold-pull time and failure count) from
-    real image-pull events ingested by Alloy and populates status.discoveredImages.
+    parser derives an eventPullTime cold-pull-time signal from real Pulled
+    image-pull events ingested by Alloy and populates status.discoveredImages.
   steps:
     - name: Create real pods to generate kubelet pull events
       try:

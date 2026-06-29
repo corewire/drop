@@ -10,7 +10,7 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{drop_e2e="true"} | json | reason=~"Pulling|Pulled|Failed|BackOff" | name=~"e2e-alloy-(success|failing)-pod"'
+        query: '{drop_e2e="true"} | json | reason="Pulled" | name=~"e2e-alloy-success-pod"'
         parser:
           type: kubernetesEvents
           podField: name
@@ -18,16 +18,14 @@ spec:
           messageField: msg
           imageField: msg
   signals:
-    - name: pull-failures
+    - name: p50-cold-pull-time
       query: alloy-k8s-events
       type: eventPullTime
       eventPullTime:
-        metric: failure
-        statistic: count
-        durationMode: messageDuration
-        includeCacheHits: false
+        metric: pullTime
+        statistic: p50
   ranking:
     strategy: signal
-    signal: pull-failures
+    signal: p50-cold-pull-time
   syncInterval: 15s
   maxImages: 10

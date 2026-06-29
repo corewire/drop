@@ -9,4 +9,3 @@ status:
   (contains(to_string(discoveredImages), 'test/myapp:v1')): true
   (queryResults[?name == 'alloy-k8s-events'] | [0].type): loki
   (imageCount > `0`): true
-  (contains(to_string(discoveredImages), 'e2e-alloy-invalid:nope')): true

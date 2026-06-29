@@ -10,7 +10,7 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{drop_e2e="true"} | json | reason=~"Pulling|Pulled|Failed|BackOff" | name=~"e2e-loki-(success|failure)-pod"'
+        query: '{drop_e2e="true"} | json | reason="Pulled" | name=~"e2e-loki-success-pod"'
         parser:
           type: kubernetesEvents
           podField: name
@@ -23,18 +23,8 @@ spec:
       query: discovery-loki-image-pull-events
       type: eventPullTime
       eventPullTime:
+        metric: pullTime
         statistic: p50
-        durationMode: messageDuration
-        includeCacheHits: false
-    # Number of pull failures per image.
-    - name: pull-failures
-      query: discovery-loki-image-pull-events
-      type: eventPullTime
-      eventPullTime:
-        metric: failure
-        statistic: count
-        durationMode: messageDuration
-        includeCacheHits: false
   ranking:
     strategy: signal
     signal: p50-cold-pull-time

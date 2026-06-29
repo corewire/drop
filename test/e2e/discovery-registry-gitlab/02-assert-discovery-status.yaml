@@ -12,5 +12,10 @@ status:
     - status: "True"
       reason: Synced
   imageCount: 2
-  (discoveredImages[?rank == `1`].image | [0]): registry.e2e-infra.svc.cluster.local:5000/test/gitlab-runner-helper:x86_64-v19.0.0
-  (discoveredImages[?rank == `2`].image | [0]): registry.e2e-infra.svc.cluster.local:5000/test/gitlab-runner-helper:x86_64-v18.10.0
+  # Plain structural array assertion: chainsaw matches elements positionally,
+  # so this proves the order (rank 1 newest first) without fragile JMESPath.
+  discoveredImages:
+    - image: registry.e2e-infra.svc.cluster.local:5000/test/gitlab-runner-helper:x86_64-v19.0.0
+      rank: 1
+    - image: registry.e2e-infra.svc.cluster.local:5000/test/gitlab-runner-helper:x86_64-v18.10.0
+      rank: 2

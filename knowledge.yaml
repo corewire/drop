@@ -543,11 +543,21 @@ helperTypes:
         type: string
         required: false
         doc: 'TagFilter is a regex applied to tag names. Only matching tags are discovered. Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds)'
+      - name: TagSeek
+        json: tagSeek
+        type: string
+        required: false
+        doc: 'TagSeek is a pagination cursor passed to the registry as the `last` query parameter. The registry lists tags lexically after this value, letting you skip large numbers of irrelevant earlier tags without fetching them. It is not a real tag name — any string works. Example: "x86_64-u~" jumps straight to the "x86_64-v*" tags on a repo with tens of thousands of digest tags (GitLab runner helper).'
       - name: TopX
         json: topX
         type: int32
         required: false
         doc: 'TopX limits the number of tags kept per repository after tagFilter is applied. Tags are sorted newest-first (by version) before this cap is applied, so the newest N tags are kept. Example: 3 (keep the 3 newest matching tags per repo)'
+      - name: MaxScan
+        json: maxScan
+        type: int32
+        required: false
+        doc: 'MaxScan caps how many tags are fetched per repository before filtering. Registries can hold tens of thousands of tags; this bounds the work. Pair it with tagSeek to fetch only the relevant range. Defaults to 1000 when unset. Example: 500'
       - name: VersionPattern
         json: versionPattern
         type: string
@@ -622,20 +632,6 @@ helperTypes:
           - max
           - count
         doc: Statistic selects how the metric's samples are aggregated per image.
-      - name: IncludeCacheHits
-        json: includeCacheHits
-        type: bool
-        required: true
-        default: "false"
-        doc: IncludeCacheHits controls whether "already present on machine" events are included in cold-pull duration statistics. Set to false to exclude cache hits. Only applies when metric=pullTime.
-      - name: DurationMode
-        json: durationMode
-        type: DurationMode
-        required: true
-        enum:
-          - eventPair
-          - messageDuration
-        doc: DurationMode controls how pull duration is extracted from event records. Only applies when metric=pullTime.
   - name: ImageEntry
     doc: ImageEntry defines a single image to include in a set.
     fields:
