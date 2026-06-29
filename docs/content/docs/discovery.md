@@ -11,7 +11,7 @@ llmsDescription: |
   time-weighted scoring, weighted ranking, and periodic re-discovery.
 ---
 
-The DiscoveryPolicy CRD enables automatic image discovery from external sources. When referenced by a CachedImageSet, discovered images are automatically materialized as CachedImage resources.
+DiscoveryPolicy discovers images from external sources. CachedImageSet consumes the discovered list and materializes CachedImage resources.
 
 ## Why This Exists
 
@@ -22,186 +22,592 @@ Discovery came from operational pain:
 - Hand-maintained image lists became stale and missed newly hot images
 - Node rotation (e.g. Cluster API MachineDeployments rolling new nodes daily or weekly) means fresh nodes start with empty image caches — every rotation triggers a full re-pull of all active images
 
-With DiscoveryPolicy, image candidates are continuously sourced from real usage signals (metrics), ranked by configurable strategies, and consumed by CachedImageSet.
+DiscoveryPolicy continuously refreshes image candidates from usage signals and passes the ranked output to CachedImageSet.
 
-## Pipeline Overview
+## How Discovery Works
 
 ```
-queries → signals → ranking → selected images
+queries → signals → ranking → discovered images
 ```
 
 ![DiscoveryPolicy pipeline: queries feed signals, signals feed a single ranking strategy, the ranked list is written to status.discoveredImages and consumed by CachedImageSet to create CachedImage resources that nodes pull.](/images/discovery-pipeline.svg)
 
-The pipeline has three stages:
+| Stage | Purpose | Available types |
+|-------|---------|-----------------|
+| 1 · Queries | Fetch raw observations from a backend | `prometheus` · `loki` · `registry` |
+| 2 · Signals | Reduce a query series to one value per image | `aggregate` · `timeWeightedAggregate` · `windowAggregate` · `eventPullTime` |
+| 3 · Ranking | Order images into the final list | `signal` · `weightedSum` · `modelExposure` |
 
-1. **Queries** fetch raw observations from systems such as Prometheus or Loki.
-2. **Signals** derive named per-image metrics from query results (e.g. `total-usage`, `peak-concurrency`).
-3. **Ranking** combines one or more signals into the final ordered image list.
-
-```
-DiscoveryPolicy → runs pipeline → writes to status.discoveredImages
-                                         ↓
-CachedImageSet → reads discoveredImages → creates/deletes CachedImage children
-```
+The output lands in `status.discoveredImages`; CachedImageSet reads it and creates/deletes `CachedImage` children that nodes pull.
 
 ## Stage 1 — Queries
 
 A query fetches raw observations and is referenced by name from signals.
 
+All snippets below are complete `DiscoveryPolicy` resources with minimal companion
+signals/ranking so you can apply them directly.
+
+| Type | Source | Discovered from | Use when |
+|------|--------|-----------------|----------|
+| `prometheus` | Metrics series | `image` label on results | Usage/concurrency from cluster metrics |
+| `loki` | Event logs | parsed pull events | Pull durations & failures |
+| `registry` | Tag/catalog API | repository tags | Pre-cache newest tags by name |
+
 ### Prometheus Query
 
+**Definition.** Runs a PromQL query against any Prometheus-compatible API and turns each returned series into a candidate image. The result **must** have an `image` label — that value becomes the image reference.
+
+#### How it's used in the CRD
+
 ```yaml
-queries:
-  - name: runner-image-usage
-    type: prometheus
-    prometheus:
-      endpoint: https://mimir.example.com
-      queryType: range        # range | instant (default: range)
-      lookback: 168h          # time window for range queries
-      step: 1m                # range resolution (default: 5m)
-      query: |
-        count(
-          container_memory_working_set_bytes{
-            container!="", container!="POD",
-            namespace="gitlab-runner", pod=~"runner-.*"
-          }
-        ) by (image)
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: prometheus-query-example
+spec:
+  syncInterval: 1h            # how often the whole pipeline re-runs
+  maxImages: 30               # keep only the top 30 ranked images
+  # STAGE 1: fetch raw data
+  queries:
+    - name: runner-image-usage   # unique id; referenced by signals[].query
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com   # any Prometheus-compatible API
+        queryType: range        # range = samples over time | instant = single point
+        lookback: 168h          # look back 7 days (range queries only)
+        step: 1m                # smaller step = more samples + more backend load
+        query: |
+          # Result must expose an image label — Discovery keys every image by it.
+          count(
+            container_memory_working_set_bytes{
+              container!="", container!="POD",
+              namespace="gitlab-runner", pod=~"runner-.*"
+            }
+          ) by (image)
+  # STAGE 2: reduce the series to one number per image
+  signals:
+    - name: total-usage         # signal name, referenced by ranking below
+      query: runner-image-usage  # which query's data to consume
+      type: aggregate
+      aggregate:
+        method: sum             # sum all samples = total activity per image
+  # STAGE 3: order the images
+  ranking:
+    strategy: signal
+    signal: total-usage         # sort purely by the total-usage signal
 ```
 
-The PromQL result **must** carry an `image` label. That label value is the discovered image reference.
+#### What happens to our query
+
+`... by (image)` makes Prometheus return one time series per image. A `range` query samples each series across `lookback`, one point every `step`. Discovery reads the raw response:
+
+```json
+{
+  "data": { "result": [
+    { "metric": { "image": "img-A" }, "values": [[t0, "1"], [t1, "2"], [t2, "6"]] },
+    { "metric": { "image": "img-B" }, "values": [[t1, "1"], [t2, "3"]] }
+  ]}
+}
+```
+
+We use this 48h sample (hourly, two days, midday peaks) as the running example for every Prometheus signal below. The `total-usage` signal sums each series into one value:
+
+![Grafana-style time-series panel over 48 hours: img-A peaks midday both days, img-B smaller; x-axis is hour of day, each series summed to one value.](/images/prometheus-sampling.svg)
+
+| Series | Pattern | sum | rank |
+|--------|---------|-----|------|
+| img-A | midday peaks, low at night | 30 | 1 |
+| img-B | small midday bumps | 12 | 2 |
+
+| Field | Controls | Default |
+|-------|----------|---------|
+| `queryType` | `range` = window of samples · `instant` = one point now | `range` |
+| `lookback` | how far back the window reaches (ignored for `instant`) | — |
+| `step` | spacing between samples; smaller = more points, heavier query | `5m` |
+
+Field semantics: [`DiscoveryPrometheusQuery`](https://github.com/Breee/puller/blob/main/api/v1alpha1/discoverypolicy_types.go).
 
 ### Loki Query
 
 ```yaml
-queries:
-  - name: image-pull-events
-    type: loki
-    loki:
-      endpoint: https://loki.example.com
-      queryType: range
-      lookback: 168h
-      query: |
-        {job="kubernetes-events", namespace="gitlab-runner"}
-        | json
-        | involvedObject_name =~ "runner-.*"
-        | reason =~ "Pulling|Pulled|Failed|BackOff"
-      parser:
-        type: kubernetesEvents
-        podField: involvedObject_name
-        reasonField: reason
-        messageField: message
-        imageField: message
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: loki-query-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: image-pull-events    # referenced by eventPullTime signal
+      type: loki
+      loki:
+        endpoint: https://loki.example.com
+        queryType: range         # only supported Loki query mode currently
+        lookback: 168h
+        query: |
+          # Pull lifecycle events used to derive pull durations/failures.
+          {job="kubernetes-events", namespace="gitlab-runner"}
+          | json
+          | involvedObject_name =~ "runner-.*"
+          | reason =~ "Pulling|Pulled|Failed|BackOff"
+        parser:
+          type: kubernetesEvents # maps log fields into structured event records
+          podField: involvedObject_name  # which field holds the pod name
+          reasonField: reason            # Pulling / Pulled / Failed
+          messageField: message          # free-text event message
+          imageField: message            # image ref is extracted from the message
+  signals:
+    - name: avg-cold-pull-time
+      query: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: avg          # mean pull duration per image
+        includeCacheHits: false # only count true cold pulls
+        durationMode: eventPair # pair Pulling→Pulled events to get the duration
+  ranking:
+    strategy: signal
+    signal: avg-cold-pull-time   # slowest images rank highest
 ```
+
+How it's used: Loki contributes pull lifecycle events, not usage volume. The
+`kubernetesEvents` parser turns each log/event into structured records with
+`podField`, `reasonField`, and `messageField`, then extracts the image from
+`imageField` (typically the same message text).
+
+Event reasons consumed by discovery: `Pulling`, `Pulled`, `Failed`, `BackOff`,
+`AlreadyPresent`.
+
+Duration semantics:
+- `durationMode: messageDuration` parses `in 42.3s` from Pulled messages.
+- `durationMode: eventPair` uses Pulled timestamp minus Pulling timestamp.
+- Failures are tracked as `image:failed`; cache hits as `image:cache_hit`.
+
+Alloy shipping (real cluster events):
+- Use
+  [`loki.source.kubernetes_events`](https://grafana.com/docs/alloy/latest/reference/components/loki/loki.source.kubernetes_events/)
+  forwarding to
+  [`loki.write`](https://grafana.com/docs/alloy/latest/reference/components/loki/loki.write/).
+- With `log_format: json`, Alloy emits keys like `name`, `reason`, `msg` in the
+  log body. Default labels are `namespace`, `job`, `instance`.
+- Parser mapping for Alloy JSON should be `podField: name`,
+  `reasonField: reason`, `messageField: msg`, `imageField: msg`.
+- Raw event-exporter JSON usually uses `involvedObject_name` + `message`.
+
+#### What happens to our query
+
+Loki returns streams, each with `[timestamp, line]` entries. With Alloy
+`log_format: json`, each line is a JSON event:
+
+```json
+{
+  "stream": {"job": "kubelet", "namespace": "default"},
+  "values": [
+    ["1719400000000000000", "{\"reason\":\"Pulling\",\"name\":\"runner-1\",\"msg\":\"Pulling image \\\"docker.io/library/redis:7-alpine\\\"\"}"],
+    ["1719400002000000000", "{\"reason\":\"Pulled\",\"name\":\"runner-1\",\"msg\":\"Successfully pulled image \\\"docker.io/library/redis:7-alpine\\\" in 704ms\"}"]
+  ]
+}
+```
+
+The parser extracts image + reason from each entry, then builds per-image samples:
+
+| Parsed event | Output key | Value added |
+|-------------|------------|-------------|
+| `Pulled ... in 704ms` | `docker.io/library/redis:7-alpine` | `0.704` seconds |
+| `Failed ...` or `BackOff ...` | `docker.io/library/redis:7-alpine:failed` | `1` |
+| `already present on machine` | `docker.io/library/redis:7-alpine:cache_hit` | `1` |
+
+For `eventPullTime` signals, these samples are reduced by `statistic`
+(`avg`/`p50`/`p95`/etc.) into one value per image.
+
+### Registry Query
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: registry-query-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: registry-tags
+      type: registry
+      registry:
+        url: https://registry.example.com
+        repositories:           # repos to enumerate tags from
+          - team/frontend
+          - team/backend
+        tagFilter: "^v[0-9]+\\."  # only tags starting v1. / v2. ...
+        topX: 3                 # keep the last 3 matching tags returned per repo
+        imageTemplate: "{{.Registry}}/{{.Repository}}:{{.Tag}}"  # built image ref
+      secretRef:
+        name: registry-api-creds   # registry auth Secret in the operator namespace
+  signals:
+    - name: recent-tag-count
+      query: registry-tags
+      type: aggregate
+      aggregate:
+        method: count           # rank by how many recent tags exist
+  ranking:
+    strategy: signal
+    signal: recent-tag-count
+```
+
+How it's used: registry discovery lists tags per repository via
+`/v2/<repo>/tags/list`, applies `tagFilter`, keeps `topX`, then renders full
+image references via `imageTemplate`.
+
+Important behavior notes:
+- `tagFilter` is regex on tag names. Anchor explicitly (`^...$`) when needed.
+- `topX` keeps the last `N` matching tags in registry response order. It is not
+  true semver/date recency unless your registry already returns that order.
+- `imageTemplate` variables: `{{.Registry}}`, `{{.Repository}}`, `{{.Tag}}`.
+  Default: `{{.Registry}}/{{.Repository}}:{{.Tag}}`.
+
+Signal fit:
+- Great with `aggregate`/`timeWeightedAggregate`/`windowAggregate` (counts and
+  derived scores from discovered tag entries).
+- Not compatible with `eventPullTime` (which requires pull event records).
+
+#### What happens to our query
+
+For each repository, the controller calls `/v2/<repo>/tags/list`, then applies
+`tagFilter`, `topX`, and `imageTemplate`.
+
+Example registry payload:
+
+```json
+{"name":"team/frontend","tags":["v1.10.0","v1.11.0","dev-123","v1.12.0","v1.13.0"]}
+```
+
+With `tagFilter: "^v[0-9]+\\."` and `topX: 3`, the kept tags are:
+
+| Repository | Matching tags | Kept (`topX=3`) | Rendered images |
+|-----------|----------------|-----------------|-----------------|
+| `team/frontend` | `v1.10.0`, `v1.11.0`, `v1.12.0`, `v1.13.0` | `v1.11.0`, `v1.12.0`, `v1.13.0` | `registry.example.com/team/frontend:v1.11.0` ... `:v1.13.0` |
+| `team/backend` | `v2.3.0`, `v2.4.0` | `v2.3.0`, `v2.4.0` | `registry.example.com/team/backend:v2.3.0`, `:v2.4.0` |
+
+An `aggregate` signal with `method: count` then ranks by how many retained tags
+each repository contributed.
 
 ### Auth / TLS
 
 Both query types support a `secretRef` for authentication and TLS:
 
 ```yaml
-queries:
-  - name: runner-image-usage
-    type: prometheus
-    prometheus:
-      endpoint: https://mimir.example.com
-      query: ...
-    secretRef:
-      name: prometheus-creds  # Secret in the drop-system namespace
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: query-auth-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        query: ...
+      secretRef:
+        name: prometheus-creds  # Secret in the operator namespace (typically drop-system)
+  signals:
+    - name: total-usage
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal: total-usage
 ```
-
 Supported Secret keys: `token`, `username`, `password`, `ca.crt`, `tls.crt`, `tls.key`, `headers.<name>`.
 
 ## Stage 2 — Signals
 
-A signal derives a named per-image value from exactly one query.
+A signal derives a named per-image value from exactly one query. The four types reduce the same panel differently:
+
+| Type | Reduces to | Key knobs |
+|------|-----------|-----------|
+| `aggregate` | One value over all samples | `method`: sum/max/avg/count/min |
+| `timeWeightedAggregate` | Weighted sum by hour-of-day | `windows`, `weight`, `timezone` |
+| `windowAggregate` | One sub-window only | `relativeWindow` or `window` start/end |
+| `eventPullTime` | Pull-time statistic | `statistic`: p50/p90/p95/avg/max |
+
+Signal × source compatibility:
+
+| Signal type | Prometheus | Loki | Registry |
+|-------------|------------|------|----------|
+| `aggregate` | yes | yes | yes |
+| `timeWeightedAggregate` | yes | yes | yes |
+| `windowAggregate` | yes | yes | yes |
+| `eventPullTime` | no | yes (`kubernetesEvents`) | no |
+
+All Prometheus examples below run on this 48h dataset (sampled every 6h, both days identical):
+
+| Series | 00 | 06 | 12 | 18 | sum/day | 48h total |
+|--------|----|----|----|----|---------|-----------|
+| img-A | 2 | 3 | 6 | 4 | 15 | 30 |
+| img-B | 0 | 1 | 3 | 2 | 6 | 12 |
+
+> The graphics use **6h buckets** (dots mark each sample) to fit the page; real queries sample every `step` (e.g. 1m). The shapes and totals match the math, not the true resolution.
 
 ### `aggregate`
 
 Aggregates all samples per image using a single method.
 
-```yaml
-signals:
-  - name: total-usage
-    queryRef: runner-image-usage
-    type: aggregate
-    aggregate:
-      method: sum    # sum | max | avg | count | min
+![aggregate sums every sample across the lookback window into one value per image.](/images/signal-aggregate.svg)
 
-  - name: peak-concurrency
-    queryRef: runner-image-usage
-    type: aggregate
-    aggregate:
-      method: max
+On the shared dataset: every bar counts. img-A → 30, img-B → 12. The whole curve collapses to one number, so total volume wins regardless of *when* it happened.
+
+| `method` | Reduces to | img-A | img-B | Best for |
+|----------|-----------|-------|-------|----------|
+| `sum` | Total of all samples | 30 | 12 | total activity / volume |
+| `max` | Largest single sample | 6 | 3 | peak concurrency / bursts |
+| `avg` | Mean across samples | 3.8 | 1.5 | typical load |
+| `min` | Smallest single sample | 2 | 0 | always-on baseline |
+| `count` | Number of samples | 8 | 8 | how often it was seen |
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: aggregate-signal-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: count(container_memory_working_set_bytes{container!="",container!="POD"}) by (image)
+  signals:
+    - name: total-usage
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum    # sum | max | avg | count | min (sum = total activity)
+
+    - name: peak-concurrency
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: max             # captures burst behavior
+  ranking:
+    strategy: signal
+    signal: total-usage
 ```
 
 ### `timeWeightedAggregate`
 
 Multiplies each sample value by a per-hour window weight before aggregation.
 
+![timeWeightedAggregate scales each time band by its weight (e.g. core hours ×1.0, off-hours ×0.3) then sums.](/images/signal-timeweighted.svg)
+
+On the shared dataset: midday bars (×1.0) keep full value, shoulder bars (×0.3) shrink, off-hours (×0) vanish. img-A keeps most of its 30 because its peaks land in core hours; img-B fades further. Business-hour usage outranks 24h volume.
+
+| Window | Hours | `weight` | img-A keeps | img-B keeps |
+|--------|-------|----------|-------------|-------------|
+| warm-up | 07–09 | 0.3 | shoulder bars ×0.3 | shoulder bars ×0.3 |
+| core | 09–17 | 1.0 | midday peak full | midday peak full |
+| taper | 17–20 | 0.3 | evening ×0.3 | evening ×0.3 |
+| off | else | 0 (`defaultWeight`) | dropped | dropped |
+| **total** | | | **≈ 21** | **≈ 8** |
+
+`method` accepts sum/count/avg/max/min, but `sum` is the only one that meaningfully uses the weights.
+
 ```yaml
-signals:
-  - name: developer-weighted-usage
-    queryRef: runner-image-usage
-    type: timeWeightedAggregate
-    timeWeightedAggregate:
-      method: sum
-      timezone: Europe/Berlin
-      defaultWeight: "0"
-      windows:
-        - startHour: 7
-          endHour: 9
-          weight: "300m"    # 0.3 (resource.Quantity format)
-        - startHour: 9
-          endHour: 17
-          weight: "1"       # 1.0 — full weight during core hours
-        - startHour: 17
-          endHour: 20
-          weight: "300m"
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: time-weighted-signal-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: count(container_memory_working_set_bytes{container!="",container!="POD"}) by (image)
+  signals:
+    - name: developer-weighted-usage
+      query: runner-image-usage
+      type: timeWeightedAggregate
+      timeWeightedAggregate:
+        method: sum
+        timezone: Europe/Berlin # evaluate windows in local business time
+        defaultWeight: "0"     # hours not listed below contribute nothing
+        windows:                # weight = how much each hour-of-day counts
+          - startHour: 7
+            endHour: 9
+            weight: "0.3"     # warm-up window = 0.3×
+          - startHour: 9
+            endHour: 17
+            weight: "1.0"     # core hours = full weight
+          - startHour: 17
+            endHour: 20
+            weight: "0.3"     # taper period = 0.3×
+  ranking:
+    strategy: signal
+    signal: developer-weighted-usage
 ```
 
 ### `windowAggregate`
 
-Aggregates only the samples within a specific time sub-window.
+Aggregates only the samples within a specific time sub-window. There are two
+ways to pick the window, and only one may be set per signal:
+
+![windowAggregate keeps only samples inside one sub-window (e.g. 09:00–17:00) and sums them.](/images/signal-windowaggregate.svg)
+
+On the shared dataset: only the shaded 09:00–17:00 band counts; bars outside it are dropped before summing. img-A ≈ 6 (its 12:00 peak), img-B ≈ 3. Everything outside the window is invisible — sharper than weighting.
+
+| Setting | Window | img-A | img-B | Use when |
+|---------|--------|-------|-------|----------|
+| `relativeWindow: 2h` | last 2h from now | 4 | 2 | "what is hot right now" |
+| `window` 00:00–09:00 | off-hours | 5 | 1 | overnight / batch jobs |
+| `window` 09:00–17:00 | core hours | 6 | 3 | protect active workday |
+
+`method` accepts sum/count/avg/max/min (default sum). Set **either** `relativeWindow` **or** `window`+`timezone` — never both.
+
+- `relativeWindow` — "the last N hours from now", measured in UTC. No timezone needed.
+- `window` — fixed clock hours of the day (e.g. 09:00–17:00). You **must** also set
+  `timezone`; those hours are read in that zone. The policy errors if it is missing.
 
 ```yaml
-signals:
-  # Relative window (last N duration before now)
-  - name: recent-usage
-    queryRef: runner-image-usage
-    type: windowAggregate
-    windowAggregate:
-      method: sum
-      relativeWindow: 2h
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: window-aggregate-signal-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: count(container_memory_working_set_bytes{container!="",container!="POD"}) by (image)
+  signals:
+    # Relative window: just the last 2 hours of samples (clock zone irrelevant)
+    - name: recent-usage
+      query: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        relativeWindow: 2h      # good for "what is hot right now"
 
-  # Wall-clock window (specific hours of day)
-  - name: pre-window-usage
-    queryRef: runner-image-usage
-    type: windowAggregate
-    windowAggregate:
-      method: sum
-      timezone: Europe/Berlin
-      window:
-        start: "00:00"
-        end: "09:00"
+    # Wall-clock window: 00:00–09:00 every day, read in the timezone below
+    - name: pre-window-usage
+      query: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        timezone: Europe/Berlin  # REQUIRED with window; start/end are Berlin local time
+        window:
+          start: "00:00"       # inclusive
+          end: "09:00"         # exclusive
+
+    # Wall-clock window: 09:00–17:00 Berlin (the active period to protect)
+    - name: target-window-usage
+      query: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        timezone: Europe/Berlin  # REQUIRED with window
+        window:
+          start: "09:00"
+          end: "17:00"
+  ranking:
+    strategy: signal
+    signal: recent-usage
 ```
 
 ### `eventPullTime`
 
-Derives image pull-time statistics from Loki event records.
+Derives image pull-time statistics from Loki event records. Each `Pulled` event reports a duration; pairing it with its `Pulling` event gives the pull latency:
+
+```text
+Pulling  nginx:1.25-alpine
+Pulled   nginx:1.25-alpine  in 730ms   → nginx p50 = 730ms
+Pulled   redis:7-alpine     in 690ms ┐
+Pulled   redis:7-alpine     in 700ms ├ p50 = 700ms, max = 4100ms
+Pulled   redis:7-alpine     in 4100ms ┘ (one cold node, slow link)
+```
+
+A single image is pulled many times across nodes, so pick the statistic that matches intent. `p50` is the robust default: it answers "how slow is a typical pull" and ignores the one 4.1s outlier. `max` answers "what is the worst pull" and is dominated by that outlier. Use `max`/`p95` only when worst-case provisioning matters; otherwise `p50` avoids chasing noise.
+
+Slower images rank higher, since they hurt cold nodes most:
+
+![eventPullTime: nginx pulled once at 730ms, redis three times (690/700/4100); p50 per image becomes the signal.](/images/signal-eventpulltime.svg)
+
+This signal ignores the 48h volume dataset — it reads Loki pull durations instead. nginx p50 = 730ms, redis p50 = 700ms. The number is latency, not usage, so the slowest image ranks first.
+
+| `statistic` | Reduces to | nginx | redis | Best for |
+|-------------|-----------|-------|-------|----------|
+| `p50` | median pull | 730 | 700 | typical latency, ignores outliers |
+| `p90` | slow tail | 730 | 3420 | worst-case planning |
+| `p95` | slower tail | 730 | 3760 | strict SLOs |
+| `avg` | mean pull | 730 | 1830 | overall cost (skewed by outliers) |
+| `max` | slowest pull | 730 | 4100 | absolute worst pull |
+| `count` | cold-pull events | 1 | 3 | how often pulled cold |
+| `failureCount` | pull failures | 0 | 0 | flaky / broken images |
+| `cacheHitCount` | already-present hits | 0 | 0 | nodes already warm |
+
+Two extra knobs: `includeCacheHits` (default `false`) adds "already present" events to duration stats; `durationMode` is `eventPair` (Pulled−Pulling timestamps) or `messageDuration` (parse "in 42.3s" from the message).
 
 ```yaml
-signals:
-  - name: p50-cold-pull-time
-    queryRef: image-pull-events
-    type: eventPullTime
-    eventPullTime:
-      statistic: p50            # p50 | p90 | p95 | avg | max | count | failureCount | cacheHitCount
-      includeCacheHits: false
-      durationMode: eventPair   # eventPair | messageDuration
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: event-pull-time-signal-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: image-pull-events
+      type: loki
+      loki:
+        endpoint: https://loki.example.com
+        queryType: range
+        lookback: 168h
+        query: |
+          {job="kubernetes-events", namespace="gitlab-runner"}
+          | json
+          | reason =~ "Pulling|Pulled|Failed|BackOff"
+        parser:
+          type: kubernetesEvents
+          podField: involvedObject_name
+          reasonField: reason
+          messageField: message
+          imageField: message
+  signals:
+    - name: avg-cold-pull-time
+      query: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: avg            # p50 | p90 | p95 | avg | max | count | failureCount | cacheHitCount
+        includeCacheHits: false   # ignore already-cached pulls in latency stats
+        durationMode: eventPair   # eventPair (Pulling→Pulled) | messageDuration parsing
+  ranking:
+    strategy: signal
+    signal: avg-cold-pull-time
 ```
 
 ## Stage 3 — Ranking
 
 Exactly one ranking strategy per policy.
+
+![Decision map for ranking strategy selection: use signal for one dominant metric, weightedSum for balancing known trade-offs, and modelExposure for minimizing cold-node impact in rotating clusters.](/images/ranking-decision-map.svg)
 
 ![The three ranking strategies side by side: signal orders by a single signal, weightedSum blends normalized signals, and modelExposure models post-rotation cold-node exposure.](/images/ranking-strategies.svg)
 
@@ -210,56 +616,160 @@ Exactly one ranking strategy per policy.
 Ranks images directly by the value of a single signal.
 
 ```yaml
-ranking:
-  strategy: signal
-  signal:
-    signalRef: total-usage
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: signal-ranking-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: count(container_memory_working_set_bytes{container!="",container!="POD"}) by (image)
+  signals:
+    - name: total-usage
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal: total-usage    # simplest strategy: sort by one signal
 ```
 
 ### `weightedSum`
 
-Combines normalized signals using a weighted sum.
-
-```yaml
-ranking:
-  strategy: weightedSum
-  weightedSum:
-    normalize: minMax      # only method available
-    missingSignal: zero    # zero | drop
-    terms:
-      - signalRef: total-usage
-        weight: "700m"     # 0.7 in resource.Quantity format
-      - signalRef: peak-concurrency
-        weight: "300m"     # 0.3
-```
-
-Score: `final_score(I) = Σ weight_k * normalize(signal_k(I))`
-
-`minMax` normalization: `normalized(x) = (x - min) / (max - min)` — equals 1 when all values are equal.
+**Definition.** Blends several signals into one score by normalizing each to `[0,1]` and summing them with per-signal weights. Use it when no single signal decides — e.g. balance steady usage against burst peaks.
 
 $$
-\mathrm{final\_score}(I) = \sum_k w_k \cdot \mathrm{normalize}(s_k(I))
-$$
-
-$$
+\mathrm{final\_score}(I) = \sum_k w_k \cdot \mathrm{normalize}(s_k(I)), \qquad
 \mathrm{minMax}(x) = \frac{x - x_{\min}}{x_{\max} - x_{\min}}
 $$
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: weighted-sum-ranking-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  # STAGE 1: fetch raw data
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: count(container_memory_working_set_bytes{container!="",container!="POD"}) by (image)
+  # STAGE 2: two signals to balance
+  signals:
+    - name: total-usage          # sustained activity
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+    - name: peak-concurrency     # burst behavior
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: max
+  # STAGE 3: blend the two
+  ranking:
+    strategy: weightedSum
+    weightedSum:
+      normalize: minMax      # rescale each signal to [0,1] before combining
+      missingSignal: zero    # zero | drop (drop removes images missing any term)
+      terms:                 # weights are fractions, should sum to ~1.0
+        - signal: total-usage
+          weight: "0.7"      # 70% importance
+        - signal: peak-concurrency
+          weight: "0.3"      # 30% importance
+```
+
+Field semantics: [`WeightedSumRankingConfig`](https://github.com/Breee/puller/blob/main/api/v1alpha1/discoverypolicy_types.go).
 
 ### `modelExposure`
 
 Ranks images by expected post-rotation cold-node exposure.
 
 ```yaml
-ranking:
-  strategy: modelExposure
-  modelExposure:
-    nodeCount: 100
-    preWindowUsageSignalRef: pre-window-usage
-    targetWindowUsageSignalRef: developer-window-usage
-    pullTimeSignalRef: p50-cold-pull-time
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: model-exposure-ranking-example
+spec:
+  syncInterval: 1h
+  maxImages: 30
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: count(container_memory_working_set_bytes{container!="",container!="POD"}) by (image)
+    - name: image-pull-events
+      type: loki
+      loki:
+        endpoint: https://loki.example.com
+        queryType: range
+        lookback: 168h
+        query: |
+          {job="kubernetes-events", namespace="gitlab-runner"}
+          | json
+          | reason =~ "Pulling|Pulled|Failed|BackOff"
+        parser:
+          type: kubernetesEvents
+          podField: involvedObject_name
+          reasonField: reason
+          messageField: message
+          imageField: message
+  signals:
+    - name: pre-window-usage
+      query: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        timezone: Europe/Berlin
+        window:
+          start: "00:00"
+          end: "09:00"
+    - name: target-window-usage
+      query: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        timezone: Europe/Berlin
+        window:
+          start: "09:00"
+          end: "17:00"
+    - name: avg-cold-pull-time
+      query: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: avg
+        includeCacheHits: false
+        durationMode: eventPair
+  ranking:
+    strategy: modelExposure
+    modelExposure:
+      nodeCount: 100                         # cluster size N (rotation spreads cache)
+      preWindowUsageSignal: pre-window-usage      # usage already seen before target
+      targetWindowUsageSignal: target-window-usage # usage during peak window to protect
+      pullTimeSignal: avg-cold-pull-time # colder/slower pulls get higher urgency
 ```
 
-Score: `score(I) = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I)`
+Score formula:
 
 $$
 \mathrm{score}(I) = J_{\mathrm{target}}(I) \cdot \left(1 - \frac{1}{N}\right)^{J_{\mathrm{pre}}(I)} \cdot \hat{p}(I)
@@ -275,8 +785,8 @@ kind: DiscoveryPolicy
 metadata:
   name: total-usage
 spec:
-  syncInterval: 1h
-  maxImages: 30
+  syncInterval: 1h   # rerun pipeline every hour
+  maxImages: 30      # keep top 30 ranked images
 
   queries:
     - name: runner-image-usage
@@ -296,15 +806,14 @@ spec:
 
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
-        method: sum
+        method: sum  # total usage in lookback window
 
   ranking:
     strategy: signal
-    signal:
-      signalRef: total-usage
+    signal: total-usage
 ```
 
 ### Example 2: Hybrid Usage + Peak Concurrency
@@ -336,13 +845,13 @@ spec:
 
   signals:
     - name: total-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: sum
 
     - name: peak-concurrency
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: max
@@ -353,10 +862,10 @@ spec:
       normalize: minMax
       missingSignal: zero
       terms:
-        - signalRef: total-usage
-          weight: "700m"
-        - signalRef: peak-concurrency
-          weight: "300m"
+        - signal: total-usage
+          weight: "0.7" # prioritize sustained usage
+        - signal: peak-concurrency
+          weight: "0.3" # still account for bursts
 ```
 
 ### Example 3: Developer-Time Weighted Usage
@@ -388,25 +897,25 @@ spec:
 
   signals:
     - name: developer-weighted-usage
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: timeWeightedAggregate
       timeWeightedAggregate:
         method: sum
         timezone: Europe/Berlin
-        defaultWeight: "0"
+        defaultWeight: "0"   # off-hours ignored by default
         windows:
           - startHour: 7
             endHour: 9
-            weight: "300m"
+            weight: "0.3"
           - startHour: 9
             endHour: 17
-            weight: "1"
+            weight: "1.0"
           - startHour: 17
             endHour: 20
-            weight: "300m"
+            weight: "0.3"
 
     - name: peak-concurrency
-      queryRef: runner-image-usage
+      query: runner-image-usage
       type: aggregate
       aggregate:
         method: max
@@ -417,10 +926,93 @@ spec:
       normalize: minMax
       missingSignal: zero
       terms:
-        - signalRef: developer-weighted-usage
-          weight: "700m"
-        - signalRef: peak-concurrency
-          weight: "300m"
+        - signal: developer-weighted-usage
+          weight: "0.7"
+        - signal: peak-concurrency
+          weight: "0.3"
+```
+
+### Example 4: Model-Aware Exposure
+
+```yaml
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: gitlab-model-exposure
+spec:
+  syncInterval: 1h
+  maxImages: 30
+
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: |
+          count(
+            container_memory_working_set_bytes{
+              container!="", container!="POD",
+              namespace="gitlab-runner", pod=~"runner-.*"
+            }
+          ) by (image)
+
+    - name: image-pull-events
+      type: loki
+      loki:
+        endpoint: https://loki.example.com
+        queryType: range
+        lookback: 168h
+        query: |
+          {job="kubernetes-events", namespace="gitlab-runner"}
+          | json
+          | involvedObject_name =~ "runner-.*"
+          | reason =~ "Pulling|Pulled|Failed|BackOff"
+        parser:
+          type: kubernetesEvents
+          podField: involvedObject_name
+          reasonField: reason
+          messageField: message
+          imageField: message
+
+  signals:
+    - name: pre-window-usage
+      query: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        timezone: Europe/Berlin   # window hours below are Berlin local time
+        window:
+          start: "00:00" # prior window
+          end: "09:00"
+
+    - name: target-window-usage
+      query: runner-image-usage
+      type: windowAggregate
+      windowAggregate:
+        method: sum
+        timezone: Europe/Berlin   # window hours below are Berlin local time
+        window:
+          start: "09:00" # target active window
+          end: "17:00"
+
+    - name: avg-cold-pull-time
+      query: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        statistic: avg          # mean latency signal; use p95 if you need tail sensitivity
+        includeCacheHits: false
+        durationMode: eventPair
+
+  ranking:
+    strategy: modelExposure
+    modelExposure:
+      nodeCount: 100            # tune to your typical active node count
+      preWindowUsageSignal: pre-window-usage
+      targetWindowUsageSignal: target-window-usage
+      pullTimeSignal: avg-cold-pull-time
 ```
 
 ## Status and Observability
@@ -470,8 +1062,8 @@ status:
 | 4 | Recent usage | `Σ count_I(t)` over recent window | `recent-usage` |
 | 5 | Hybrid usage + peak | `α·norm(total) + (1-α)·norm(peak)` | `total-usage`, `peak-concurrency` |
 | 6 | Hybrid dev-time + peak | `α·norm(dev) + (1-α)·norm(peak)` | `developer-weighted-usage`, `peak-concurrency` |
-| 7 | Count × pull time | `total_usage(I) · p_hat(I)` | `total-usage`, `p50-cold-pull-time` |
-| 9 | Model-aware exposure | `J_target · (1-1/N)^J_pre · p_hat` | `pre-window-usage`, `target-window-usage`, `p50-cold-pull-time` |
+| 7 | Count × pull time | `total_usage(I) · p_hat(I)` | `total-usage`, `avg-cold-pull-time` |
+| 8 | Model-aware exposure | `J_target · (1-1/N)^J_pre · p_hat` | `pre-window-usage`, `target-window-usage`, `avg-cold-pull-time` |
 
 ## Error Handling
 

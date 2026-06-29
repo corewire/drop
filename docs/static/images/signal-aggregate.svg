@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="system-ui, -apple-system, sans-serif" font-size="12">
+  <rect width="720" height="320" fill="#fafafa" rx="8"/>
+  <rect x="16" y="16" width="688" height="288" rx="6" fill="#181b1f"/>
+  <text x="32" y="38" font-size="13" font-weight="bold" fill="#d8d9da">aggregate</text>
+  <text x="32" y="54" font-size="10" fill="#8f96a3">sum across samples; min/max are dots, avg is dashed line</text>
+  <rect x="60" y="64" width="628" height="188" fill="#7209b7" fill-opacity="0.12"/>
+<line x1="60" y1="64" x2="60" y2="252" stroke="#33373c"/><line x1="60" y1="252" x2="688" y2="252" stroke="#33373c"/>
+  <g stroke="#26292e"><line x1="60" y1="223" x2="688" y2="223"/><line x1="60" y1="166" x2="688" y2="166"/><line x1="60" y1="109" x2="688" y2="109"/></g>
+  <line x1="374" y1="64" x2="374" y2="252" stroke="#444" stroke-dasharray="3,3"/>
+  <g fill="#7b7d80" font-size="9" text-anchor="end"><text x="54" y="256">0</text><text x="54" y="227">2</text><text x="54" y="170">4</text><text x="54" y="113">6</text></g>
+  <g fill="#7b7d80" font-size="9" text-anchor="middle"><text x="60" y="268">00</text><text x="138" y="268">06</text><text x="217" y="268">12</text><text x="295" y="268">18</text><text x="374" y="268">00</text><text x="452" y="268">06</text><text x="531" y="268">12</text><text x="609" y="268">18</text><text x="688" y="268">24</text></g>
+  <text x="370" y="284" text-anchor="middle" font-size="9" fill="#7b7d80">hour of day</text>
+  <polyline fill="none" stroke="#5794f2" stroke-width="2" points="60,223 138,195 217,80 295,166 374,223 452,195 531,80 609,166 688,223"/>
+  <polyline fill="none" stroke="#73bf69" stroke-width="2" points="60,252 138,223 217,166 295,223 374,252 452,223 531,166 609,223 688,252"/>
+  <g fill="#5794f2"><circle cx="60" cy="223" r="3"/><circle cx="138" cy="195" r="3"/><circle cx="217" cy="80" r="3"/><circle cx="295" cy="166" r="3"/><circle cx="374" cy="223" r="3"/><circle cx="452" cy="195" r="3"/><circle cx="531" cy="80" r="3"/><circle cx="609" cy="166" r="3"/><circle cx="688" cy="223" r="3"/></g>
+  <g fill="#73bf69"><circle cx="60" cy="252" r="3"/><circle cx="138" cy="223" r="3"/><circle cx="217" cy="166" r="3"/><circle cx="295" cy="223" r="3"/><circle cx="374" cy="252" r="3"/><circle cx="452" cy="223" r="3"/><circle cx="531" cy="166" r="3"/><circle cx="609" cy="223" r="3"/><circle cx="688" cy="252" r="3"/></g>
+  <g stroke-dasharray="5,3" stroke-width="1.5"><line x1="60" y1="158" x2="688" y2="158" stroke="#fade2a"/><line x1="60" y1="230" x2="688" y2="230" stroke="#fade2a" stroke-opacity="0.6"/></g>
+  <circle cx="217" cy="80" r="5" fill="#f2495c"/><circle cx="60" cy="223" r="5" fill="#ff9830"/>
+  <circle cx="217" cy="166" r="5" fill="#f2495c"/><circle cx="60" cy="252" r="5" fill="#ff9830"/>
+  <g font-size="9" text-anchor="end"><text x="684" y="155" fill="#fade2a">A avg 3.8</text><text x="684" y="242" fill="#fade2a">B avg 1.5</text></g>
+  <rect x="492" y="24" width="202" height="50" rx="4" fill="#111418" stroke="#2d3138"/>
+  <line x1="504" y1="38" x2="522" y2="38" stroke="#5794f2" stroke-width="2"/><text x="528" y="41" font-size="10" fill="#5794f2">img-A Σ30</text>
+  <line x1="588" y1="38" x2="606" y2="38" stroke="#73bf69" stroke-width="2"/><text x="612" y="41" font-size="10" fill="#73bf69">img-B Σ12</text>
+  <circle cx="508" cy="57" r="4" fill="#f2495c"/><text x="518" y="60" font-size="9" fill="#f2495c">max dot</text>
+  <circle cx="568" cy="57" r="4" fill="#ff9830"/><text x="578" y="60" font-size="9" fill="#ff9830">min dot</text>
+</svg>

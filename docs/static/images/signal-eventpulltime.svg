@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="system-ui, -apple-system, sans-serif" font-size="12">
+  <rect width="720" height="320" fill="#fafafa" rx="8"/>
+  <rect x="16" y="16" width="688" height="288" rx="6" fill="#181b1f"/>
+  <text x="32" y="42" font-size="13" font-weight="bold" fill="#d8d9da">eventPullTime — Pulling→Pulled duration per image; p50 ignores the outlier, max chases it</text>
+  <rect x="486" y="24" width="208" height="50" rx="4" fill="#111418" stroke="#2d3138"/>
+  <line x1="498" y1="38" x2="516" y2="38" stroke="#5794f2" stroke-width="2"/><text x="522" y="41" font-size="10" fill="#5794f2">nginx</text>
+  <line x1="568" y1="38" x2="586" y2="38" stroke="#73bf69" stroke-width="2"/><text x="592" y="41" font-size="10" fill="#73bf69">redis</text>
+  <text x="498" y="60" font-size="9" fill="#f08aa6">p50 marker</text>
+  <text x="584" y="60" font-size="9" fill="#ff9830">max marker</text>
+  <line x1="60" y1="64" x2="60" y2="252" stroke="#33373c"/><line x1="60" y1="252" x2="688" y2="252" stroke="#33373c"/>
+  <g stroke="#26292e"><line x1="60" y1="210" x2="688" y2="210"/><line x1="60" y1="168" x2="688" y2="168"/><line x1="60" y1="126" x2="688" y2="126"/><line x1="60" y1="84" x2="688" y2="84"/></g>
+  <g fill="#7b7d80" font-size="9" text-anchor="end"><text x="54" y="214">1000</text><text x="54" y="172">2000</text><text x="54" y="130">3000</text><text x="54" y="88">4000</text></g>
+  <text x="38" y="160" font-size="9" fill="#7b7d80" transform="rotate(-90,38,160)" text-anchor="middle">pull ms</text>
+  <text x="160" y="270" text-anchor="middle" font-size="10" fill="#5794f2">nginx:1.25</text>
+  <line x1="160" y1="252" x2="160" y2="222" stroke="#5794f2" stroke-width="6"/><text x="160" y="214" text-anchor="middle" font-size="9" fill="#5794f2">730</text>
+  <text x="500" y="270" text-anchor="middle" font-size="10" fill="#73bf69">redis:7</text>
+  <line x1="440" y1="252" x2="440" y2="223" stroke="#73bf69" stroke-width="6"/><text x="440" y="215" text-anchor="middle" font-size="9" fill="#73bf69">690</text>
+  <line x1="500" y1="252" x2="500" y2="223" stroke="#73bf69" stroke-width="6"/><text x="500" y="215" text-anchor="middle" font-size="9" fill="#73bf69">700</text>
+  <line x1="560" y1="252" x2="560" y2="81" stroke="#73bf69" stroke-width="6"/><text x="560" y="73" text-anchor="middle" font-size="9" fill="#73bf69">4100</text>
+  <text x="660" y="226" text-anchor="end" font-size="11" font-weight="bold" fill="#f08aa6">p50 700</text>
+  <text x="660" y="73" text-anchor="end" font-size="11" font-weight="bold" fill="#ff9830">max 4100</text>
+</svg>

@@ -210,7 +210,7 @@ DiscoveryQuery defines a named raw-data source referenced by signals.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `name` | `string` | Yes | — | Name is the unique identifier for this query within the policy. Signals reference queries by this name via queryRef. |
+| `name` | `string` | Yes | — | Name is the unique identifier for this query within the policy. Signals reference queries by this name via query. |
 | `type` | `DiscoveryQueryType` | Yes | — | Type selects the backend. Must be "prometheus", "loki", or "registry". |
 | `prometheus` | `*DiscoveryPrometheusQuery` | No | — | Prometheus contains the configuration when type=prometheus. |
 | `loki` | `*DiscoveryLokiQuery` | No | — | Loki contains the configuration when type=loki. |
@@ -224,7 +224,7 @@ DiscoveryRanking defines how signals are combined into the final ordered image l
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `strategy` | `RankingStrategy` | Yes | — | Strategy selects the ranking algorithm. |
-| `signal` | `*SignalRankingConfig` | No | — | Signal is required when strategy=signal. |
+| `signal` | `string` | No | — | Signal is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy. Required when strategy=signal. |
 | `weightedSum` | `*WeightedSumRankingConfig` | No | — | WeightedSum is required when strategy=weightedSum. |
 | `modelExposure` | `*ModelExposureRankingConfig` | No | — | ModelExposure is required when strategy=modelExposure. |
 
@@ -247,7 +247,7 @@ DiscoverySignal defines a named per-image metric derived from a single query.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `name` | `string` | Yes | — | Name is the unique identifier for this signal within the policy. Ranking configurations reference signals by this name. |
-| `queryRef` | `string` | Yes | — | QueryRef is the name of the query that provides raw data for this signal. Must match a queries[].name within the same policy. |
+| `query` | `string` | Yes | — | Query is the name of the query that provides raw data for this signal. Must match a queries[].name within the same policy. |
 | `type` | `SignalType` | Yes | — | Type selects the signal derivation method. |
 | `aggregate` | `*AggregateSignalConfig` | No | — | Aggregate is required when type=aggregate. |
 | `timeWeightedAggregate` | `*TimeWeightedAggregateSignalConfig` | No | — | TimeWeightedAggregate is required when type=timeWeightedAggregate. |
@@ -256,13 +256,14 @@ DiscoverySignal defines a named per-image metric derived from a single query.
 
 ### EventPullTimeSignalConfig
 
-EventPullTimeSignalConfig configures the eventPullTime signal type. The referenced query must be a Loki query.
+EventPullTimeSignalConfig configures the eventPullTime signal type. The referenced query must be a Loki query. Pull duration and image size are extracted from the same Pulled events; metric selects which one to rank on.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `statistic` | `EventPullTimeStatistic` | Yes | — | Statistic selects which pull-time metric to compute. |
-| `includeCacheHits` | `bool` | Yes | false | IncludeCacheHits controls whether "already present on machine" events are included in cold-pull duration statistics. Set to false to exclude cache hits. |
-| `durationMode` | `DurationMode` | Yes | — | DurationMode controls how pull duration is extracted from event records. |
+| `metric` | `EventMetric` | No | pullTime | Metric selects which per-image quantity to aggregate. Defaults to pullTime, which correlates strongly with cold-start cost. Use imageSize to rank by bytes. |
+| `statistic` | `EventStatistic` | Yes | — | Statistic selects how the metric's samples are aggregated per image. |
+| `includeCacheHits` | `bool` | Yes | false | IncludeCacheHits controls whether "already present on machine" events are included in cold-pull duration statistics. Set to false to exclude cache hits. Only applies when metric=pullTime. |
+| `durationMode` | `DurationMode` | Yes | — | DurationMode controls how pull duration is extracted from event records. Only applies when metric=pullTime. |
 
 ### ImageEntry
 
@@ -293,9 +294,9 @@ ModelExposureRankingConfig configures the modelExposure ranking strategy. Score 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `nodeCount` | `int32` | Yes | — | NodeCount is the number of eligible CI nodes (N in the exposure formula). |
-| `preWindowUsageSignalRef` | `string` | Yes | — | PreWindowUsageSignalRef is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy. |
-| `targetWindowUsageSignalRef` | `string` | Yes | — | TargetWindowUsageSignalRef is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy. |
-| `pullTimeSignalRef` | `string` | Yes | — | PullTimeSignalRef is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy. |
+| `preWindowUsageSignal` | `string` | Yes | — | PreWindowUsageSignal is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy. |
+| `targetWindowUsageSignal` | `string` | Yes | — | TargetWindowUsageSignal is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy. |
+| `pullTimeSignal` | `string` | Yes | — | PullTimeSignal is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy. |
 
 ### PolicyReference
 
@@ -315,14 +316,6 @@ QueryResult reports the outcome of a single named query execution.
 | `type` | `DiscoveryQueryType` | Yes | — | Type is the query backend type (prometheus, loki, or registry). |
 | `status` | `QueryResultStatus` | Yes | — | Status is "success" or "failed". |
 | `message` | `string` | No | — | Message describes the failure reason when status=failed. |
-
-### SignalRankingConfig
-
-SignalRankingConfig configures the signal ranking strategy.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `signalRef` | `string` | Yes | — | SignalRef is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy. |
 
 ### TimeOfDayWindow
 
@@ -370,7 +363,7 @@ WeightedSumTerm defines one signal contribution in a weightedSum ranking.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `signalRef` | `string` | Yes | — | SignalRef is the name of the signal to include in the weighted sum. Must match a signals[].name within the same policy. |
+| `signal` | `string` | Yes | — | Signal is the name of the signal to include in the weighted sum. Must match a signals[].name within the same policy. |
 | `weight` | `resource.Quantity` | Yes | — | Weight is the factor applied to the normalized signal value. All weights should be non-negative; they do not need to sum to 1. Example: "0.7" |
 
 ### WindowAggregateSignalConfig
