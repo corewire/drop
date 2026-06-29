@@ -230,13 +230,14 @@ DiscoverySignal defines a named per-image metric derived from a single query.
 
 ### EventPullTimeSignalConfig
 
-EventPullTimeSignalConfig configures the eventPullTime signal type. The referenced query must be a Loki query.
+EventPullTimeSignalConfig configures the eventPullTime signal type. The referenced query must be a Loki query. Pull duration and image size are extracted from the same Pulled events; metric selects which one to rank on.
 
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
-| Statistic | `statistic` | `EventPullTimeStatistic` | ✓ |  | Statistic selects which pull-time metric to compute. Enum: `p50`,`p90`,`p95`,`avg`,`max`,`count`,`failureCount`,`cacheHitCount` |
-| IncludeCacheHits | `includeCacheHits` | `bool` | ✓ | `false` | IncludeCacheHits controls whether "already present on machine" events are included in cold-pull duration statistics. Set to false to exclude cache hits. |
-| DurationMode | `durationMode` | `DurationMode` | ✓ |  | DurationMode controls how pull duration is extracted from event records. Enum: `eventPair`,`messageDuration` |
+| Metric | `metric` | `EventMetric` | — | `pullTime` | Metric selects which per-image quantity to aggregate. Defaults to pullTime, which correlates strongly with cold-start cost. Use imageSize to rank by bytes. |
+| Statistic | `statistic` | `EventStatistic` | ✓ |  | Statistic selects how the metric's samples are aggregated per image. Enum: `p50`,`p90`,`p95`,`avg`,`max`,`count` |
+| IncludeCacheHits | `includeCacheHits` | `bool` | ✓ | `false` | IncludeCacheHits controls whether "already present on machine" events are included in cold-pull duration statistics. Set to false to exclude cache hits. Only applies when metric=pullTime. |
+| DurationMode | `durationMode` | `DurationMode` | ✓ |  | DurationMode controls how pull duration is extracted from event records. Only applies when metric=pullTime. Enum: `eventPair`,`messageDuration` |
 
 ### ImageEntry
 
@@ -655,7 +656,7 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{job="kubelet",drop_e2e="true"}'
+        query: '{job="kubernetes-events",drop_e2e="true"}'
         parser:
           type: kubernetesEvents
   signals:
@@ -670,7 +671,16 @@ spec:
       query: image-pull-events
       type: eventPullTime
       eventPullTime:
-        statistic: failureCount
+        metric: failure
+        statistic: count
+        durationMode: messageDuration
+        includeCacheHits: false
+    - name: avg-image-size
+      query: image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        metric: imageSize
+        statistic: avg
         durationMode: messageDuration
         includeCacheHits: false
   ranking:
@@ -730,7 +740,7 @@ spec:
         endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
         queryType: range
         lookback: 24h
-        query: '{job="kubelet",drop_e2e="true"}'
+        query: '{job="kubernetes-events",drop_e2e="true"}'
         parser:
           type: kubernetesEvents
   signals:

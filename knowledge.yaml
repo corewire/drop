@@ -597,11 +597,17 @@ helperTypes:
         required: false
         doc: EventPullTime is required when type=eventPullTime.
   - name: EventPullTimeSignalConfig
-    doc: EventPullTimeSignalConfig configures the eventPullTime signal type. The referenced query must be a Loki query.
+    doc: EventPullTimeSignalConfig configures the eventPullTime signal type. The referenced query must be a Loki query. Pull duration and image size are extracted from the same Pulled events; metric selects which one to rank on.
     fields:
+      - name: Metric
+        json: metric
+        type: EventMetric
+        required: false
+        default: pullTime
+        doc: Metric selects which per-image quantity to aggregate. Defaults to pullTime, which correlates strongly with cold-start cost. Use imageSize to rank by bytes.
       - name: Statistic
         json: statistic
-        type: EventPullTimeStatistic
+        type: EventStatistic
         required: true
         enum:
           - p50
@@ -610,15 +616,13 @@ helperTypes:
           - avg
           - max
           - count
-          - failureCount
-          - cacheHitCount
-        doc: Statistic selects which pull-time metric to compute.
+        doc: Statistic selects how the metric's samples are aggregated per image.
       - name: IncludeCacheHits
         json: includeCacheHits
         type: bool
         required: true
         default: "false"
-        doc: IncludeCacheHits controls whether "already present on machine" events are included in cold-pull duration statistics. Set to false to exclude cache hits.
+        doc: IncludeCacheHits controls whether "already present on machine" events are included in cold-pull duration statistics. Set to false to exclude cache hits. Only applies when metric=pullTime.
       - name: DurationMode
         json: durationMode
         type: DurationMode
@@ -626,7 +630,7 @@ helperTypes:
         enum:
           - eventPair
           - messageDuration
-        doc: DurationMode controls how pull duration is extracted from event records.
+        doc: DurationMode controls how pull duration is extracted from event records. Only applies when metric=pullTime.
   - name: ImageEntry
     doc: ImageEntry defines a single image to include in a set.
     fields:
@@ -1324,7 +1328,7 @@ samples: |
           endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
           queryType: range
           lookback: 24h
-          query: '{job="kubelet",drop_e2e="true"}'
+          query: '{job="kubernetes-events",drop_e2e="true"}'
           parser:
             type: kubernetesEvents
     signals:
@@ -1339,7 +1343,16 @@ samples: |
         query: image-pull-events
         type: eventPullTime
         eventPullTime:
-          statistic: failureCount
+          metric: failure
+          statistic: count
+          durationMode: messageDuration
+          includeCacheHits: false
+      - name: avg-image-size
+        query: image-pull-events
+        type: eventPullTime
+        eventPullTime:
+          metric: imageSize
+          statistic: avg
           durationMode: messageDuration
           includeCacheHits: false
     ranking:
@@ -1399,7 +1412,7 @@ samples: |
           endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
           queryType: range
           lookback: 24h
-          query: '{job="kubelet",drop_e2e="true"}'
+          query: '{job="kubernetes-events",drop_e2e="true"}'
           parser:
             type: kubernetesEvents
     signals:
