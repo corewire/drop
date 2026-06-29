@@ -101,9 +101,13 @@ local_resource(
 k8s_yaml('hack/e2e-infra/seed-registry-job.yaml')
 k8s_resource('seed-registry', labels=['infra'], resource_deps=['registry-mirror'])
 
-# Seed Loki with image-pull events
+# Seed Loki with image-pull events (Alloy-style JSON structure)
 k8s_yaml('hack/e2e-infra/seed-loki-job.yaml')
 k8s_resource('seed-loki', labels=['infra'], resource_deps=['loki'])
+
+# Alloy: tail real Kubernetes events into Loki (drop_e2e=true)
+k8s_yaml('hack/e2e-infra/alloy.yaml')
+k8s_resource('alloy', objects=['alloy:serviceaccount', 'alloy-events:clusterrole', 'alloy-events:clusterrolebinding', 'alloy-config:configmap'], labels=['infra'], resource_deps=['loki'])
 
 # --- Grafana with Drop dashboard ---
 # Create dashboard ConfigMap from the shipped JSON, then apply grafana manifests.
