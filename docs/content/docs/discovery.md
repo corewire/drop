@@ -50,7 +50,7 @@ signals/ranking so you can apply them directly.
 | Type | Source | Discovered from | Use when |
 |------|--------|-----------------|----------|
 | `prometheus` | Metrics series | `image` label on results | Usage/concurrency from cluster metrics |
-| `loki` | Event logs | parsed pull events | Pull durations & failures |
+| `loki` | Event logs | parsed pull events | Pull durations & image sizes |
 | `registry` | Tag/catalog API | repository tags | Pre-cache newest tags by name |
 
 ### Prometheus Query
@@ -145,15 +145,15 @@ spec:
         queryType: range         # only supported Loki query mode currently
         lookback: 168h
         query: |
-          # Pull lifecycle events used to derive pull durations/failures.
+          # Successful pulls carry pull duration and image size in the message.
           {job="kubernetes-events", namespace="gitlab-runner"}
           | json
           | involvedObject_name =~ "runner-.*"
-          | reason =~ "Pulling|Pulled|Failed|BackOff"
+          | reason = "Pulled"
         parser:
           type: kubernetesEvents # maps log fields into structured event records
           podField: involvedObject_name  # which field holds the pod name
-          reasonField: reason            # Pulling / Pulled / Failed
+          reasonField: reason            # only Pulled events are consumed
           messageField: message          # free-text event message
           imageField: message            # image ref is extracted from the message
   signals:
@@ -163,25 +163,32 @@ spec:
       eventPullTime:
         metric: pullTime       # default; aggregates pull duration samples
         statistic: avg          # mean pull duration per image
-        includeCacheHits: false # only count true cold pulls
-        durationMode: eventPair # pair Pulling→Pulled events to get the duration
   ranking:
     strategy: signal
     signal: avg-cold-pull-time   # slowest images rank highest
 ```
 
-How it's used: Loki contributes pull lifecycle events, not usage volume. The
-`kubernetesEvents` parser turns each log/event into structured records with
-`podField`, `reasonField`, and `messageField`, then extracts the image from
-`imageField` (typically the same message text).
+How it's used: Loki contributes pull lifecycle data, not usage volume. The
+`kubernetesEvents` parser turns each `Pulled` event into a structured record
+with `podField`, `reasonField`, and `messageField`, then extracts the image
+from `imageField` (typically the same message text).
 
-Event reasons consumed by discovery: `Pulling`, `Pulled`, `Failed`, `BackOff`,
-`AlreadyPresent`.
+#### Why only Pulled events
 
-Duration semantics:
-- `durationMode: messageDuration` parses `in 42.3s` from Pulled messages.
-- `durationMode: eventPair` uses Pulled timestamp minus Pulling timestamp.
-- Failures are tracked as `image:failed`; cache hits as `image:cache_hit`.
+The kubelet emits a different `reason` for each stage of a pull, but the
+`Pulled` event already carries everything the signals need — the cold-pull
+duration (`in 704ms`) and the image size (`Image size: N bytes`) are both in its
+message. Other reasons (`Pulling`, `Failed`, `BackOff`, `AlreadyPresent`) are
+ignored: they add no ranking data we can't already read off `Pulled`. Both
+`eventPullTime` metrics are derived from `Pulled`:
+
+| Metric | Source | Meaning |
+|--------|--------|---------|
+| `pullTime` | `in Xs` in the Pulled message | Cold-pull latency — slow images rank highest |
+| `imageSize` | `Image size: N bytes` in the Pulled message | Image size in bytes — large images rank highest |
+
+Duration semantics: `pullTime` parses `in 42.3s` directly from the Pulled
+message; `imageSize` parses `Image size: N bytes` from the same message.
 
 Alloy shipping (real cluster events):
 - Use
@@ -209,13 +216,12 @@ Loki returns streams, each with `[timestamp, line]` entries. With Alloy
 }
 ```
 
-The parser extracts image + reason from each entry, then builds per-image samples:
+The parser extracts image + size from each `Pulled` entry, then builds per-image samples:
 
 | Parsed event | Output key | Value added |
 |-------------|------------|-------------|
 | `Pulled ... in 704ms` | `docker.io/library/redis:7-alpine` | `0.704` seconds |
-| `Failed ...` or `BackOff ...` | `docker.io/library/redis:7-alpine:failed` | `1` |
-| `already present on machine` | `docker.io/library/redis:7-alpine:cache_hit` | `1` |
+| `Pulled ... Image size: N bytes` | `docker.io/library/redis:7-alpine:size_bytes` | `N` |
 
 For `eventPullTime` signals, these samples are reduced by `statistic`
 (`avg`/`p50`/`p95`/etc.) into one value per image.
@@ -239,6 +245,8 @@ spec:
           - gitlab-org/gitlab-runner/gitlab-runner-helper
         tagFilter: "^x86_64-v[0-9]+\\."  # only x86_64-v1. / x86_64-v2. ...
         versionPattern: "x86_64-v(.+)"  # capture group 1 is the version
+        tagSeek: "x86_64-u~"    # skip straight to the x86_64-v* tags
+        maxScan: 2000           # cap tags fetched per repo before filtering
         topX: 3                 # keep the 3 newest matching tags per repo
         imageTemplate: "{{.Registry}}/{{.Repository}}:{{.Tag}}"  # built image ref
       secretRef:
@@ -262,6 +270,14 @@ Important behavior notes:
 - `versionPattern` (optional) is a regex with one capture group that pins where
   the version lives in the tag, e.g. `x86_64-v(.+)` for GitLab helper images.
   Use it when the default extraction picks the wrong number.
+- `tagSeek` (optional) is a pagination cursor sent to the registry as the `last`
+  query parameter. The registry lists tags lexically after this value, so you
+  can skip large numbers of irrelevant earlier tags (e.g. tens of thousands of
+  digest tags) without fetching them. It is not a real tag name — any string
+  works, e.g. `x86_64-u~` jumps straight to the `x86_64-v*` tags.
+- `maxScan` (optional) caps how many tags are fetched per repository before
+  filtering. Defaults to `1000`. Pair it with `tagSeek` to fetch only the
+  relevant range on registries with very large tag lists.
 - `imageTemplate` variables: `{{.Registry}}`, `{{.Repository}}`, `{{.Tag}}`.
   Default: `{{.Registry}}/{{.Repository}}:{{.Tag}}`.
 
@@ -334,7 +350,7 @@ A signal derives a named per-image value from exactly one query. The four types 
 | `aggregate` | One value over all samples | `method`: sum/max/avg/count/min |
 | `timeWeightedAggregate` | Weighted sum by hour-of-day | `windows`, `weight`, `timezone` |
 | `windowAggregate` | One sub-window only | `relativeWindow` or `window` start/end |
-| `eventPullTime` | Event metric statistic | `metric`: pullTime/imageSize/failure/cacheHit, `statistic`: p50/p90/p95/avg/max/count |
+| `eventPullTime` | Event metric statistic | `metric`: pullTime/imageSize, `statistic`: p50/p90/p95/avg/max/count |
 
 Signal × source compatibility:
 
@@ -566,13 +582,9 @@ This signal ignores the 48h volume dataset — it reads Loki pull durations inst
 | `max` | slowest pull | 730 | 4100 | absolute worst pull |
 | `count` | cold-pull events | 1 | 3 | how often pulled cold |
 
-Two extra knobs: `includeCacheHits` (default `false`) adds "already present" events to duration stats; `durationMode` is `eventPair` (Pulled−Pulling timestamps) or `messageDuration` (parse "in 42.3s" from the message).
-
-`eventPullTime` now uses `metric + statistic`:
+`eventPullTime` uses `metric + statistic`, both derived from `Pulled` events:
 - `metric: pullTime` (default) with `statistic: p50|p90|p95|avg|max|count`
 - `metric: imageSize` with `statistic: p50|p90|p95|avg|max|count` (bytes from `Image size: N bytes`)
-- `metric: failure` with `statistic: count`
-- `metric: cacheHit` with `statistic: count`
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
@@ -592,7 +604,7 @@ spec:
         query: |
           {job="kubernetes-events", namespace="gitlab-runner"}
           | json
-          | reason =~ "Pulling|Pulled|Failed|BackOff"
+          | reason = "Pulled"
         parser:
           type: kubernetesEvents
           podField: involvedObject_name
@@ -604,10 +616,8 @@ spec:
       query: image-pull-events
       type: eventPullTime
       eventPullTime:
-        metric: pullTime          # pullTime (default) | imageSize | failure | cacheHit
+        metric: pullTime          # pullTime (default) | imageSize
         statistic: avg            # p50 | p90 | p95 | avg | max | count
-        includeCacheHits: false   # ignore already-cached pulls in latency stats
-        durationMode: eventPair   # eventPair (Pulling→Pulled) | messageDuration parsing
   ranking:
     strategy: signal
     signal: avg-cold-pull-time
@@ -623,7 +633,6 @@ signals:
     eventPullTime:
       metric: imageSize
       statistic: avg
-      durationMode: messageDuration
 
 ranking:
   strategy: signal
@@ -754,7 +763,7 @@ spec:
         query: |
           {job="kubernetes-events", namespace="gitlab-runner"}
           | json
-          | reason =~ "Pulling|Pulled|Failed|BackOff"
+          | reason = "Pulled"
         parser:
           type: kubernetesEvents
           podField: involvedObject_name
@@ -786,8 +795,6 @@ spec:
       eventPullTime:
         metric: pullTime
         statistic: avg
-        includeCacheHits: false
-        durationMode: eventPair
   ranking:
     strategy: modelExposure
     modelExposure:
@@ -997,7 +1004,7 @@ spec:
           {job="kubernetes-events", namespace="gitlab-runner"}
           | json
           | involvedObject_name =~ "runner-.*"
-          | reason =~ "Pulling|Pulled|Failed|BackOff"
+          | reason = "Pulled"
         parser:
           type: kubernetesEvents
           podField: involvedObject_name
@@ -1032,8 +1039,6 @@ spec:
       eventPullTime:
         metric: pullTime
         statistic: avg          # mean latency signal; use p95 if you need tail sensitivity
-        includeCacheHits: false
-        durationMode: eventPair
 
   ranking:
     strategy: modelExposure

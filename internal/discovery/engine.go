@@ -655,20 +655,15 @@ func modelExposureRank(cfg *dropv1alpha1.ModelExposureRankingConfig, signals map
 }
 
 // collectImages returns a sorted, deduplicated list of all image references across all query results.
-// For Loki query data, special per-image suffix keys (":failed", ":cache_hit") are stripped to
-// their base image name so that images visible only via failure/cache events are still included.
+// For Loki query data, the per-image size suffix key (":size_bytes") is stripped to its base
+// image name so that images are deduplicated correctly.
 func collectImages(rawByQuery map[string]*QueryRawData) []string {
 	seen := make(map[string]struct{})
 	for _, raw := range rawByQuery {
 		for img := range raw.Samples {
-			switch {
-			case strings.HasSuffix(img, lokiFailedSuffix):
-				seen[strings.TrimSuffix(img, lokiFailedSuffix)] = struct{}{}
-			case strings.HasSuffix(img, lokiCacheHitSuffix):
-				seen[strings.TrimSuffix(img, lokiCacheHitSuffix)] = struct{}{}
-			case strings.HasSuffix(img, lokiSizeBytesSuffix):
+			if strings.HasSuffix(img, lokiSizeBytesSuffix) {
 				seen[strings.TrimSuffix(img, lokiSizeBytesSuffix)] = struct{}{}
-			default:
+			} else {
 				seen[img] = struct{}{}
 			}
 		}
@@ -689,9 +684,7 @@ func defaultScores(rawByQuery map[string]*QueryRawData) map[string]float64 {
 	out := make(map[string]float64)
 	for _, raw := range rawByQuery {
 		for key, samples := range raw.Samples {
-			if strings.HasSuffix(key, lokiFailedSuffix) ||
-				strings.HasSuffix(key, lokiCacheHitSuffix) ||
-				strings.HasSuffix(key, lokiSizeBytesSuffix) {
+			if strings.HasSuffix(key, lokiSizeBytesSuffix) {
 				continue
 			}
 			for _, s := range samples {
@@ -708,22 +701,15 @@ func defaultScores(rawByQuery map[string]*QueryRawData) map[string]float64 {
 //
 // The samples map is expected to come from a Loki kubernetesEvents query:
 //   - samples[image]              → pull duration values in seconds (from Pulled events)
-//   - samples[image+":failed"]    → count of pull-failure events (value=1.0 each)
-//   - samples[image+":cache_hit"] → count of already-present events (value=1.0 each)
 //   - samples[image+":size_bytes"]→ image size values in bytes (from Pulled event messages)
 //
 // cfg.Metric selects which series to aggregate; cfg.Statistic selects how.
 func deriveEventPullTime(samples map[string][]TimedSample, cfg *dropv1alpha1.EventPullTimeSignalConfig) map[string]float64 {
 	imageSet := make(map[string]struct{})
 	for key := range samples {
-		switch {
-		case strings.HasSuffix(key, lokiFailedSuffix):
-			imageSet[strings.TrimSuffix(key, lokiFailedSuffix)] = struct{}{}
-		case strings.HasSuffix(key, lokiCacheHitSuffix):
-			imageSet[strings.TrimSuffix(key, lokiCacheHitSuffix)] = struct{}{}
-		case strings.HasSuffix(key, lokiSizeBytesSuffix):
+		if strings.HasSuffix(key, lokiSizeBytesSuffix) {
 			imageSet[strings.TrimSuffix(key, lokiSizeBytesSuffix)] = struct{}{}
-		default:
+		} else {
 			imageSet[key] = struct{}{}
 		}
 	}
@@ -739,15 +725,8 @@ func deriveEventPullTime(samples map[string][]TimedSample, cfg *dropv1alpha1.Eve
 		switch metric {
 		case dropv1alpha1.EventMetricImageSize:
 			pts = samples[img+lokiSizeBytesSuffix]
-		case dropv1alpha1.EventMetricFailure:
-			pts = samples[img+lokiFailedSuffix]
-		case dropv1alpha1.EventMetricCacheHit:
-			pts = samples[img+lokiCacheHitSuffix]
 		default: // pullTime
-			pts = append([]TimedSample(nil), samples[img]...)
-			if cfg.IncludeCacheHits {
-				pts = append(pts, samples[img+lokiCacheHitSuffix]...)
-			}
+			pts = samples[img]
 		}
 		if len(pts) == 0 {
 			continue

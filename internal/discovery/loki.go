@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,10 +20,6 @@ const (
 	lokiMessageField  = "message"
 	// lokiLimitDefault is the maximum number of log entries to fetch per query.
 	lokiLimitDefault = 5000
-	// lokiFailedSuffix is appended to image keys for pull-failure event counts.
-	lokiFailedSuffix = ":failed"
-	// lokiCacheHitSuffix is appended to image keys for cache-hit event counts.
-	lokiCacheHitSuffix = ":cache_hit"
 	// lokiSizeBytesSuffix is appended to image keys for extracted image-size samples.
 	lokiSizeBytesSuffix = ":size_bytes"
 )
@@ -85,9 +80,8 @@ func NewLokiSource(endpoint, query string, lookback time.Duration, parser *dropv
 // FetchRaw calls /loki/api/v1/query_range and returns per-image timed samples.
 //
 // For a kubernetesEvents parser, sample values are pull durations in seconds
-// (from Pulled event messages or Pulling→Pulled timestamp pairs).
-// Pull failures are stored under the key "image:failed" with value 1.0,
-// and cache hits under "image:cache_hit" with value 1.0.
+// (parsed from Pulled event messages). Image sizes are stored under the key
+// "image:size_bytes".
 //
 // Without a parser, each log entry produces a value=1.0 sample keyed by
 // the "image" stream label.
@@ -178,15 +172,11 @@ type lokiEventRecord struct {
 
 // parseKubernetesEventStreams parses Kubernetes Event records from Loki log entries.
 //
-// It produces:
+// Only Pulled events are consumed. It produces:
 //   - samples[image] → pull duration in seconds for each Pulled event
-//   - samples[image+":failed"] → 1.0 per pull-failure event
-//   - samples[image+":cache_hit"] → 1.0 per already-present event
 //   - samples[image+":size_bytes"] → image size in bytes per Pulled event (if present)
 //
-// Durations are derived from the "in Xs" pattern in Pulled messages (messageDuration).
-// When no duration is present in the message, a Pulling→Pulled event-pair duration
-// is used as a fallback.
+// Durations and sizes are parsed from the Pulled event message text.
 func parseKubernetesEventStreams(streams []lokiStream, parser *dropv1alpha1.LokiParser) map[string][]TimedSample {
 	reasonField := lokiCoalesceField(parser.ReasonField, "reason")
 	podField := lokiCoalesceField(parser.PodField, "involvedObject_name")
@@ -249,53 +239,22 @@ func parseKubernetesEventStreams(streams []lokiStream, parser *dropv1alpha1.Loki
 		}
 	}
 
-	// Sort records chronologically for correct eventPair matching.
-	sort.Slice(records, func(i, j int) bool {
-		return records[i].timestamp < records[j].timestamp
-	})
-
-	// pullingMap tracks the start timestamp of Pulling events per (pod:image).
-	pullingMap := make(map[string]float64)
 	out := make(map[string][]TimedSample)
 
 	for _, rec := range records {
-		switch strings.ToLower(rec.reason) {
-		case "pulling":
-			pullingMap[rec.pod+":"+rec.image] = rec.timestamp
-
-		case "pulled":
-			// Primary: parse duration from message ("in Xs").
-			dur := lokiParsePullDuration(rec.message)
-			sizeBytes := lokiParseImageSizeBytes(rec.message)
-			// Fallback: event-pair (Pulling → Pulled timestamp delta).
-			if dur == 0 {
-				if pullStart, ok := pullingMap[rec.pod+":"+rec.image]; ok {
-					if d := rec.timestamp - pullStart; d > 0 {
-						dur = d
-					}
-				}
-			}
-			if dur > 0 {
-				out[rec.image] = append(out[rec.image], TimedSample{Timestamp: rec.timestamp, Value: dur})
-			}
-			if sizeBytes > 0 {
-				out[rec.image+lokiSizeBytesSuffix] = append(
-					out[rec.image+lokiSizeBytesSuffix],
-					TimedSample{Timestamp: rec.timestamp, Value: sizeBytes},
-				)
-			}
-			delete(pullingMap, rec.pod+":"+rec.image)
-
-		case "failed", "backoff":
-			out[rec.image+lokiFailedSuffix] = append(
-				out[rec.image+lokiFailedSuffix],
-				TimedSample{Timestamp: rec.timestamp, Value: 1.0},
-			)
-
-		case "alreadypresent":
-			out[rec.image+lokiCacheHitSuffix] = append(
-				out[rec.image+lokiCacheHitSuffix],
-				TimedSample{Timestamp: rec.timestamp, Value: 1.0},
+		// Only Pulled events carry the data we rank on (duration + image size).
+		if strings.ToLower(rec.reason) != "pulled" {
+			continue
+		}
+		dur := lokiParsePullDuration(rec.message)
+		sizeBytes := lokiParseImageSizeBytes(rec.message)
+		if dur > 0 {
+			out[rec.image] = append(out[rec.image], TimedSample{Timestamp: rec.timestamp, Value: dur})
+		}
+		if sizeBytes > 0 {
+			out[rec.image+lokiSizeBytesSuffix] = append(
+				out[rec.image+lokiSizeBytesSuffix],
+				TimedSample{Timestamp: rec.timestamp, Value: sizeBytes},
 			)
 		}
 	}
@@ -352,22 +311,12 @@ func lokiParseImageSizeBytes(msg string) float64 {
 
 // lokiInferReasonFromMessage infers a Kubernetes Event reason from a plain-text log message.
 // This is used when the reason field is not present in the Loki stream labels.
+// Only Pulled events are relevant to discovery, so other reasons are ignored.
 func lokiInferReasonFromMessage(msg string) string {
-	lower := strings.ToLower(msg)
-	switch {
-	case strings.Contains(lower, "successfully pulled"):
+	if strings.Contains(strings.ToLower(msg), "successfully pulled") {
 		return "Pulled"
-	case strings.Contains(lower, "back-off pulling") || strings.Contains(lower, "back-off"):
-		return "Backoff"
-	case strings.Contains(lower, "failed to pull"):
-		return "Failed"
-	case strings.Contains(lower, "pulling image"):
-		return "Pulling"
-	case strings.Contains(lower, "already present"):
-		return "AlreadyPresent"
-	default:
-		return ""
 	}
+	return ""
 }
 
 // parseLokiNanoTimestamp converts a Loki nanosecond epoch string to Unix seconds (float64).

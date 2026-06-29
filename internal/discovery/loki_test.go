@@ -67,18 +67,10 @@ func TestLokiSource_FetchRaw_Generic(t *testing.T) {
 }
 
 // TestLokiSource_FetchRaw_KubernetesEvents verifies the kubernetesEvents parser
-// with message-based duration extraction and eventPair fallback.
+// with message-based duration extraction.
 func TestLokiSource_FetchRaw_KubernetesEvents(t *testing.T) {
 	now := time.Now()
 	streams := []lokiStream{
-		{
-			Stream: map[string]string{
-				"reason":              "Pulling",
-				"involvedObject_name": "pod-abc",
-				"message":             `Pulling image "nginx:1.25"`,
-			},
-			Values: [][]string{{nanoStringLoki(now.Add(-3 * time.Second)), ""}},
-		},
 		{
 			Stream: map[string]string{
 				"reason":              "Pulled",
@@ -119,63 +111,6 @@ func TestLokiSource_FetchRaw_KubernetesEvents(t *testing.T) {
 	}
 }
 
-// TestLokiSource_FetchRaw_KubernetesEvents_EventPair verifies that when no duration
-// is present in the message, the Pulling→Pulled timestamp delta is used.
-func TestLokiSource_FetchRaw_KubernetesEvents_EventPair(t *testing.T) {
-	now := time.Now()
-	pullingTime := now.Add(-3 * time.Second)
-	pulledTime := now.Add(-1 * time.Second)
-
-	streams := []lokiStream{
-		{
-			Stream: map[string]string{
-				"reason":              "Pulling",
-				"involvedObject_name": "pod-xyz",
-				"message":             `Pulling image "alpine:3.19"`,
-			},
-			Values: [][]string{{nanoStringLoki(pullingTime), ""}},
-		},
-		{
-			Stream: map[string]string{
-				"reason":              "Pulled",
-				"involvedObject_name": "pod-xyz",
-				"message":             `Successfully pulled image "alpine:3.19"`, // no duration
-			},
-			Values: [][]string{{nanoStringLoki(pulledTime), ""}},
-		},
-	}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := lokiResponse{
-			Status: lokiStatusSuccess,
-			Data:   lokiData{ResultType: "streams", Result: streams},
-		}
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
-	src := NewLokiSource(srv.URL, `{app="kubelet"}`, time.Hour, &dropv1alpha1.LokiParser{
-		Type:         dropv1alpha1.LokiParserTypeKubernetesEvents,
-		ReasonField:  "reason",
-		PodField:     "involvedObject_name",
-		MessageField: "message",
-	}, srv.Client())
-	samples, err := src.FetchRaw(t.Context())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(samples["alpine:3.19"]) != 1 {
-		t.Fatalf("expected 1 sample for alpine:3.19, got %d", len(samples["alpine:3.19"]))
-	}
-	// eventPair duration ≈ 2 seconds (pulledTime - pullingTime)
-	got := samples["alpine:3.19"][0].Value
-	if got < 1.9 || got > 2.1 {
-		t.Errorf("expected eventPair duration ~2s, got %f", got)
-	}
-}
-
 // TestLokiSource_FetchRaw_KubernetesEvents_AlloyJSON verifies that events shipped by
 // Grafana Alloy (loki.source.kubernetes_events, log_format=json) parse with the default
 // parser fields. Alloy emits "msg"/"name" in the JSON body, not "message"/"involvedObject_name".
@@ -186,11 +121,6 @@ func TestLokiSource_FetchRaw_KubernetesEvents_AlloyJSON(t *testing.T) {
 			Stream: map[string]string{"namespace": "default", "job": "kubelet"},
 			Values: [][]string{{nanoStringLoki(now.Add(-2 * time.Second)),
 				`{"reason":"Pulled","name":"runner-abc","msg":"Successfully pulled image \"nginx:1.25\" in 740ms (740ms including waiting). Image size: 20461242 bytes."}`}},
-		},
-		{
-			Stream: map[string]string{"namespace": "default", "job": "kubelet"},
-			Values: [][]string{{nanoStringLoki(now.Add(-1 * time.Second)),
-				`{"reason":"Failed","name":"runner-def","msg":"Failed to pull image \"broken:v1\": not found"}`}},
 		},
 	}
 
@@ -221,9 +151,6 @@ func TestLokiSource_FetchRaw_KubernetesEvents_AlloyJSON(t *testing.T) {
 	if got := samples["nginx:1.25"+lokiSizeBytesSuffix][0].Value; got != 20461242 {
 		t.Errorf("expected image size 20461242, got %f", got)
 	}
-	if len(samples["broken:v1"+lokiFailedSuffix]) != 1 {
-		t.Errorf("expected 1 failure sample for broken:v1, got %d", len(samples["broken:v1"+lokiFailedSuffix]))
-	}
 }
 
 // TestLokiSource_FetchRaw_HTTPError verifies that HTTP errors are surfaced.
@@ -247,10 +174,10 @@ func TestLokiInferReasonFromMessage(t *testing.T) {
 		want string
 	}{
 		{`Successfully pulled image "nginx:1.25" in 2s`, "Pulled"},
-		{`Pulling image "nginx:1.25"`, "Pulling"},
-		{`Failed to pull image "nginx:1.25": not found`, "Failed"},
-		{`Back-off pulling image "nginx:1.25"`, "Backoff"},
-		{`Container image "nginx:1.25" already present on machine`, "AlreadyPresent"},
+		{`Pulling image "nginx:1.25"`, ""},
+		{`Failed to pull image "nginx:1.25": not found`, ""},
+		{`Back-off pulling image "nginx:1.25"`, ""},
+		{`Container image "nginx:1.25" already present on machine`, ""},
 		{`some unrelated log line`, ""},
 	}
 	for _, tt := range tests {

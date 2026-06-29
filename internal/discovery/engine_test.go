@@ -493,7 +493,7 @@ func TestExecutePipeline_Loki(t *testing.T) {
 				Name:          "pull-time",
 				Query:         "pull-events",
 				Type:          dropv1alpha1.SignalTypeEventPullTime,
-				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventStatisticAvg, DurationMode: dropv1alpha1.DurationModeMessageDuration},
+				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Statistic: dropv1alpha1.EventStatisticAvg},
 			},
 		},
 		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "pull-time"},
@@ -517,69 +517,6 @@ func TestExecutePipeline_Loki(t *testing.T) {
 		if img.FinalScore != "3" {
 			t.Errorf("expected score 3 for %s, got %s", img.Image, img.FinalScore)
 		}
-	}
-}
-
-// TestExecutePipeline_LokiFailureCount verifies that failure event counts are reported correctly.
-func TestExecutePipeline_LokiFailureCount(t *testing.T) {
-	now := time.Now()
-	nanoStr := func(t time.Time) string {
-		return strconv.FormatInt(t.UnixNano(), 10)
-	}
-
-	streams := []lokiStream{
-		{
-			Stream: map[string]string{"app": "kubelet"},
-			Values: [][]string{
-				{nanoStr(now.Add(-5 * time.Second)), `Pulling image "nginx:1.25"`},
-				{nanoStr(now.Add(-4 * time.Second)), `Failed to pull image "nginx:1.25": rpc error`},
-				{nanoStr(now.Add(-3 * time.Second)), `Back-off pulling image "nginx:1.25"`},
-			},
-		},
-	}
-
-	srv := httptest.NewServer(lokiStreamHandler(streams))
-	defer srv.Close()
-
-	spec := dropv1alpha1.DiscoveryPolicySpec{
-		Queries: []dropv1alpha1.DiscoveryQuery{
-			{
-				Name: "pull-events",
-				Type: dropv1alpha1.DiscoveryQueryTypeLoki,
-				Loki: &dropv1alpha1.DiscoveryLokiQuery{
-					Endpoint: srv.URL,
-					Query:    `{app="kubelet"}`,
-					Parser: &dropv1alpha1.LokiParser{
-						Type:         dropv1alpha1.LokiParserTypeKubernetesEvents,
-						MessageField: "message",
-					},
-				},
-			},
-		},
-		Signals: []dropv1alpha1.DiscoverySignal{
-			{
-				Name:          "failures",
-				Query:         "pull-events",
-				Type:          dropv1alpha1.SignalTypeEventPullTime,
-				EventPullTime: &dropv1alpha1.EventPullTimeSignalConfig{Metric: dropv1alpha1.EventMetricFailure, Statistic: dropv1alpha1.EventStatisticCount, DurationMode: dropv1alpha1.DurationModeMessageDuration},
-			},
-		},
-		Ranking:   &dropv1alpha1.DiscoveryRanking{Strategy: dropv1alpha1.RankingStrategySignal, Signal: "failures"},
-		MaxImages: 10,
-	}
-
-	clientFn := func(_ context.Context, _ string) (*http.Client, error) { return srv.Client(), nil }
-	result := ExecutePipeline(context.Background(), spec, clientFn)
-
-	if result.QueryResults[0].Status != dropv1alpha1.QueryResultStatusSuccess {
-		t.Fatalf("expected success, got %s: %s", result.QueryResults[0].Status, result.QueryResults[0].Message)
-	}
-	if len(result.Images) != 1 {
-		t.Fatalf("expected 1 image, got %d: %v", len(result.Images), result.Images)
-	}
-	// Both "failed" and "backoff" reasons count as failures → 2 failure events
-	if result.Images[0].FinalScore != "2" {
-		t.Errorf("expected failureCount=2, got %s", result.Images[0].FinalScore)
 	}
 }
 

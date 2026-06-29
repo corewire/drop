@@ -237,7 +237,9 @@ DiscoveryRegistryQuery defines OCI registry tag listing configuration for image 
 | `url` | `string` | Yes | — | URL is the registry base URL (without repository path). Example: "https://registry.example.com", "https://ghcr.io" |
 | `repositories` | `[]string` | Yes | — | Repositories is the list of repository paths to list tags from. Example: ["team/app", "team/worker", "infra/tools"] |
 | `tagFilter` | `string` | No | — | TagFilter is a regex applied to tag names. Only matching tags are discovered. Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds) |
+| `tagSeek` | `string` | No | — | TagSeek is a pagination cursor passed to the registry as the `last` query parameter. The registry lists tags lexically after this value, letting you skip large numbers of irrelevant earlier tags without fetching them. It is not a real tag name — any string works. Example: "x86_64-u~" jumps straight to the "x86_64-v*" tags on a repo with tens of thousands of digest tags (GitLab runner helper). |
 | `topX` | `int32` | No | — | TopX limits the number of tags kept per repository after tagFilter is applied. Tags are sorted newest-first (by version) before this cap is applied, so the newest N tags are kept. Example: 3 (keep the 3 newest matching tags per repo) |
+| `maxScan` | `int32` | No | — | MaxScan caps how many tags are fetched per repository before filtering. Registries can hold tens of thousands of tags; this bounds the work. Pair it with tagSeek to fetch only the relevant range. Defaults to 1000 when unset. Example: 500 |
 | `versionPattern` | `string` | No | — | VersionPattern is a regex with a single capture group that extracts the version substring from each tag for newest-first sorting. Use it when tags carry a prefix/suffix around the version, e.g. GitLab runner helper tags like "x86_64-v17.5.0" (pattern "x86_64-v(.+)"). When unset, Drop tries a strict semver parse, then falls back to extracting an embedded semver substring. Tags with no parseable version keep registry push order and sort after versioned tags. Example: "x86_64-v(.+)" |
 | `imageTemplate` | `string` | No | — | ImageTemplate is a Go text/template for constructing the full image reference from discovered tags. Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}} Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}" Example: "registry.example.com/{{.Repository}}:{{.Tag}}" |
 
@@ -263,8 +265,6 @@ EventPullTimeSignalConfig configures the eventPullTime signal type. The referenc
 |-------|------|----------|---------|-------------|
 | `metric` | `EventMetric` | No | pullTime | Metric selects which per-image quantity to aggregate. Defaults to pullTime, which correlates strongly with cold-start cost. Use imageSize to rank by bytes. |
 | `statistic` | `EventStatistic` | Yes | — | Statistic selects how the metric's samples are aggregated per image. |
-| `includeCacheHits` | `bool` | Yes | false | IncludeCacheHits controls whether "already present on machine" events are included in cold-pull duration statistics. Set to false to exclude cache hits. Only applies when metric=pullTime. |
-| `durationMode` | `DurationMode` | Yes | — | DurationMode controls how pull duration is extracted from event records. Only applies when metric=pullTime. |
 
 ### ImageEntry
 
