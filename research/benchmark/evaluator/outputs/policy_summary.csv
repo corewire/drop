@@ -1,0 +1,7 @@
+policy,jobs_total,developer_window_jobs,affected_jobs_total,affected_jobs_developer_window,affected_job_minutes_total,affected_job_minutes_developer_window,p95_wait_seconds_developer_window,p99_wait_seconds_developer_window,newly_warmed_node_image_pairs,developer_window_minutes_avoided_vs_no_prewarm
+no_prewarming,25000,21610,2975,1272,2032.870633333333,831.2234166666666,25.4,45.1,2962,0.0
+prewarm_top10_by_usage,25000,21610,2761,1086,1896.728033333333,713.3541499999999,19.7,45.1,2749,117.8692666666667
+prewarm_top30_by_usage,25000,21610,1625,0,1150.5255499999998,0.0,0.0,0.0,1620,831.2234166666666
+prewarm_top10_by_observed_impact,25000,21610,2550,869,1638.2173500000001,458.48179999999996,0.0,37.7,2541,372.74161666666663
+spegel_only_40pct_faster_pulls,25000,21610,2970,1270,1218.5135333333335,498.28096666666664,15.24,27.06,2962,332.94244999999995
+spegel_plus_top10_prewarm,25000,21610,2756,1084,1136.8596,427.59103333333337,11.82,27.06,2749,403.6323833333332

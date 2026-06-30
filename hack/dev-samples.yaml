@@ -266,15 +266,6 @@ spec:
       eventPullTime:
         statistic: p50
         durationMode: messageDuration
-        includeCacheHits: false
-    - name: pull-failures
-      query: image-pull-events
-      type: eventPullTime
-      eventPullTime:
-        metric: failure
-        statistic: count
-        durationMode: messageDuration
-        includeCacheHits: false
     - name: avg-image-size
       query: image-pull-events
       type: eventPullTime
@@ -282,7 +273,6 @@ spec:
         metric: imageSize
         statistic: avg
         durationMode: messageDuration
-        includeCacheHits: false
   ranking:
     strategy: signal
     signal: p50-cold-pull-time

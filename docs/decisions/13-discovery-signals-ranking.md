@@ -65,7 +65,7 @@ spec:
   syncInterval: 1h        # retained from current API
   maxImages: 30           # retained from current API
   imageFilter: ""         # retained from current API (regex on discovered refs)
-
+        | reason = "Pulled"
   queries: []
   signals: []
   ranking: {}
@@ -76,11 +76,8 @@ status:
 `syncInterval`, `maxImages`, and `imageFilter` keep their current semantics and
 defaults (`syncInterval: 30m`, `maxImages: 50`). `sources` and
 `status.sourceCount` are removed.
-
 ---
-
-## Stage 1 — Queries
-
+-  - `Successfully pulled image "<ref>" ... Image size: N bytes`
 A query fetches raw observations and is referenced by name from signals.
 
 ### Common query fields
@@ -134,7 +131,7 @@ queries:
         {job="kubernetes-events", namespace="gitlab-runner"}
         | json
         | involvedObject_name =~ "runner-.*"
-        | reason =~ "Pulling|Pulled|Failed|BackOff"
+        | reason = "Pulled"
       parser:
         type: kubernetesEvents          # only parser type for v1
         podField: involvedObject_name
@@ -169,7 +166,7 @@ A signal derives a named per-image value from exactly one query
 | `aggregate`             | Aggregate all samples per image           | `total-usage`, `peak-concurrency` |
 | `timeWeightedAggregate` | Apply per-time-window weights, then aggregate | `developer-weighted-usage` |
 | `windowAggregate`       | Aggregate only a specific sub-window       | `recent-usage`, `pre-window-usage`, `target-window-usage` |
-| `eventPullTime`         | Derive pull-time stats from Loki events    | `p50-cold-pull-time`, `p95-cold-pull-time` |
+| `eventPullTime`         | Derive pull-time stats from Loki events    | `avg-cold-pull-time`, `p95-cold-pull-time` |
 
 ### Common signal fields
 
@@ -263,22 +260,15 @@ signals:
 
 ```yaml
 signals:
-  - name: p50-cold-pull-time
+  - name: avg-cold-pull-time
     queryRef: image-pull-events     # must reference a loki query
     type: eventPullTime
     eventPullTime:
-      statistic: p50                # p50 | p90 | p95 | avg | max | count | failureCount | cacheHitCount
-      includeCacheHits: false       # exclude "already present" events from cold-pull duration
-      durationMode: eventPair       # eventPair | messageDuration
+      metric: pullTime              # pullTime (default) | imageSize
+      statistic: avg                # p50 | p90 | p95 | avg | max | count
 ```
 
-| `durationMode`    | Meaning |
-|-------------------|---------|
-| `eventPair`       | `Pulled.timestamp - Pulling.timestamp` for the same Pod/image. |
-| `messageDuration` | Parse the duration directly from a `Pulled` event message (e.g. `... in 42.3s`). |
-
-When `includeCacheHits: false`, "already present on machine" events are detected
-and excluded from cold-pull duration statistics.
+Both `pullTime` and `imageSize` are derived from `Pulled` event messages.
 
 ---
 
@@ -338,7 +328,7 @@ ranking:
     nodeCount: 100
     preWindowUsageSignalRef: pre-window-usage
     targetWindowUsageSignalRef: developer-window-usage
-    pullTimeSignalRef: p50-cold-pull-time
+    pullTimeSignalRef: avg-cold-pull-time
 ```
 
 Score:
@@ -367,8 +357,8 @@ The pipeline must express these strategies (build/test against all of them):
 | 5 | Hybrid usage + peak | `α·norm(total) + (1-α)·norm(peak)` | `total-usage`, `peak-concurrency` | Prometheus |
 | 6 | Hybrid dev-time + peak | `α·norm(dev) + (1-α)·norm(peak)` | `developer-weighted-usage`, `peak-concurrency` | Prometheus |
 | 7 | Count × pull time | `total_usage(I)·p_hat(I)` | `total-usage`, `p50/p95-cold-pull-time` | Prometheus + Loki |
-| 8 | Dev-weighted count × pull time | `dev_usage(I)·p_hat(I)` | `developer-weighted-usage`, `p50-cold-pull-time` | Prometheus + Loki |
-| 9 | Model-aware exposure | see `modelExposure` | `pre-window-usage`, `target-window-usage`, `p50-cold-pull-time` | Prometheus + Loki |
+| 8 | Dev-weighted count × pull time | `dev_usage(I)·p_hat(I)` | `developer-weighted-usage`, `avg-cold-pull-time` | Prometheus + Loki |
+| 9 | Model-aware exposure | see `modelExposure` | `pre-window-usage`, `target-window-usage`, `avg-cold-pull-time` | Prometheus + Loki |
 
 First production-ready strategies (deliver first): 1, 2, 5, 3, 6 — i.e.
 `signal(total-usage)`, `signal(peak-concurrency)`,
@@ -377,7 +367,7 @@ First production-ready strategies (deliver first): 1, 2, 5, 3, 6 — i.e.
 `weightedSum(developer-weighted-usage, peak-concurrency)`.
 
 Advanced strategy (deliver last):
-`modelExposure(pre-window-usage, target-window-usage, p50-cold-pull-time)`.
+`modelExposure(pre-window-usage, target-window-usage, avg-cold-pull-time)`.
 
 ---
 

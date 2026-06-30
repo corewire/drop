@@ -122,6 +122,9 @@ kind-load: docker-build ## Build and load image into kind.
 
 ##@ Helm & Docs
 
+DOCS_IMG_SRC_DIR ?= docs/static/images/src
+DOCS_IMG_VENV ?= $(DOCS_IMG_SRC_DIR)/.venv
+
 .PHONY: helm-lint
 helm-lint: ## Lint the Helm chart.
 	helm lint charts/drop
@@ -142,6 +145,23 @@ docs-gen: ## Regenerate AI agent docs (llms.txt, instructions, etc.) from source
 docs-gen-check: docs-gen ## Verify generated AI docs are up to date.
 	@git diff --exit-code knowledge.yaml llms.txt llms-full.txt docs/static/llms-full.txt .github/copilot-instructions.md .cursorrules AGENTS.md docs/content/docs/reference/_generated_*.md || \
 		(echo "ERROR: generated docs are out of date — run 'make docs-gen'" && exit 1)
+
+.PHONY: docs-images-setup
+docs-images-setup: ## Create docs image venv and install chart dependencies.
+	@cd $(DOCS_IMG_SRC_DIR) && \
+	python3 -m venv .venv && \
+	. .venv/bin/activate && \
+	pip install -r requirements.txt
+
+.PHONY: docs-images-gen
+docs-images-gen: docs-images-setup ## Generate docs SVG charts from sample data.
+	@cd $(DOCS_IMG_SRC_DIR) && \
+	. .venv/bin/activate && \
+	python signal-eventpulltime.py && \
+	python discovery-charts.py
+
+.PHONY: static
+static: docs-images-gen ## Generate all maintained static docs graphics.
 
 ##@ Research
 

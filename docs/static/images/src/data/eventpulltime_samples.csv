@@ -1,0 +1,5 @@
+image,pull_ms
+nginx:1.25,730
+redis:7,690
+redis:7,700
+redis:7,4100

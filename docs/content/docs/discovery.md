@@ -26,17 +26,15 @@ DiscoveryPolicy continuously refreshes image candidates from usage signals and p
 
 ## How Discovery Works
 
-```
-queries → signals → ranking → discovered images
-```
+![DiscoveryPolicy pipeline: queries feed signals, signals feed a single ranking strategy, the ranked list is written to status.discoveredImages and consumed by CachedImageSet to create CachedImage resources that nodes pull.](/images/discovery-pipeline.drawio.svg)
 
-![DiscoveryPolicy pipeline: queries feed signals, signals feed a single ranking strategy, the ranked list is written to status.discoveredImages and consumed by CachedImageSet to create CachedImage resources that nodes pull.](/images/discovery-pipeline.svg)
+Queries feed signals, signals feed a single ranking strategy, and the ranked list is written to `status.discoveredImages` — consumed by CachedImageSet to create CachedImage resources that nodes pull.
 
 | Stage | Purpose | Available types |
 |-------|---------|-----------------|
-| 1 · Queries | Fetch raw observations from a backend | `prometheus` · `loki` · `registry` |
-| 2 · Signals | Reduce a query series to one value per image | `aggregate` · `timeWeightedAggregate` · `windowAggregate` · `eventPullTime` |
-| 3 · Ranking | Order images into the final list | `signal` · `weightedSum` · `modelExposure` |
+| Queries | Fetch raw observations from a backend | `prometheus` · `loki` · `registry` |
+| Signals | Reduce a query series to one value per image | `aggregate` · `timeWeightedAggregate` · `windowAggregate` · `eventPullTime` |
+| Ranking | Order images into the final list | `signal` · `weightedSum` · `modelExposure` |
 
 The output lands in `status.discoveredImages`; CachedImageSet reads it and creates/deletes `CachedImage` children that nodes pull.
 
@@ -172,23 +170,6 @@ How it's used: Loki contributes pull lifecycle data, not usage volume. The
 `kubernetesEvents` parser turns each `Pulled` event into a structured record
 with `podField`, `reasonField`, and `messageField`, then extracts the image
 from `imageField` (typically the same message text).
-
-#### Why only Pulled events
-
-The kubelet emits a different `reason` for each stage of a pull, but the
-`Pulled` event already carries everything the signals need — the cold-pull
-duration (`in 704ms`) and the image size (`Image size: N bytes`) are both in its
-message. Other reasons (`Pulling`, `Failed`, `BackOff`, `AlreadyPresent`) are
-ignored: they add no ranking data we can't already read off `Pulled`. Both
-`eventPullTime` metrics are derived from `Pulled`:
-
-| Metric | Source | Meaning |
-|--------|--------|---------|
-| `pullTime` | `in Xs` in the Pulled message | Cold-pull latency — slow images rank highest |
-| `imageSize` | `Image size: N bytes` in the Pulled message | Image size in bytes — large images rank highest |
-
-Duration semantics: `pullTime` parses `in 42.3s` directly from the Pulled
-message; `imageSize` parses `Image size: N bytes` from the same message.
 
 Alloy shipping (real cluster events):
 - Use
@@ -374,11 +355,35 @@ All Prometheus examples below run on this 48h dataset (sampled every 6h, both da
 
 ### `aggregate`
 
-Aggregates all samples per image using a single method.
+Aggregates all samples per image using a single method. The `method` you pick
+changes what "wins" — same data, different score:
 
-![aggregate sums every sample across the lookback window into one value per image.](/images/signal-aggregate.svg)
+{{< tabs items="sum,count,avg,max,min" >}}
 
-On the shared dataset: every bar counts. img-A → 30, img-B → 12. The whole curve collapses to one number, so total volume wins regardless of *when* it happened.
+{{< tab >}}
+![sum adds every sample in the lookback window into one value per image.](/images/signal-aggregate-sum.svg)
+{{< /tab >}}
+
+{{< tab >}}
+![count is the number of samples per image, regardless of value.](/images/signal-aggregate-count.svg)
+{{< /tab >}}
+
+{{< tab >}}
+![avg is the mean sample value, shown as a horizontal line per image.](/images/signal-aggregate-avg.svg)
+{{< /tab >}}
+
+{{< tab >}}
+![max keeps only the single highest sample per image.](/images/signal-aggregate-max.svg)
+{{< /tab >}}
+
+{{< tab >}}
+![min keeps only the single lowest sample per image.](/images/signal-aggregate-min.svg)
+{{< /tab >}}
+
+{{< /tabs >}}
+
+On the shared dataset, `sum` makes total volume win regardless of *when* it
+happened: img-A → 30, img-B → 12.
 
 | `method` | Reduces to | img-A | img-B | Best for |
 |----------|-----------|-------|-------|----------|

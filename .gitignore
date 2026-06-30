@@ -50,3 +50,9 @@ research/**/*.zip
 # Python cache artifacts
 __pycache__/
 *.pyc
+
+# Local Python virtual environments
+.venv/
+
+# Local docs image generation workspace artifacts
+docs/static/images/src/usr/
