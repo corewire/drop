@@ -560,50 +560,57 @@ spec:
 
 ### `eventPullTime`
 
-Derives image pull-time statistics from Loki event records. The kubelet emits a `Pulled` event for every image pull; each event carries the pull duration. Drop collects all `Pulled` events for each image within the lookback window and treats them as the sample set.
+Derives image pull-time statistics from Loki event records. The kubelet emits a `Pulled` event for every image pull, carrying the pull duration. Drop collects all `Pulled` events for each image within the lookback window and treats them as the sample set.
 
-![Each dot is one Pulled event. x = when within the lookback window, y = how long it took. redis:7 has a slow outlier at 4100 ms (slow link on that node); nginx:1.25 is consistently around 750 ms.](/images/signal-eventpulltime-events.svg)
+![Gantt chart of observed pull events. Each bar is one Pulled event; bar width = pull duration. redis:7 has one slower outlier at 30 s (slow link on that node); nginx:1.25 is consistently 14–20 s.](/images/signal-eventpulltime-events.svg)
 
 The `statistic` field reduces these samples to one ranking value per image. Slower images rank higher:
+
+How to read the statistic charts:
+- each row is one image (`img-A` and `img-B`)
+- the box spans the interquartile range (p25 to p75)
+- whiskers show the spread of observed pulls
+- small dots are individual pull events
+- the highlighted marker is the selected statistic (vertical tick for p50/p90/p95/avg, ring for max, `n=` label for count)
 
 {{< tabs items="p50,p90,p95,avg,max,count" >}}
 
 {{< tab >}}
-![p50: dashed line = median. Half the nginx pulls were faster than 750 ms; half the redis pulls were faster than 700 ms. The 4100 ms outlier does not move the p50.](/images/signal-eventpulltime-p50.svg)
+![p50 boxplot view: vertical tick marks median pull duration per image (img-A 17 s, img-B 23 s). The box and whiskers show spread; dots show each pull event.](/images/signal-eventpulltime-p50.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![p90: dashed line = 90th percentile. 9 out of 10 nginx pulls were under 796 ms. For redis the tail starts to show: 3420 ms (the outlier weighs more with only 3 samples).](/images/signal-eventpulltime-p90.svg)
+![p90 boxplot view: vertical tick marks 90th percentile (img-A 19 s, img-B 28 s), showing tail latency beyond the center of the box.](/images/signal-eventpulltime-p90.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![p95: dashed line = 95th percentile. Strict worst-case tail. redis p95 = 3760 ms.](/images/signal-eventpulltime-p95.svg)
+![p95 boxplot view: vertical tick marks strict tail latency (img-A 20 s, img-B 29 s), near the upper whisker for each image.](/images/signal-eventpulltime-p95.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![avg: dashed line = mean. The 4100 ms outlier pulls the redis mean up to 1830 ms, well above the p50 of 700 ms. The mean is sensitive to a single slow pull.](/images/signal-eventpulltime-avg.svg)
+![avg boxplot view: vertical tick marks mean pull duration (img-A 17 s, img-B 24 s). Mean is more sensitive to the slow tail than median.](/images/signal-eventpulltime-avg.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![max: ringed dot = the slowest pull per image. redis max = 4100 ms; nginx max = 820 ms.](/images/signal-eventpulltime-max.svg)
+![max boxplot view: ring marker highlights the slowest observed pull (img-A 20 s, img-B 30 s).](/images/signal-eventpulltime-max.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![count: ringed dots = all observed pull events. nginx = 5 events, redis = 3 events.](/images/signal-eventpulltime-count.svg)
+![count boxplot view: n-label shows event count (img-A n=8, img-B n=6); dots still show individual pull observations.](/images/signal-eventpulltime-count.svg)
 {{< /tab >}}
 
 {{< /tabs >}}
 
-Pick `p50` as the default: it ranks by typical pull latency and is robust to a single slow outlier. Use `p90`/`p95` when SLO tail latency matters, `max` for strict worst-case provisioning.
+Pick `p50` as the default: it ranks by typical pull latency and is robust to a single slow outlier. Use `p90`/`p95` when SLO tail latency matters; `max` for strict worst-case provisioning.
 
-| `statistic` | Reduces to | nginx (5 events) | redis (3 events) | Best for |
+| `statistic` | Reduces to | nginx (8 events) | redis (6 events) | Best for |
 |-------------|-----------|-------|-------|----------|
-| `p50` | median pull | 750 | 700 | typical latency, robust to outliers |
-| `p90` | slow tail | 796 | 3420 | worst-case planning |
-| `p95` | slower tail | 808 | 3760 | strict SLOs |
-| `avg` | mean pull | 746 | 1830 | overall cost (skewed by outliers) |
-| `max` | slowest pull | 820 | 4100 | absolute worst pull |
-| `count` | cold-pull events | 5 | 3 | how often pulled cold |
+| `p50` | median | 17 s | 23 s | typical latency, robust to outliers |
+| `p90` | slow tail | 19 s | 28 s | worst-case planning |
+| `p95` | slower tail | 20 s | 29 s | strict SLOs |
+| `avg` | mean | 17 s | 24 s | overall cost (skewed by outliers) |
+| `max` | slowest pull | 20 s | 30 s | absolute worst pull |
+| `count` | pull events | 8 | 6 | how often pulled cold |
 
 `eventPullTime` uses `metric + statistic`, both derived from `Pulled` events:
 - `metric: pullTime` (default) with `statistic: p50|p90|p95|avg|max|count`
