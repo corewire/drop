@@ -265,14 +265,12 @@ spec:
       type: eventPullTime
       eventPullTime:
         statistic: p50
-        durationMode: messageDuration
     - name: avg-image-size
       query: image-pull-events
       type: eventPullTime
       eventPullTime:
         metric: imageSize
         statistic: avg
-        durationMode: messageDuration
   ranking:
     strategy: signal
     signal: p50-cold-pull-time
@@ -349,8 +347,6 @@ spec:
       type: eventPullTime
       eventPullTime:
         statistic: p50
-        durationMode: messageDuration
-        includeCacheHits: false
   ranking:
     strategy: modelExposure
     modelExposure:
