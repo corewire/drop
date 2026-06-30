@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" font-family="system-ui, -apple-system, sans-serif" font-size="12">
+  <rect width="760" height="470" fill="#fafafa" rx="8"/>
+
+  <text x="380" y="28" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a1a2e">DiscoveryPolicy pipeline</text>
+  <text x="380" y="46" text-anchor="middle" font-size="11" fill="#666">queries -> signals -> ranking -> discoveredImages -> CachedImageSet -> CachedImage -> pull pods</text>
+
+  <g stroke="#e1e4ea" stroke-width="1" stroke-dasharray="4,4">
+    <line x1="188" y1="86" x2="188" y2="386"/>
+    <line x1="376" y1="86" x2="376" y2="386"/>
+    <line x1="564" y1="86" x2="564" y2="386"/>
+  </g>
+
+  <g text-anchor="middle" font-size="11" font-weight="bold" fill="#8a8f99">
+    <text x="96" y="76">STAGE 1 - queries</text>
+    <text x="282" y="76">STAGE 2 - signals</text>
+    <text x="470" y="76">STAGE 3 - ranking</text>
+    <text x="660" y="76">materialization</text>
+  </g>
+
+  <g>
+    <rect x="20" y="100" width="152" height="48" rx="8" fill="#4361ee" fill-opacity="0.10" stroke="#4361ee" stroke-width="1.6"/>
+    <text x="96" y="120" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">prometheus query</text>
+    <text x="96" y="136" text-anchor="middle" font-size="9" fill="#4361ee">range/instant image samples</text>
+
+    <rect x="20" y="162" width="152" height="48" rx="8" fill="#4361ee" fill-opacity="0.10" stroke="#4361ee" stroke-width="1.6"/>
+    <text x="96" y="182" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">loki query</text>
+    <text x="96" y="198" text-anchor="middle" font-size="9" fill="#4361ee">pull events / durations</text>
+
+    <rect x="20" y="224" width="152" height="48" rx="8" fill="#4361ee" fill-opacity="0.10" stroke="#4361ee" stroke-width="1.6"/>
+    <text x="96" y="244" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">registry query</text>
+    <text x="96" y="260" text-anchor="middle" font-size="9" fill="#4361ee">repo tags -> image refs</text>
+  </g>
+
+  <g>
+    <rect x="208" y="94" width="160" height="44" rx="8" fill="#7209b7" fill-opacity="0.10" stroke="#7209b7" stroke-width="1.6"/>
+    <text x="288" y="121" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">aggregate</text>
+
+    <rect x="208" y="148" width="160" height="44" rx="8" fill="#7209b7" fill-opacity="0.10" stroke="#7209b7" stroke-width="1.6"/>
+    <text x="288" y="175" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">timeWeightedAggregate</text>
+
+    <rect x="208" y="202" width="160" height="44" rx="8" fill="#7209b7" fill-opacity="0.10" stroke="#7209b7" stroke-width="1.6"/>
+    <text x="288" y="229" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">windowAggregate</text>
+
+    <rect x="208" y="256" width="160" height="44" rx="8" fill="#7209b7" fill-opacity="0.10" stroke="#7209b7" stroke-width="1.6"/>
+    <text x="288" y="275" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">eventPullTime</text>
+    <text x="288" y="288" text-anchor="middle" font-size="8" fill="#7209b7">requires loki events</text>
+  </g>
+  <text x="288" y="320" text-anchor="middle" font-size="9" fill="#8a8f99">aggregate/timeWeighted/window accept any source</text>
+  <text x="288" y="332" text-anchor="middle" font-size="8" fill="#8a8f99">eventPullTime requires Loki kubernetes events</text>
+
+  <g>
+    <rect x="396" y="118" width="160" height="44" rx="8" fill="#d81159" fill-opacity="0.10" stroke="#d81159" stroke-width="1.6"/>
+    <text x="476" y="137" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">signal</text>
+    <text x="476" y="151" text-anchor="middle" font-size="8" fill="#d81159">scalar: signal: <name></text>
+
+    <rect x="396" y="174" width="160" height="44" rx="8" fill="#d81159" fill-opacity="0.10" stroke="#d81159" stroke-width="1.6"/>
+    <text x="476" y="193" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">weightedSum</text>
+    <text x="476" y="207" text-anchor="middle" font-size="8" fill="#d81159">terms: signal + weight</text>
+
+    <rect x="396" y="230" width="160" height="44" rx="8" fill="#d81159" fill-opacity="0.10" stroke="#d81159" stroke-width="1.6"/>
+    <text x="476" y="249" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">modelExposure</text>
+    <text x="476" y="263" text-anchor="middle" font-size="8" fill="#d81159">pre/target/pull-time signals</text>
+  </g>
+  <text x="476" y="294" text-anchor="middle" font-size="9" fill="#8a8f99">pick exactly one ranking strategy</text>
+
+  <g>
+    <rect x="584" y="108" width="160" height="62" rx="8" fill="#1a1a2e" fill-opacity="0.06" stroke="#1a1a2e" stroke-width="1.6"/>
+    <text x="664" y="132" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">status.discoveredImages</text>
+    <text x="664" y="147" text-anchor="middle" font-size="9" fill="#666">image + rank + finalScore</text>
+
+    <rect x="584" y="184" width="160" height="52" rx="8" fill="#0b7a4b" fill-opacity="0.10" stroke="#0b7a4b" stroke-width="1.6"/>
+    <text x="664" y="205" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">CachedImageSet</text>
+    <text x="664" y="220" text-anchor="middle" font-size="9" fill="#0b7a4b">reads discoveryPolicyRef</text>
+
+    <rect x="584" y="250" width="160" height="52" rx="8" fill="#0b7a4b" fill-opacity="0.10" stroke="#0b7a4b" stroke-width="1.6"/>
+    <text x="664" y="271" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">CachedImage + pull pods</text>
+    <text x="664" y="286" text-anchor="middle" font-size="9" fill="#0b7a4b">paced by PullPolicy</text>
+  </g>
+
+
+
+  <rect x="20" y="338" width="724" height="40" rx="8" fill="#fff" stroke="#e3e3ee" stroke-width="1"/>
+  <text x="380" y="362" text-anchor="middle" font-size="10" fill="#666">ranked discoveredImages are consumed by CachedImageSet and materialized as CachedImage pull targets</text>
+</svg>
