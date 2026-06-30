@@ -509,12 +509,13 @@ type WeightedSumRankingConfig struct {
 
 // ModelExposureRankingConfig configures the modelExposure ranking strategy.
 // Score = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I)
-// where N=nodeCount, J_pre is pre-window usage, J_target is target-window usage,
-// and p_hat is the pull-time signal value.
+// where N is the node count (see NodeCountConfig), J_pre is pre-window usage,
+// J_target is target-window usage, and p_hat is the pull-time signal value.
 type ModelExposureRankingConfig struct {
-	// NodeCount is the number of eligible CI nodes (N in the exposure formula).
-	// +kubebuilder:validation:Minimum=1
-	NodeCount int32 `json:"nodeCount"`
+	// Nodes determines N (the eligible node count) in the exposure formula,
+	// either as a static count or dynamically via a label selector.
+	// +optional
+	Nodes *NodeCountConfig `json:"nodes,omitempty"`
 	// PreWindowUsageSignal is the name of the signal representing usage before the target window.
 	// Must match a signals[].name within the same policy.
 	// +kubebuilder:validation:MinLength=1
@@ -527,6 +528,23 @@ type ModelExposureRankingConfig struct {
 	// Must match a signals[].name within the same policy.
 	// +kubebuilder:validation:MinLength=1
 	PullTimeSignal string `json:"pullTimeSignal"`
+}
+
+// NodeCountConfig determines N (the eligible node count) for the modelExposure formula.
+// Provide a static Count, a dynamic Selector, or both (Selector wins; Count is the fallback).
+type NodeCountConfig struct {
+	// Count is the static number of eligible nodes.
+	// Used when Selector is unset, or as a fallback if node discovery fails.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Count *int32 `json:"count,omitempty"`
+	// Selector dynamically determines N by counting Ready nodes that match it via the
+	// Kubernetes API at each sync. This is a standard node selector (the same shape used
+	// by node affinity): nodeSelectorTerms are ORed, and within a term matchExpressions
+	// (node labels) and matchFields (e.g. metadata.name) are ANDed. A nil selector counts
+	// all Ready nodes. When set, it takes precedence over Count.
+	// +optional
+	Selector *corev1.NodeSelector `json:"selector,omitempty"`
 }
 
 // ============================================================

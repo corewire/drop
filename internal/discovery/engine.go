@@ -628,9 +628,9 @@ func weightedSumRank(cfg *dropv1alpha1.WeightedSumRankingConfig, signals map[str
 
 // modelExposureRank computes Score = J_target * (1 - 1/N)^J_pre * p_hat.
 func modelExposureRank(cfg *dropv1alpha1.ModelExposureRankingConfig, signals map[string]map[string]float64, images []string) []scoredItem {
-	n := float64(cfg.NodeCount)
-	if n < 1 {
-		n = 1
+	n := 1.0
+	if cfg.Nodes != nil && cfg.Nodes.Count != nil && *cfg.Nodes.Count > 1 {
+		n = float64(*cfg.Nodes.Count)
 	}
 	oneMinusInvN := 1.0 - 1.0/n
 

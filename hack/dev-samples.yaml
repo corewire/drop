@@ -354,7 +354,8 @@ spec:
   ranking:
     strategy: modelExposure
     modelExposure:
-      nodeCount: 3
+      nodes:
+        count: 3
       preWindowUsageSignal: pre-usage
       targetWindowUsageSignal: target-usage
       pullTimeSignal: pull-time

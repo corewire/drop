@@ -264,14 +264,23 @@ LokiParser configures structured parsing of Loki log entries.
 
 ### ModelExposureRankingConfig
 
-ModelExposureRankingConfig configures the modelExposure ranking strategy. Score = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I) where N=nodeCount, J_pre is pre-window usage, J_target is target-window usage, and p_hat is the pull-time signal value.
+ModelExposureRankingConfig configures the modelExposure ranking strategy. Score = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I) where N is the node count (see NodeCountConfig), J_pre is pre-window usage, J_target is target-window usage, and p_hat is the pull-time signal value.
 
 | Field | JSON | Type | Required | Default | Description |
 |-------|------|------|----------|---------|-------------|
-| NodeCount | `nodeCount` | `int32` | ✓ |  | NodeCount is the number of eligible CI nodes (N in the exposure formula). |
+| Nodes | `nodes` | `*NodeCountConfig` | — |  | Nodes determines N (the eligible node count) in the exposure formula, either as a static count or dynamically via a label selector. |
 | PreWindowUsageSignal | `preWindowUsageSignal` | `string` | ✓ |  | PreWindowUsageSignal is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy. |
 | TargetWindowUsageSignal | `targetWindowUsageSignal` | `string` | ✓ |  | TargetWindowUsageSignal is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy. |
 | PullTimeSignal | `pullTimeSignal` | `string` | ✓ |  | PullTimeSignal is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy. |
+
+### NodeCountConfig
+
+NodeCountConfig determines N (the eligible node count) for the modelExposure formula. Provide a static Count, a dynamic Selector, or both (Selector wins; Count is the fallback).
+
+| Field | JSON | Type | Required | Default | Description |
+|-------|------|------|----------|---------|-------------|
+| Count | `count` | `*int32` | — |  | Count is the static number of eligible nodes. Used when Selector is unset, or as a fallback if node discovery fails. |
+| Selector | `selector` | `*corev1.NodeSelector` | — |  | Selector dynamically determines N by counting Ready nodes that match it via the Kubernetes API at each sync. This is a standard node selector (the same shape used by node affinity): nodeSelectorTerms are ORed, and within a term matchExpressions (node labels) and matchFields (e.g. metadata.name) are ANDed. A nil selector counts all Ready nodes. When set, it takes precedence over Count. |
 
 ### PolicyReference
 
@@ -667,15 +676,6 @@ spec:
       eventPullTime:
         statistic: p50
         durationMode: messageDuration
-        includeCacheHits: false
-    - name: pull-failures
-      query: image-pull-events
-      type: eventPullTime
-      eventPullTime:
-        metric: failure
-        statistic: count
-        durationMode: messageDuration
-        includeCacheHits: false
     - name: avg-image-size
       query: image-pull-events
       type: eventPullTime
@@ -683,7 +683,6 @@ spec:
         metric: imageSize
         statistic: avg
         durationMode: messageDuration
-        includeCacheHits: false
   ranking:
     strategy: signal
     signal: p50-cold-pull-time
@@ -765,7 +764,8 @@ spec:
   ranking:
     strategy: modelExposure
     modelExposure:
-      nodeCount: 3
+      nodes:
+        count: 3
       preWindowUsageSignal: pre-usage
       targetWindowUsageSignal: target-usage
       pullTimeSignal: pull-time
@@ -877,6 +877,9 @@ spec:
   make docs-serve	# Serve Hugo docs locally.
   make docs-gen	# Regenerate AI agent docs (llms.txt, instructions, etc.) from source.
   make docs-gen-check	# Verify generated AI docs are up to date.
+  make docs-images-setup	# Create docs image venv and install chart dependencies.
+  make docs-images-gen	# Generate docs SVG charts from sample data.
+  make static	# Generate all maintained static docs graphics.
   make research-tex-build	# Build research PDF from TeX source (override RESEARCH_TEX_FILE=<file.tex>).
   make research-bench-setup	# Create benchmark venv and install Python dependencies.
   make research-bench-generate	# Generate synthetic benchmark dataset.

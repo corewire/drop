@@ -1,0 +1,26 @@
+# Assert the modelExposure ranking ran with a DYNAMIC node count from nodes.selector.
+#
+# nodes.selector selects Ready nodes that are NOT control-plane => N=2 workers.
+# score(I) = J_target * (1 - 1/N)^J_pre * p_hat   with N=2  => (1 - 1/2) = 0.5
+#   nginx (imgA): target=4, pre=1, pull=1 => 4 * 0.5^1 * 1 = 2     => rank 1
+#   redis (imgB): target=4, pre=3, pull=1 => 4 * 0.5^3 * 1 = 0.5   => rank 2
+#
+# The EXACT finalScore values only hold when N=2. If selector resolution
+# failed and the static fallback (nodes.count: 99) were used instead, the scores
+# would be ~3.96 and ~3.88 — so this assertion proves the dynamic count worked.
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-discovery-modelexposure
+status:
+  (conditions[?type == 'Ready']):
+    - status: "True"
+      reason: Synced
+  imageCount: 2
+  discoveredImages:
+    - image: "docker.io/library/nginx:1.25-alpine"
+      rank: 1
+      finalScore: "2"
+    - image: "docker.io/library/redis:7-alpine"
+      rank: 2
+      finalScore: "0.5"

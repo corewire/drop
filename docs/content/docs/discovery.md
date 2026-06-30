@@ -851,7 +851,8 @@ spec:
   ranking:
     strategy: modelExposure
     modelExposure:
-      nodeCount: 100                          # N: total nodes in the cluster
+      nodes:
+        count: 100                           # N: total nodes in the cluster
       preWindowUsageSignal: pre-window-usage  # J_pre: warmup before target window
       targetWindowUsageSignal: target-window-usage # J_target: demand during target window
       pullTimeSignal: avg-cold-pull-time      # p-hat: cold-pull penalty (slower = larger)
@@ -867,6 +868,31 @@ Interpretation of the formula:
 - first factor boosts images heavily used in the target window
 - middle factor discounts images already warmed before the window
 - last factor boosts images with expensive cold pulls
+
+**Setting N (node count):** the `nodes` block takes a static count, a dynamic selector, or both.
+
+- `nodes.count`: a fixed integer. Best for static clusters.
+- `nodes.selector`: a standard Kubernetes node selector (the same shape used by node affinity's `nodeSelectorTerms`). The operator counts **Ready** nodes that match it via the Kubernetes API at every sync, so N tracks autoscaling and node rotation automatically. Terms are ORed; within a term, `matchExpressions` (node labels) and `matchFields` (e.g. `metadata.name`) are ANDed. A nil selector counts all Ready nodes. When both are set, the selector wins and `count` is the fallback used only if node discovery fails (otherwise N=1).
+
+Selection is by labels and fields — it does not evaluate taints (taints are handled via tolerations, not selection). Common selector labels: `node-role.kubernetes.io/control-plane` (exclude masters), `node.kubernetes.io/instance-type`, `topology.kubernetes.io/zone`, or pool labels like `karpenter.sh/nodepool` and `cloud.google.com/gke-nodepool`.
+
+Dynamic node count example (replace the `nodes:` block above):
+
+```yaml
+  ranking:
+    strategy: modelExposure
+    modelExposure:
+      nodes:
+        selector:                            # N = live count of matching Ready nodes
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist     # workers only (control-plane is NoSchedule)
+        count: 50                            # fallback if node discovery fails (optional)
+      preWindowUsageSignal: pre-window-usage
+      targetWindowUsageSignal: target-window-usage
+      pullTimeSignal: avg-cold-pull-time
+```
 
 Field semantics: [`ModelExposureRankingConfig`](https://github.com/Breee/puller/blob/main/api/v1alpha1/discoverypolicy_types.go).
 
@@ -1103,7 +1129,8 @@ spec:
   ranking:
     strategy: modelExposure
     modelExposure:
-      nodeCount: 100            # tune to your typical active node count
+      nodes:
+        count: 100             # tune to your typical active node count
       preWindowUsageSignal: pre-window-usage
       targetWindowUsageSignal: target-window-usage
       pullTimeSignal: avg-cold-pull-time

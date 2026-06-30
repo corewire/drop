@@ -290,14 +290,23 @@ LokiParser configures structured parsing of Loki log entries.
 
 ### ModelExposureRankingConfig
 
-ModelExposureRankingConfig configures the modelExposure ranking strategy. Score = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I) where N=nodeCount, J_pre is pre-window usage, J_target is target-window usage, and p_hat is the pull-time signal value.
+ModelExposureRankingConfig configures the modelExposure ranking strategy. Score = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I) where N is the node count (see NodeCountConfig), J_pre is pre-window usage, J_target is target-window usage, and p_hat is the pull-time signal value.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `nodeCount` | `int32` | Yes | — | NodeCount is the number of eligible CI nodes (N in the exposure formula). |
+| `nodes` | `*NodeCountConfig` | No | — | Nodes determines N (the eligible node count) in the exposure formula, either as a static count or dynamically via a label selector. |
 | `preWindowUsageSignal` | `string` | Yes | — | PreWindowUsageSignal is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy. |
 | `targetWindowUsageSignal` | `string` | Yes | — | TargetWindowUsageSignal is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy. |
 | `pullTimeSignal` | `string` | Yes | — | PullTimeSignal is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy. |
+
+### NodeCountConfig
+
+NodeCountConfig determines N (the eligible node count) for the modelExposure formula. Provide a static Count, a dynamic Selector, or both (Selector wins; Count is the fallback).
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `count` | `*int32` | No | — | Count is the static number of eligible nodes. Used when Selector is unset, or as a fallback if node discovery fails. |
+| `selector` | `*corev1.NodeSelector` | No | — | Selector dynamically determines N by counting Ready nodes that match it via the Kubernetes API at each sync. This is a standard node selector (the same shape used by node affinity): nodeSelectorTerms are ORed, and within a term matchExpressions (node labels) and matchFields (e.g. metadata.name) are ANDed. A nil selector counts all Ready nodes. When set, it takes precedence over Count. |
 
 ### PolicyReference
 

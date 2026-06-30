@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,6 +48,7 @@ const (
 // +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 // Reconcile executes the query/signal/ranking pipeline for a DiscoveryPolicy and updates status.
 func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -67,8 +69,14 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	)
 
 	// 2. Execute pipeline
+	// Resolve dynamic node count (modelExposure nodeSelector) into a spec copy so
+	// the pure pipeline sees a concrete N. The live object is never mutated.
+	spec := dp.Spec.DeepCopy()
+	if err := r.resolveDynamicNodeCount(ctx, spec); err != nil {
+		log.Error(err, "resolving dynamic node count; falling back to static nodeCount")
+	}
 	httpClientFunc := r.buildHTTPClientFunc(dp)
-	result := discovery.ExecutePipeline(ctx, dp.Spec, httpClientFunc)
+	result := discovery.ExecutePipeline(ctx, *spec, httpClientFunc)
 
 	// 3. Build status patch
 	patch := client.MergeFrom(dp.DeepCopy())
@@ -143,6 +151,52 @@ func (r *DiscoveryPolicyReconciler) buildHTTPClientFunc(dp *dropv1alpha1.Discove
 		}
 		return r.buildHTTPClient(innerCtx, secretRef)
 	}
+}
+
+// resolveDynamicNodeCount counts Ready nodes matching the modelExposure node selector
+// (if configured) and writes the result into spec.Ranking.ModelExposure.Nodes.Count.
+// spec must be a deep copy — the live DiscoveryPolicy object is never mutated.
+// When the selector is unset, the static count is left untouched.
+func (r *DiscoveryPolicyReconciler) resolveDynamicNodeCount(ctx context.Context, spec *dropv1alpha1.DiscoveryPolicySpec) error {
+	if spec.Ranking == nil || spec.Ranking.ModelExposure == nil {
+		return nil
+	}
+	nodes := spec.Ranking.ModelExposure.Nodes
+	if nodes == nil || nodes.Selector == nil {
+		return nil
+	}
+
+	// Use the scheduler's own matcher so matchExpressions (labels) and matchFields
+	// (e.g. metadata.name) are evaluated exactly as node affinity would.
+	matcher, err := nodeaffinity.NewNodeSelector(nodes.Selector)
+	if err != nil {
+		return fmt.Errorf("invalid node selector: %w", err)
+	}
+
+	nodeList := &corev1.NodeList{}
+	if err := r.List(ctx, nodeList); err != nil {
+		return fmt.Errorf("listing nodes: %w", err)
+	}
+
+	count := int32(0)
+	for i := range nodeList.Items {
+		node := &nodeList.Items[i]
+		if isNodeReady(node) && matcher.Match(node) {
+			count++
+		}
+	}
+	nodes.Count = &count
+	return nil
+}
+
+// isNodeReady reports whether a node has a Ready condition set to True.
+func isNodeReady(node *corev1.Node) bool {
+	for _, c := range node.Status.Conditions {
+		if c.Type == corev1.NodeReady {
+			return c.Status == corev1.ConditionTrue
+		}
+	}
+	return false
 }
 
 // summarizeQueryResults determines overall health and a human-readable reason/message.

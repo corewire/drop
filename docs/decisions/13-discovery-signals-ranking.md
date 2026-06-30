@@ -325,7 +325,8 @@ normalized(x) = 1   if all values are equal
 ranking:
   strategy: modelExposure
   modelExposure:
-    nodeCount: 100
+    nodes:
+      count: 100
     preWindowUsageSignalRef: pre-window-usage
     targetWindowUsageSignalRef: developer-window-usage
     pullTimeSignalRef: avg-cold-pull-time
