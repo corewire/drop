@@ -1,5 +1,9 @@
-image,pull_ms
-nginx:1.25,730
-redis:7,690
-redis:7,700
-redis:7,4100
+image,pull_time_h,pull_ms
+nginx:1.25,1.5,680
+nginx:1.25,5.2,720
+nginx:1.25,11.0,750
+nginx:1.25,17.3,760
+nginx:1.25,22.8,820
+redis:7,3.1,690
+redis:7,12.5,700
+redis:7,19.7,4100

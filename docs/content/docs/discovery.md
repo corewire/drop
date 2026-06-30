@@ -560,54 +560,41 @@ spec:
 
 ### `eventPullTime`
 
-Derives image pull-time statistics from Loki event records. Each `Pulled` event reports a duration; pairing it with its `Pulling` event gives the pull latency:
+Derives image pull-time statistics from Loki event records. The kubelet emits a `Pulled` event for every image pull; each event carries the pull duration. Drop collects all `Pulled` events for each image within the lookback window and treats them as the sample set.
 
-```text
-Pulling  nginx:1.25-alpine
-Pulled   nginx:1.25-alpine  in 680ms ┐
-Pulled   nginx:1.25-alpine  in 720ms │ p50 = 750ms, p90 = 796ms
-Pulled   nginx:1.25-alpine  in 750ms ├
-Pulled   nginx:1.25-alpine  in 760ms │
-Pulled   nginx:1.25-alpine  in 820ms ┘
-Pulled   redis:7-alpine     in 690ms ┐
-Pulled   redis:7-alpine     in 700ms ├ p50 = 700ms, p90 = 3420ms
-Pulled   redis:7-alpine     in 4100ms ┘ (one cold node, slow link)
-```
+![Each dot is one Pulled event. x = when within the lookback window, y = how long it took. redis:7 has a slow outlier at 4100 ms (slow link on that node); nginx:1.25 is consistently around 750 ms.](/images/signal-eventpulltime-events.svg)
 
-A single image is pulled many times across nodes, so pick the statistic that matches intent. `p50` is the robust default: it answers "how slow is a typical pull" and ignores the one 4.1s outlier. `max` answers "what is the worst pull" and is dominated by that outlier. Use `max`/`p95` only when worst-case provisioning matters; otherwise `p50` avoids chasing noise.
-
-Slower images rank higher, since they hurt cold nodes most. The `statistic` you
-pick decides what "slow" means — same samples, different signal value:
+The `statistic` field reduces these samples to one ranking value per image. Slower images rank higher:
 
 {{< tabs items="p50,p90,p95,avg,max,count" >}}
 
 {{< tab >}}
-![p50 is the median pull duration per image, ignoring the slow outlier.](/images/signal-eventpulltime-p50.svg)
+![p50: dashed line = median. Half the nginx pulls were faster than 750 ms; half the redis pulls were faster than 700 ms. The 4100 ms outlier does not move the p50.](/images/signal-eventpulltime-p50.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![p90 is the 90th-percentile pull duration, where the slow tail starts to show.](/images/signal-eventpulltime-p90.svg)
+![p90: dashed line = 90th percentile. 9 out of 10 nginx pulls were under 796 ms. For redis the tail starts to show: 3420 ms (the outlier weighs more with only 3 samples).](/images/signal-eventpulltime-p90.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![p95 is the 95th-percentile pull duration, the strict worst-case tail.](/images/signal-eventpulltime-p95.svg)
+![p95: dashed line = 95th percentile. Strict worst-case tail. redis p95 = 3760 ms.](/images/signal-eventpulltime-p95.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![avg is the mean pull duration, dragged upward by the one slow outlier.](/images/signal-eventpulltime-avg.svg)
+![avg: dashed line = mean. The 4100 ms outlier pulls the redis mean up to 1830 ms, well above the p50 of 700 ms. The mean is sensitive to a single slow pull.](/images/signal-eventpulltime-avg.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![max is the slowest single pull per image, the worst cold node.](/images/signal-eventpulltime-max.svg)
+![max: ringed dot = the slowest pull per image. redis max = 4100 ms; nginx max = 820 ms.](/images/signal-eventpulltime-max.svg)
 {{< /tab >}}
 
 {{< tab >}}
-![count is the number of cold-pull events per image, regardless of duration.](/images/signal-eventpulltime-count.svg)
+![count: ringed dots = all observed pull events. nginx = 5 events, redis = 3 events.](/images/signal-eventpulltime-count.svg)
 {{< /tab >}}
 
 {{< /tabs >}}
 
-This signal ignores the 48h volume dataset — it reads Loki pull durations instead. nginx p50 = 750ms (5 events), redis p50 = 700ms (3 events). The number is latency, not usage, so the slowest image ranks first.
+Pick `p50` as the default: it ranks by typical pull latency and is robust to a single slow outlier. Use `p90`/`p95` when SLO tail latency matters, `max` for strict worst-case provisioning.
 
 | `statistic` | Reduces to | nginx (5 events) | redis (3 events) | Best for |
 |-------------|-----------|-------|-------|----------|
