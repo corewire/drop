@@ -711,12 +711,27 @@ spec:
 
 ### `weightedSum`
 
-**Definition.** Blends several signals into one score by normalizing each to `[0,1]` and summing them with per-signal weights. Use it when no single signal decides — e.g. balance steady usage against burst peaks.
+Use this when you have multiple useful signals and want one final rank.
+
+How it works:
+1. Compute each signal per image.
+2. Normalize each signal to `0..1` (so different units can be compared).
+3. Multiply each normalized signal by its weight.
+4. Add the weighted terms; higher final score ranks first.
+
+In plain terms: weightedSum answers "how good is this image across all criteria, given my priorities?"
 
 $$
 \mathrm{final\_score}(I) = \sum_k w_k \cdot \mathrm{normalize}(s_k(I)), \qquad
 \mathrm{minMax}(x) = \frac{x - x_{\min}}{x_{\max} - x_{\min}}
 $$
+
+Quick example (two signals):
+- normalized `total-usage(img-A)=0.90`, `peak-concurrency(img-A)=0.40`
+- weights: `0.7` and `0.3`
+- score: `0.7*0.90 + 0.3*0.40 = 0.75`
+
+So img-A gets score `0.75`; images with larger scores rank above it.
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
@@ -752,9 +767,9 @@ spec:
   ranking:
     strategy: weightedSum
     weightedSum:
-      normalize: minMax      # rescale each signal to [0,1] before combining
-      missingSignal: zero    # zero | drop (drop removes images missing any term)
-      terms:                 # weights are fractions, should sum to ~1.0
+      normalize: minMax      # required for mixed units (counts, seconds, bytes)
+      missingSignal: zero    # zero | drop ; drop excludes images missing any term
+      terms:                 # weight = importance (best if terms sum near 1.0)
         - signal: total-usage
           weight: "0.7"      # 70% importance
         - signal: peak-concurrency
@@ -765,7 +780,15 @@ Field semantics: [`WeightedSumRankingConfig`](https://github.com/Breee/puller/bl
 
 ### `modelExposure`
 
-Ranks images by expected post-rotation cold-node exposure.
+Use this when node rotation matters and you want to protect a specific future window (for example, business hours) from cold-pull latency.
+
+What it models:
+1. `targetWindowUsageSignal`: how much the image will be used in the window you care about.
+2. `preWindowUsageSignal`: how much warmup happened before that window.
+3. `nodeCount`: larger clusters keep cache spread longer.
+4. `pullTimeSignal`: slower cold pulls are more expensive and get higher priority.
+
+In plain terms: images that are busy in the target window, not sufficiently warmed up before it, and expensive to pull cold will rank highest.
 
 ```yaml
 apiVersion: drop.corewire.io/v1alpha1
@@ -828,10 +851,10 @@ spec:
   ranking:
     strategy: modelExposure
     modelExposure:
-      nodeCount: 100                         # cluster size N (rotation spreads cache)
-      preWindowUsageSignal: pre-window-usage      # usage already seen before target
-      targetWindowUsageSignal: target-window-usage # usage during peak window to protect
-      pullTimeSignal: avg-cold-pull-time # colder/slower pulls get higher urgency
+      nodeCount: 100                          # N: total nodes in the cluster
+      preWindowUsageSignal: pre-window-usage  # J_pre: warmup before target window
+      targetWindowUsageSignal: target-window-usage # J_target: demand during target window
+      pullTimeSignal: avg-cold-pull-time      # p-hat: cold-pull penalty (slower = larger)
 ```
 
 Score formula:
@@ -839,6 +862,13 @@ Score formula:
 $$
 \mathrm{score}(I) = J_{\mathrm{target}}(I) \cdot \left(1 - \frac{1}{N}\right)^{J_{\mathrm{pre}}(I)} \cdot \hat{p}(I)
 $$
+
+Interpretation of the formula:
+- first factor boosts images heavily used in the target window
+- middle factor discounts images already warmed before the window
+- last factor boosts images with expensive cold pulls
+
+Field semantics: [`ModelExposureRankingConfig`](https://github.com/Breee/puller/blob/main/api/v1alpha1/discoverypolicy_types.go).
 
 ## Complete Examples
 
