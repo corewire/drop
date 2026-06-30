@@ -564,28 +564,59 @@ Derives image pull-time statistics from Loki event records. Each `Pulled` event 
 
 ```text
 Pulling  nginx:1.25-alpine
-Pulled   nginx:1.25-alpine  in 730ms   → nginx p50 = 730ms
+Pulled   nginx:1.25-alpine  in 680ms ┐
+Pulled   nginx:1.25-alpine  in 720ms │ p50 = 750ms, p90 = 796ms
+Pulled   nginx:1.25-alpine  in 750ms ├
+Pulled   nginx:1.25-alpine  in 760ms │
+Pulled   nginx:1.25-alpine  in 820ms ┘
 Pulled   redis:7-alpine     in 690ms ┐
-Pulled   redis:7-alpine     in 700ms ├ p50 = 700ms, max = 4100ms
+Pulled   redis:7-alpine     in 700ms ├ p50 = 700ms, p90 = 3420ms
 Pulled   redis:7-alpine     in 4100ms ┘ (one cold node, slow link)
 ```
 
 A single image is pulled many times across nodes, so pick the statistic that matches intent. `p50` is the robust default: it answers "how slow is a typical pull" and ignores the one 4.1s outlier. `max` answers "what is the worst pull" and is dominated by that outlier. Use `max`/`p95` only when worst-case provisioning matters; otherwise `p50` avoids chasing noise.
 
-Slower images rank higher, since they hurt cold nodes most:
+Slower images rank higher, since they hurt cold nodes most. The `statistic` you
+pick decides what "slow" means — same samples, different signal value:
 
-![eventPullTime: nginx pulled once at 730ms, redis three times (690/700/4100); p50 per image becomes the signal.](/images/signal-eventpulltime.svg)
+{{< tabs items="p50,p90,p95,avg,max,count" >}}
 
-This signal ignores the 48h volume dataset — it reads Loki pull durations instead. nginx p50 = 730ms, redis p50 = 700ms. The number is latency, not usage, so the slowest image ranks first.
+{{< tab >}}
+![p50 is the median pull duration per image, ignoring the slow outlier.](/images/signal-eventpulltime-p50.svg)
+{{< /tab >}}
 
-| `statistic` | Reduces to | nginx | redis | Best for |
+{{< tab >}}
+![p90 is the 90th-percentile pull duration, where the slow tail starts to show.](/images/signal-eventpulltime-p90.svg)
+{{< /tab >}}
+
+{{< tab >}}
+![p95 is the 95th-percentile pull duration, the strict worst-case tail.](/images/signal-eventpulltime-p95.svg)
+{{< /tab >}}
+
+{{< tab >}}
+![avg is the mean pull duration, dragged upward by the one slow outlier.](/images/signal-eventpulltime-avg.svg)
+{{< /tab >}}
+
+{{< tab >}}
+![max is the slowest single pull per image, the worst cold node.](/images/signal-eventpulltime-max.svg)
+{{< /tab >}}
+
+{{< tab >}}
+![count is the number of cold-pull events per image, regardless of duration.](/images/signal-eventpulltime-count.svg)
+{{< /tab >}}
+
+{{< /tabs >}}
+
+This signal ignores the 48h volume dataset — it reads Loki pull durations instead. nginx p50 = 750ms (5 events), redis p50 = 700ms (3 events). The number is latency, not usage, so the slowest image ranks first.
+
+| `statistic` | Reduces to | nginx (5 events) | redis (3 events) | Best for |
 |-------------|-----------|-------|-------|----------|
-| `p50` | median pull | 730 | 700 | typical latency, ignores outliers |
-| `p90` | slow tail | 730 | 3420 | worst-case planning |
-| `p95` | slower tail | 730 | 3760 | strict SLOs |
-| `avg` | mean pull | 730 | 1830 | overall cost (skewed by outliers) |
-| `max` | slowest pull | 730 | 4100 | absolute worst pull |
-| `count` | cold-pull events | 1 | 3 | how often pulled cold |
+| `p50` | median pull | 750 | 700 | typical latency, robust to outliers |
+| `p90` | slow tail | 796 | 3420 | worst-case planning |
+| `p95` | slower tail | 808 | 3760 | strict SLOs |
+| `avg` | mean pull | 746 | 1830 | overall cost (skewed by outliers) |
+| `max` | slowest pull | 820 | 4100 | absolute worst pull |
+| `count` | cold-pull events | 5 | 3 | how often pulled cold |
 
 `eventPullTime` uses `metric + statistic`, both derived from `Pulled` events:
 - `metric: pullTime` (default) with `statistic: p50|p90|p95|avg|max|count`

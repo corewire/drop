@@ -1,102 +1,150 @@
 #!/usr/bin/env python3
-"""Render an editable eventPullTime SVG chart.
+"""Render eventPullTime signal charts as light infographics (CSV-driven).
 
-Usage:
-  python docs/static/images/src/signal-eventpulltime.py
+One SVG per statistic enum value (p50 | p90 | p95 | avg | max | count). Every
+chart shows the SAME pull-duration samples per image as a 1-D distribution; the
+emphasis shows which value that statistic reduces the samples to.
+
+Edit data/eventpulltime_samples.csv and rerun.
 """
 
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 
+SRC = Path(__file__).resolve().parent
+IMG = SRC.parent
+DATA = SRC / "data" / "eventpulltime_samples.csv"
 
-def main() -> None:
-    src_dir = Path(__file__).resolve().parent
-    out_path = Path(__file__).resolve().parents[1] / "signal-eventpulltime.svg"
-    data_path = src_dir / "data" / "eventpulltime_samples.csv"
+A = "#4361ee"   # redis (slow-tail image, top row)
+B = "#2ec4b6"   # nginx (consistent image, bottom row)
+INK = "#1a1a2e"
+SUB = "#666"
+BG = "#fafafa"
 
-    samples = pd.read_csv(data_path)
-    required = {"image", "pull_ms"}
-    missing = required - set(samples.columns)
-    if missing:
-        raise ValueError(f"missing required columns in {data_path}: {sorted(missing)}")
+# fixed row order so switching tabs only changes the emphasis, never the layout
+ROWS = [("redis:7", 1, A), ("nginx:1.25", 0, B)]
 
-    sns.set_theme(style="whitegrid", context="notebook")
-    order = list(samples.groupby("image")["pull_ms"].median().sort_values().index)
+STATS = [
+    ("p50", "signal-eventpulltime-p50.svg",
+     "median pull — typical latency, ignores the slow outlier"),
+    ("p90", "signal-eventpulltime-p90.svg",
+     "90th percentile — the slow tail starts to show"),
+    ("p95", "signal-eventpulltime-p95.svg",
+     "95th percentile — strict worst-case tail for SLOs"),
+    ("avg", "signal-eventpulltime-avg.svg",
+     "mean pull — dragged upward by the one slow outlier"),
+    ("max", "signal-eventpulltime-max.svg",
+     "slowest single pull — the worst cold node"),
+    ("count", "signal-eventpulltime-count.svg",
+     "number of cold-pull events, regardless of duration"),
+]
 
-    fig, ax = plt.subplots(figsize=(8.8, 4.8), dpi=120)
-    ax.set_facecolor("#ffffff")
 
-    sns.stripplot(
-        data=samples,
-        x="image",
-        y="pull_ms",
-        order=order,
-        hue="image",
-        palette="Set2",
-        dodge=False,
-        jitter=0.12,
-        size=8,
-        alpha=0.95,
-        ax=ax,
-    )
+def load():
+    df = pd.read_csv(DATA)
+    return {img: df[df.image == img]["pull_ms"].to_numpy(dtype=float)
+            for img, _, _ in ROWS}
 
-    stats = samples.groupby("image", as_index=False).agg(p50=("pull_ms", "median"), max=("pull_ms", "max"))
-    x_map = {img: i for i, img in enumerate(order)}
 
-    for _, row in stats.iterrows():
-        x = x_map[row["image"]]
-        ax.hlines(row["p50"], x - 0.24, x + 0.24, colors="#7a3eb1", linestyles=(0, (5, 3)), linewidth=1.7)
-        ax.hlines(row["max"], x - 0.24, x + 0.24, colors="#d06c00", linestyles=(0, (5, 3)), linewidth=1.7)
-        ax.text(x + 0.26, row["p50"], f"p50 {int(row['p50'])}", color="#7a3eb1", fontsize=8, va="center")
-        ax.text(x + 0.26, row["max"], f"max {int(row['max'])}", color="#d06c00", fontsize=8, va="center")
+def stat_value(vals, stat):
+    if stat == "count":
+        return float(vals.size)
+    if stat == "avg":
+        return float(vals.mean())
+    if stat == "max":
+        return float(vals.max())
+    return float(np.percentile(vals, {"p50": 50, "p90": 90, "p95": 95}[stat]))
 
-    ax.set_title("eventPullTime signal", loc="left", fontsize=13, fontweight="bold")
-    ax.text(
-        0.0,
-        1.01,
-        "Sample pull durations per image (CSV-driven). p50 resists outliers, max tracks worst-case events.",
-        transform=ax.transAxes,
-        fontsize=8.8,
-        color="#4f5d75",
-    )
-    ax.set_ylabel("pull duration (ms)")
-    ax.set_xlabel("image")
-    ax.set_ylim(0, max(samples["pull_ms"].max() * 1.18, 1000))
-    ax.grid(axis="y", color="#e9edf4")
-    ax.grid(axis="x", visible=False)
-    ax.set_axisbelow(True)
-    for side in ["top", "right"]:
-        ax.spines[side].set_visible(False)
-    ax.spines["left"].set_color("#ccd4e2")
+
+def new_fig(stat, subtitle, xmax):
+    sns.set_theme(style="white", context="notebook")
+    fig, ax = plt.subplots(figsize=(8.8, 3.0), dpi=130)
+    fig.patch.set_facecolor(BG)
+    ax.set_facecolor(BG)
+    ax.set_title(f"eventPullTime · statistic={stat}", loc="left",
+                 fontsize=13, fontweight="bold", color=INK, pad=18)
+    ax.text(0.0, 1.06, subtitle, transform=ax.transAxes, fontsize=9, color=SUB)
+    ax.set_xlim(0, xmax)
+    ax.set_ylim(-0.7, 1.7)
+    ax.set_yticks([y for _, y, _ in ROWS])
+    ax.set_yticklabels([img for img, _, _ in ROWS])
+    ax.set_xlabel("pull duration (ms)", fontsize=9, color="#7b7d80")
+    for s in ["top", "right", "left"]:
+        ax.spines[s].set_visible(False)
     ax.spines["bottom"].set_color("#ccd4e2")
+    ax.grid(axis="x", color="#eceff4")
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="y", length=0)
+    return fig, ax
 
-    # Keep the legend concise and non-duplicated.
-    handles, labels = ax.get_legend_handles_labels()
-    unique = []
-    seen = set()
-    for h, l in zip(handles, labels):
-        if l not in seen:
-            seen.add(l)
-            unique.append((h, l))
-    if unique:
-        ax.legend(
-            [h for h, _ in unique],
-            [l for _, l in unique],
-            title="samples",
-            loc="upper left",
-            frameon=False,
-            fontsize=8,
-            title_fontsize=8,
-        )
 
-    fig.tight_layout()
+def legend(ax, entries, title):
+    handles = [plt.Line2D([0], [0], color=c, lw=3) for c, _ in entries]
+    labels = [l for _, l in entries]
+    leg = ax.legend(
+        handles, labels, title=title,
+        loc="upper left", bbox_to_anchor=(1.02, 1.0),
+        frameon=True, fontsize=9, title_fontsize=9, handlelength=1.4,
+        borderpad=0.8, labelspacing=0.6,
+    )
+    leg.get_frame().set_facecolor("#ffffff")
+    leg.get_frame().set_edgecolor("#e0e4ec")
+    leg.get_title().set_color(INK)
+    leg.get_title().set_fontweight("bold")
+    leg._legend_box.align = "left"
+    return leg
 
-    fig.savefig(out_path, format="svg")
+
+def save(fig, name):
+    out = IMG / name
+    fig.savefig(out, format="svg", bbox_inches="tight", pad_inches=0.2)
     plt.close(fig)
-    print(f"wrote {out_path} from {data_path}")
+    print(f"wrote {out}")
+
+
+def chart(samples, stat, name, subtitle, xmax):
+    fig, ax = new_fig(stat, subtitle, xmax)
+    entries = []
+    for img, y, c in ROWS:
+        vals = samples[img]
+        val = stat_value(vals, stat)
+
+        # distribution: range line min→max, then the individual sample dots
+        if vals.size > 1:
+            ax.hlines(y, vals.min(), vals.max(), color=c, lw=2, alpha=0.25,
+                      zorder=2)
+        ax.scatter(vals, np.full_like(vals, y), s=60, color=c, alpha=0.4,
+                   edgecolors="none", zorder=3)
+
+        if stat == "count":
+            # the count IS the result: ring every sample
+            ax.scatter(vals, np.full_like(vals, y), s=190, facecolors="none",
+                       edgecolors=c, linewidths=1.8, zorder=5)
+        elif stat == "max":
+            # one extreme sample: ring the slowest pull
+            ax.scatter([val], [y], s=230, facecolors="none", edgecolors=c,
+                       linewidths=2.4, zorder=6)
+            ax.scatter([val], [y], s=44, color=c, zorder=7)
+        else:
+            # p50/p90/p95/avg land on the duration axis (often interpolated
+            # into the tail, where there is no dot) → a short vertical tick
+            ax.vlines(val, y - 0.26, y + 0.26, color=c, lw=2.6, zorder=6)
+
+        unit = "" if stat == "count" else " ms"
+        entries.append((c, f"{img} · {stat} = {val:.0f}{unit}"))
+    legend(ax, entries, "signal value")
+    save(fig, name)
+
+
+def main():
+    samples = load()
+    xmax = max(v.max() for v in samples.values()) * 1.12
+    for stat, name, subtitle in STATS:
+        chart(samples, stat, name, subtitle, xmax)
 
 
 if __name__ == "__main__":
