@@ -19,8 +19,9 @@ CachedImageSet ──owns──▶ CachedImage[] ──creates──▶ Pod (per
                               │                    image pulled by
 DiscoveryPolicy ──discovers───┘                      kubelet
        │
-       ├── PrometheusSource (PromQL query)
-       └── RegistrySource   (OCI tag list)
+       ├── queries[]  (Prometheus / Loki raw data)
+       ├── signals[]  (per-image metrics derived from queries)
+       └── ranking    (combines signals into ordered image list)
 ```
 
 ## Package Dependency Graph
@@ -34,7 +35,7 @@ cmd/main.go
               │
               ├── internal/pacing/       (rate-limiting engine)
               ├── internal/podbuilder/   (pure Pod construction)
-              ├── internal/discovery/    (source interface + impls)
+              ├── internal/discovery/    (query execution + source interface)
               └── internal/metrics/      (Prometheus counters/gauges)
 
 api/v1alpha1/   (CRD type definitions — imported by all)
@@ -116,6 +117,6 @@ type Source interface {
 }
 ```
 
-**PrometheusSource:** Queries Prometheus for container images (requires `image` label in results). Supports instant and range queries.
+**PrometheusSource:** Queries a Prometheus-compatible API for container images (requires `image` label in results). Supports instant and range queries. Used as the execution backend for `type: prometheus` queries in the pipeline.
 
-**RegistrySource:** Lists tags from an OCI registry via `/v2/<repo>/tags/list`. Filters by regex, limits to TopX most recent.
+> **Note:** Registry tag discovery (`RegistrySource`) has been removed in the pipeline redesign. Use a Prometheus or Loki query to discover images from runtime metrics instead.

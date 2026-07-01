@@ -106,19 +106,21 @@ DiscoveryPolicy automatically discovers images from registries or Prometheus met
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `sources` | `[]DiscoverySource` | Yes | — | Sources is the list of discovery backends to query. At least one source is required. Multiple sources are merged and ranked together before maxImages is applied. |
+| `queries` | `[]DiscoveryQuery` | No | — | Queries is the list of named raw-data sources. Each query is referenced by name from signals. |
+| `signals` | `[]DiscoverySignal` | No | — | Signals is the list of named per-image metrics derived from query results. Each signal is referenced by name from the ranking configuration. |
+| `ranking` | `*DiscoveryRanking` | No | — | Ranking defines how signals are combined into a final ordered image list. |
 | `imageFilter` | `string` | No | — | ImageFilter is a regex applied to discovered image references. Only matching images are kept. Example: "registry.example.com/team/.*" (only keep images from that registry path) |
-| `syncInterval` | `metav1.Duration` | No | 30m | SyncInterval is how often the operator re-queries all sources and updates status.discoveredImages. Default: "30m". Example: "1h", "15m" |
+| `syncInterval` | `metav1.Duration` | No | 30m | SyncInterval is how often the operator re-runs the pipeline and updates status.discoveredImages. Default: "30m". Example: "1h", "15m" |
 | `maxImages` | `int32` | No | 50 | MaxImages caps the total number of images stored in status.discoveredImages. Images are ranked by score; lowest-scoring images are dropped when the cap is exceeded. Default: 50. Example: 30, 100 |
 
 ### Status
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `lastSyncTime` | `*metav1.Time` | LastSyncTime is the timestamp of the last successful sync. |
-| `discoveredImages` | `[]DiscoveredImage` | DiscoveredImages is the list of discovered images from all sources. |
+| `lastSyncTime` | `*metav1.Time` | LastSyncTime is the timestamp of the last reconciliation attempt. |
+| `queryResults` | `[]QueryResult` | QueryResults reports the outcome of each named query execution. |
+| `discoveredImages` | `[]DiscoveredImage` | DiscoveredImages is the ordered list of discovered and ranked images. |
 | `imageCount` | `int32` | ImageCount is the number of discovered images. |
-| `sourceCount` | `int32` | SourceCount is the number of configured sources. |
 | `conditions` | `[]metav1.Condition` | Conditions represent the latest available observations. |
 
 ---
@@ -143,6 +145,14 @@ PullPolicy controls the pacing and retry behavior for image pulls across cluster
 
 ## Helper Types
 
+### AggregateSignalConfig
+
+AggregateSignalConfig configures the aggregate signal type.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `method` | `AggregationMethod` | Yes | — | Method is the aggregation function applied to all samples per image. |
+
 ### BackoffConfig
 
 BackoffConfig defines exponential retry backoff behavior for failed pulls.
@@ -154,13 +164,25 @@ BackoffConfig defines exponential retry backoff behavior for failed pulls.
 
 ### DiscoveredImage
 
-DiscoveredImage represents a single discovered image with metadata.
+DiscoveredImage represents a single discovered and ranked image.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `image` | `string` | Yes | — | Image is the fully qualified image reference. |
-| `score` | `int64` | Yes | — | Score is the ranking score from the source (higher = more relevant). |
-| `source` | `string` | Yes | — | Source identifies which discovery source produced this image. |
+| `rank` | `int32` | Yes | — | Rank is the position of this image in the final ordered list (1 = highest score). |
+| `finalScore` | `string` | Yes | — | FinalScore is the computed ranking score as a decimal string. |
+
+### DiscoveryLokiQuery
+
+DiscoveryLokiQuery defines the Loki-specific query parameters.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `endpoint` | `string` | Yes | — | Endpoint is the Loki API URL. Example: "https://loki.example.com" |
+| `query` | `string` | Yes | — | Query is the LogQL expression. |
+| `queryType` | `LokiQueryType` | No | range | QueryType controls how the query is executed. Currently only "range" is supported. |
+| `lookback` | `*metav1.Duration` | No | — | Lookback is the time window for the query (start=now-lookback, end=now). Example: "168h" (7 days), "24h" |
+| `parser` | `*LokiParser` | No | — | Parser configures how log lines are parsed into structured event records. |
 
 ### DiscoveryPolicyReference
 
@@ -170,16 +192,79 @@ DiscoveryPolicyReference is a reference to a DiscoveryPolicy resource.
 |-------|------|----------|---------|-------------|
 | `name` | `string` | Yes | — | Name of the DiscoveryPolicy resource. |
 
-### DiscoverySource
+### DiscoveryPrometheusQuery
 
-DiscoverySource defines a single discovery backend.
+DiscoveryPrometheusQuery defines the Prometheus-specific query parameters. The PromQL result MUST carry an "image" label; that label value is the image reference.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `type` | `string` | Yes | — | Type identifies the discovery backend. Must be "prometheus" or "registry". |
-| `prometheus` | `*PrometheusSource` | No | — | Prometheus contains the configuration when type=prometheus. |
-| `registry` | `*RegistrySource` | No | — | Registry contains the configuration when type=registry. |
-| `secretRef` | `*corev1.LocalObjectReference` | No | — | SecretRef references a Secret in the namespace where Drop creates pull Pods. The default namespace is "drop-system" unless the controller is started with a different --pod-namespace. Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>. Example: {name: "prometheus-creds"} |
+| `endpoint` | `string` | Yes | — | Endpoint is the Prometheus-compatible API URL (Prometheus, Thanos, Mimir, VictoriaMetrics). Example: "http://prometheus.monitoring.svc:9090", "https://mimir.example.com" |
+| `query` | `string` | Yes | — | Query is the PromQL expression. Must return results with an "image" label. Example: count(container_memory_working_set_bytes{namespace="gitlab-runner"}) by (image) |
+| `queryType` | `QueryType` | No | range | QueryType controls how the query is executed: "range" or "instant". Default: "range". |
+| `lookback` | `*metav1.Duration` | No | — | Lookback is the time window for range queries (start=now-lookback, end=now). Required when queryType is "range". Ignored when queryType is "instant". Example: "168h" (7 days), "24h", "72h" |
+| `step` | `*metav1.Duration` | No | — | Step is the resolution step for range queries. Smaller steps increase data-point density but also increase Prometheus load. Default: 5m. Example: "1m", "15m" |
+
+### DiscoveryQuery
+
+DiscoveryQuery defines a named raw-data source referenced by signals.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `string` | Yes | — | Name is the unique identifier for this query within the policy. Signals reference queries by this name via query. |
+| `type` | `DiscoveryQueryType` | Yes | — | Type selects the backend. Must be "prometheus", "loki", or "registry". |
+| `prometheus` | `*DiscoveryPrometheusQuery` | No | — | Prometheus contains the configuration when type=prometheus. |
+| `loki` | `*DiscoveryLokiQuery` | No | — | Loki contains the configuration when type=loki. |
+| `registry` | `*DiscoveryRegistryQuery` | No | — | Registry contains the configuration when type=registry. |
+| `secretRef` | `*corev1.LocalObjectReference` | No | — | SecretRef references a Secret in the pod namespace (default "drop-system") for auth/TLS. Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>. |
+
+### DiscoveryRanking
+
+DiscoveryRanking defines how signals are combined into the final ordered image list.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `strategy` | `RankingStrategy` | Yes | — | Strategy selects the ranking algorithm. |
+| `signal` | `string` | No | — | Signal is the name of the signal whose values determine image rank. Must match a signals[].name within the same policy. Required when strategy=signal. |
+| `weightedSum` | `*WeightedSumRankingConfig` | No | — | WeightedSum is required when strategy=weightedSum. |
+| `modelExposure` | `*ModelExposureRankingConfig` | No | — | ModelExposure is required when strategy=modelExposure. |
+
+### DiscoveryRegistryQuery
+
+DiscoveryRegistryQuery defines OCI registry tag listing configuration for image discovery.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `url` | `string` | Yes | — | URL is the registry base URL (without repository path). Example: "https://registry.example.com", "https://ghcr.io" |
+| `repositories` | `[]string` | Yes | — | Repositories is the list of repository paths to list tags from. Example: ["team/app", "team/worker", "infra/tools"] |
+| `tagFilter` | `string` | No | — | TagFilter is a regex applied to tag names. Only matching tags are discovered. Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds) |
+| `tagSeek` | `string` | No | — | TagSeek is a pagination cursor passed to the registry as the `last` query parameter. The registry lists tags lexically after this value, letting you skip large numbers of irrelevant earlier tags without fetching them. It is not a real tag name — any string works. Example: "x86_64-u~" jumps straight to the "x86_64-v*" tags on a repo with tens of thousands of digest tags (GitLab runner helper). |
+| `topX` | `int32` | No | — | TopX limits the number of tags kept per repository after tagFilter is applied. Tags are sorted newest-first (by version) before this cap is applied, so the newest N tags are kept. Example: 3 (keep the 3 newest matching tags per repo) |
+| `maxScan` | `int32` | No | — | MaxScan caps how many tags are fetched per repository before filtering. Registries can hold tens of thousands of tags; this bounds the work. Pair it with tagSeek to fetch only the relevant range. Defaults to 1000 when unset. Example: 500 |
+| `versionPattern` | `string` | No | — | VersionPattern is a regex with a single capture group that extracts the version substring from each tag for newest-first sorting. Use it when tags carry a prefix/suffix around the version, e.g. GitLab runner helper tags like "x86_64-v17.5.0" (pattern "x86_64-v(.+)"). When unset, Drop tries a strict semver parse, then falls back to extracting an embedded semver substring. Tags with no parseable version keep registry push order and sort after versioned tags. Example: "x86_64-v(.+)" |
+| `imageTemplate` | `string` | No | — | ImageTemplate is a Go text/template for constructing the full image reference from discovered tags. Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}} Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}" Example: "registry.example.com/{{.Repository}}:{{.Tag}}" |
+
+### DiscoverySignal
+
+DiscoverySignal defines a named per-image metric derived from a single query.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | `string` | Yes | — | Name is the unique identifier for this signal within the policy. Ranking configurations reference signals by this name. |
+| `query` | `string` | Yes | — | Query is the name of the query that provides raw data for this signal. Must match a queries[].name within the same policy. |
+| `type` | `SignalType` | Yes | — | Type selects the signal derivation method. |
+| `aggregate` | `*AggregateSignalConfig` | No | — | Aggregate is required when type=aggregate. |
+| `timeWeightedAggregate` | `*TimeWeightedAggregateSignalConfig` | No | — | TimeWeightedAggregate is required when type=timeWeightedAggregate. |
+| `windowAggregate` | `*WindowAggregateSignalConfig` | No | — | WindowAggregate is required when type=windowAggregate. |
+| `eventPullTime` | `*EventPullTimeSignalConfig` | No | — | EventPullTime is required when type=eventPullTime. |
+
+### EventPullTimeSignalConfig
+
+EventPullTimeSignalConfig configures the eventPullTime signal type. The referenced query must be a Loki query. Pull duration and image size are extracted from the same Pulled events; metric selects which one to rank on.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `metric` | `EventMetric` | No | pullTime | Metric selects which per-image quantity to aggregate. Defaults to pullTime, which correlates strongly with cold-start cost. Use imageSize to rank by bytes. |
+| `statistic` | `EventStatistic` | Yes | — | Statistic selects how the metric's samples are aggregated per image. |
 
 ### ImageEntry
 
@@ -191,6 +276,38 @@ ImageEntry defines a single image to include in a set.
 | `tag` | `string` | No | — | Tag to pull. Mutually exclusive with Digest. Example: "1.25-alpine", "v2.4.1" |
 | `digest` | `string` | No | — | Digest to pull as an immutable reference. Mutually exclusive with Tag. Example: "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4" |
 
+### LokiParser
+
+LokiParser configures structured parsing of Loki log entries.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `type` | `LokiParserType` | Yes | — | Type selects the parser. Currently only "kubernetesEvents" is supported. |
+| `podField` | `string` | No | — | PodField is the log label or field that contains the pod name. Example: "involvedObject_name" |
+| `reasonField` | `string` | No | — | ReasonField is the log label or field that contains the event reason. Example: "reason" |
+| `messageField` | `string` | No | — | MessageField is the log label or field that contains the event message. Example: "message" |
+| `imageField` | `string` | No | — | ImageField is the log label or field from which the image reference is extracted. For kubernetesEvents, the image is parsed out of the message text. Example: "message" |
+
+### ModelExposureRankingConfig
+
+ModelExposureRankingConfig configures the modelExposure ranking strategy. Score = J_target(I) * (1 - 1/N)^J_pre(I) * p_hat(I) where N is the node count (see NodeCountConfig), J_pre is pre-window usage, J_target is target-window usage, and p_hat is the pull-time signal value.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `nodes` | `*NodeCountConfig` | No | — | Nodes determines N (the eligible node count) in the exposure formula, either as a static count or dynamically via a label selector. |
+| `preWindowUsageSignal` | `string` | Yes | — | PreWindowUsageSignal is the name of the signal representing usage before the target window. Must match a signals[].name within the same policy. |
+| `targetWindowUsageSignal` | `string` | Yes | — | TargetWindowUsageSignal is the name of the signal representing usage during the target window. Must match a signals[].name within the same policy. |
+| `pullTimeSignal` | `string` | Yes | — | PullTimeSignal is the name of the signal providing per-image pull-time estimates. Must match a signals[].name within the same policy. |
+
+### NodeCountConfig
+
+NodeCountConfig determines N (the eligible node count) for the modelExposure formula. Provide a static Count, a dynamic Selector, or both (Selector wins; Count is the fallback).
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `count` | `*int32` | No | — | Count is the static number of eligible nodes. Used when Selector is unset, or as a fallback if node discovery fails. |
+| `selector` | `*corev1.NodeSelector` | No | — | Selector dynamically determines N by counting Ready nodes that match it via the Kubernetes API at each sync. This is a standard node selector (the same shape used by node affinity): nodeSelectorTerms are ORed, and within a term matchExpressions (node labels) and matchFields (e.g. metadata.name) are ANDed. A nil selector counts all Ready nodes. When set, it takes precedence over Count. |
+
 ### PolicyReference
 
 PolicyReference is a reference to a PullPolicy resource.
@@ -199,28 +316,74 @@ PolicyReference is a reference to a PullPolicy resource.
 |-------|------|----------|---------|-------------|
 | `name` | `string` | Yes | — | Name of the PullPolicy resource. |
 
-### PrometheusSource
+### QueryResult
 
-PrometheusSource defines Prometheus query configuration for image discovery.
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `endpoint` | `string` | Yes | — | Endpoint is the Prometheus-compatible API URL (Prometheus, Thanos, Mimir, VictoriaMetrics). Example: "http://prometheus.monitoring.svc:9090", "https://mimir.example.com" |
-| `query` | `string` | Yes | — | Query is the PromQL expression. It MUST return results with an "image" label — that label value is used as the discovered image reference. The query result value is used as the ranking score (higher = more relevant). Example: count(container_memory_working_set_bytes{container!="",container!="POD",namespace="gitlab-runner"}) by (image) |
-| `queryType` | `QueryType` | No | range | QueryType controls how the Prometheus query is executed. "range" uses /api/v1/query_range with a time window defined by lookback. "instant" uses /api/v1/query for a single point-in-time result. Default: "range". |
-| `lookback` | `*metav1.Duration` | No | — | Lookback is the time window for range queries. When queryType is "range", the operator queries (start=now-lookback, end=now) and aggregates all returned values per image. The aggregation function is controlled by the aggregationMethod field. Required when queryType is "range". Ignored when queryType is "instant". Example: "168h" (7 days), "24h", "72h" |
-| `aggregationMethod` | `*AggregationMethod` | No | — | AggregationMethod controls how data points from a range query are combined into a single score. Only used when queryType is "range". Ignored for instant queries. When not set (nil), Drop uses the last data-point value directly — use this when your PromQL already contains aggregation functions (e.g., count_over_time, topk). Options: "sum", "count", "avg", "max" |
-| `step` | `*metav1.Duration` | No | — | Step is the resolution step for range queries (only used when lookback is set). Smaller steps = more data points = more accurate aggregation but higher Prometheus load. Default: 5m. Example: "1m", "15m" |
-
-### RegistrySource
-
-RegistrySource defines OCI registry tag listing configuration for image discovery.
+QueryResult reports the outcome of a single named query execution.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `url` | `string` | Yes | — | URL is the registry base URL (without repository path). Example: "https://registry.example.com", "https://ghcr.io" |
-| `repositories` | `[]string` | Yes | — | Repositories is the list of repository paths to list tags from. Example: ["team/app", "team/worker", "infra/tools"] |
-| `tagFilter` | `string` | No | — | TagFilter is a regex applied to tag names. Only matching tags are discovered. Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds) |
-| `topX` | `int32` | No | — | TopX limits the number of tags kept per repository after tagFilter is applied. The registry API does not provide creation timestamps here; Drop keeps the last N tags returned by the registry. Example: 3 (keep the last 3 matching tags returned per repo) |
-| `imageTemplate` | `string` | No | — | ImageTemplate is a Go text/template for constructing the full image reference from discovered tags. Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}} Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}" Example: "{{.Registry}}/{{.Repository}}@{{.Tag}}" (if tags are actually digests) |
+| `name` | `string` | Yes | — | Name matches the queries[].name that produced this result. |
+| `type` | `DiscoveryQueryType` | Yes | — | Type is the query backend type (prometheus, loki, or registry). |
+| `status` | `QueryResultStatus` | Yes | — | Status is "success" or "failed". |
+| `message` | `string` | No | — | Message describes the failure reason when status=failed. |
+
+### TimeOfDayWindow
+
+TimeOfDayWindow defines a fixed wall-clock time range within each day.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `start` | `string` | Yes | — | Start is the inclusive start time in "HH:MM" format (24-hour, local time). Example: "09:00" |
+| `end` | `string` | Yes | — | End is the exclusive end time in "HH:MM" format (24-hour, local time). Example: "17:00" |
+
+### TimeWeightedAggregateSignalConfig
+
+TimeWeightedAggregateSignalConfig configures the timeWeightedAggregate signal type. Each sample value is multiplied by the weight of the matching time window before aggregation.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `method` | `AggregationMethod` | Yes | — | Method is the aggregation function applied after weighting (currently only "sum" is meaningful). |
+| `timezone` | `string` | Yes | — | Timezone is the IANA time zone used to evaluate window boundaries (wall-clock hours). Example: "Europe/Berlin", "America/New_York", "UTC" |
+| `defaultWeight` | `resource.Quantity` | Yes | — | DefaultWeight is applied to samples that do not fall in any configured window. Use "0" to exclude off-hours samples entirely. |
+| `windows` | `[]TimeWeightedWindow` | Yes | — | Windows is the list of hour-of-day windows with associated weights. |
+
+### TimeWeightedWindow
+
+TimeWeightedWindow defines a wall-clock hour range and its weight factor.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `startHour` | `int32` | Yes | — | StartHour is the inclusive start of the window in local time (0–23). |
+| `endHour` | `int32` | Yes | — | EndHour is the exclusive end of the window in local time (1–24). |
+| `weight` | `resource.Quantity` | Yes | — | Weight is the factor applied to sample values within this window. Use "1.0" for full weight, "0.3" for partial, "0" to exclude. |
+
+### WeightedSumRankingConfig
+
+WeightedSumRankingConfig configures the weightedSum ranking strategy. Score = Σ weight_k * normalize(signal_k(image)).
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `normalize` | `NormalizeMethod` | Yes | minMax | Normalize selects the normalization method applied to each signal before weighting. Currently only "minMax" is supported. |
+| `missingSignal` | `MissingSignalBehavior` | Yes | zero | MissingSignal controls behavior when an image has no value for a required signal. "zero" treats missing as 0; "drop" removes the image from ranking. |
+| `terms` | `[]WeightedSumTerm` | Yes | — | Terms is the list of signals and their weights. |
+
+### WeightedSumTerm
+
+WeightedSumTerm defines one signal contribution in a weightedSum ranking.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `signal` | `string` | Yes | — | Signal is the name of the signal to include in the weighted sum. Must match a signals[].name within the same policy. |
+| `weight` | `resource.Quantity` | Yes | — | Weight is the factor applied to the normalized signal value. All weights should be non-negative; they do not need to sum to 1. Example: "0.7" |
+
+### WindowAggregateSignalConfig
+
+WindowAggregateSignalConfig configures the windowAggregate signal type. Exactly one of relativeWindow or (window + timezone) must be set.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `method` | `AggregationMethod` | Yes | — | Method is the aggregation function applied to the windowed samples. |
+| `relativeWindow` | `*metav1.Duration` | No | — | RelativeWindow aggregates only samples from the last N duration before now. Mutually exclusive with window + timezone. Example: "2h" (last 2 hours) |
+| `timezone` | `string` | No | — | Timezone is the IANA time zone for evaluating wall-clock window boundaries. Required when window is set. |
+| `window` | `*TimeOfDayWindow` | No | — | Window defines fixed wall-clock start/end times within each day. Mutually exclusive with relativeWindow. |
 

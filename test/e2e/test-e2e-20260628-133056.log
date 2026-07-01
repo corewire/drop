@@ -1,0 +1,478 @@
+/home/bree/repos/github.com/Breee/puller/bin/chainsaw test test/e2e/
+Version: v0.2.15
+Loading default configuration...
+- Using test file: chainsaw-test
+- TestDirs [test/e2e/]
+- Quiet false
+- SkipDelete false
+- FailFast false
+- Namespace ''
+- FastNamespaceDeletion false
+- FullName false
+- IncludeTestRegex ''
+- ExcludeTestRegex ''
+- ApplyTimeout 5s
+- AssertTimeout 30s
+- CleanupTimeout 30s
+- DeleteTimeout 15s
+- ErrorTimeout 30s
+- ExecTimeout 5s
+- DeletionPropagationPolicy Background
+- Template true
+- NoCluster false
+- PauseOnFailure false
+Loading tests...
+- cachedimage-basic (test/e2e/cachedimage-basic)
+- cachedimage-failure (test/e2e/cachedimage-failure)
+- cachedimage-pacing (test/e2e/cachedimage-pacing)
+- cachedimageset (test/e2e/cachedimageset)
+- cachedimageset-discovery (test/e2e/cachedimageset-discovery)
+- discovery (test/e2e/discovery)
+- discovery-failure (test/e2e/discovery-failure)
+- discovery-loki (test/e2e/discovery-loki)
+- discovery-registry (test/e2e/discovery-registry)
+Loading values...
+Running tests...
+=== RUN   chainsaw
+=== PAUSE chainsaw
+=== CONT  chainsaw
+=== RUN   chainsaw/cachedimage-basic
+=== PAUSE chainsaw/cachedimage-basic
+=== RUN   chainsaw/cachedimage-failure
+=== PAUSE chainsaw/cachedimage-failure
+=== RUN   chainsaw/cachedimage-pacing
+=== PAUSE chainsaw/cachedimage-pacing
+=== RUN   chainsaw/cachedimageset
+=== PAUSE chainsaw/cachedimageset
+=== RUN   chainsaw/cachedimageset-discovery
+=== PAUSE chainsaw/cachedimageset-discovery
+=== RUN   chainsaw/discovery
+=== PAUSE chainsaw/discovery
+=== RUN   chainsaw/discovery-failure
+=== PAUSE chainsaw/discovery-failure
+=== RUN   chainsaw/discovery-loki
+=== PAUSE chainsaw/discovery-loki
+=== RUN   chainsaw/discovery-registry
+=== PAUSE chainsaw/discovery-registry
+=== CONT  chainsaw/cachedimage-basic
+=== CONT  chainsaw/discovery
+=== CONT  chainsaw/cachedimageset
+=== CONT  chainsaw/cachedimageset-discovery
+=== CONT  chainsaw/discovery-loki
+=== CONT  chainsaw/discovery-registry
+=== CONT  chainsaw/discovery-failure
+=== CONT  chainsaw/cachedimage-pacing
+=== CONT  chainsaw/cachedimage-failure
+=== NAME  chainsaw/discovery-failure
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-failure[0;22m | [32;1m@chainsaw                                             [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-model-troll
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mCreate DiscoveryPolicy with broken Prometheus endpoint[0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mCreate DiscoveryPolicy with broken Prometheus endpoint[0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+=== NAME  chainsaw/discovery
+    sink.go:61: | 13:30:57 | [32;1mdiscovery[0;22m | [32;1m@chainsaw                                                    [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-closing-egret
+    sink.go:61: | 13:30:57 | [36;1mdiscovery[0;22m | [36;1mCreate DiscoveryPolicy with query/signal/ranking pipeline    [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-failure
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-failure[0;22m | [32;1m@chainsaw                                   [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-hip-horse
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-failure[0;22m | [36;1mCreate PullPolicy                           [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset[0;22m | [32;1m@chainsaw                          [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-healthy-poodle
+=== NAME  chainsaw/discovery-loki
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-loki[0;22m | [32;1m@chainsaw                                                           [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-distinct-asp
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mCreate CachedImageSet              [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/discovery-loki
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-loki[0;22m | [36;1mCreate DiscoveryPolicy with a Loki query and eventPullTime signals  [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-basic
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-basic[0;22m | [32;1m@chainsaw                 [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-modern-egret
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-basic[0;22m | [36;1mCreate CachedImage        [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/discovery-registry
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-registry[0;22m | [32;1m@chainsaw                                                        [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-finer-mantis
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-registry[0;22m | [36;1mCreate DiscoveryPolicy with registry query                       [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset-discovery[0;22m | [32;1m@chainsaw                                                  [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-viable-kingfish
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mCreate PullPolicy                                          [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-pacing
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1m@chainsaw                              [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-giving-liger
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate PullPolicy                      [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-failure
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-failure[0;22m | [36;1mCreate PullPolicy                           [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/PullPolicy @ test-backoff-policy
+=== NAME  chainsaw/cachedimage-pacing
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate PullPolicy                      [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/PullPolicy @ test-conservative
+=== NAME  chainsaw/discovery
+    sink.go:61: | 13:30:57 | [36;1mdiscovery[0;22m | [36;1mCreate DiscoveryPolicy with query/signal/ranking pipeline    [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-prometheus
+=== NAME  chainsaw/discovery-registry
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-registry[0;22m | [36;1mCreate DiscoveryPolicy with registry query                       [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-registry
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mCreate CachedImageSet              [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImageSet @ test-set
+=== NAME  chainsaw/cachedimage-basic
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-basic[0;22m | [36;1mCreate CachedImage        [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ test-nginx
+=== NAME  chainsaw/discovery-loki
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-loki[0;22m | [36;1mCreate DiscoveryPolicy with a Loki query and eventPullTime signals  [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-loki
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mCreate PullPolicy                                          [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/PullPolicy @ test-set-policy
+=== NAME  chainsaw/discovery-failure
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-failure[0;22m | [32;1mCreate DiscoveryPolicy with broken Prometheus endpoint[0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-failure[0;22m | [32;1mCreate DiscoveryPolicy with broken Prometheus endpoint[0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mCreate DiscoveryPolicy with broken Prometheus endpoint[0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mAssert DNSError condition is set                      [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mAssert DNSError condition is set                      [0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+=== NAME  chainsaw/cachedimage-failure
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-failure[0;22m | [32;1mCreate PullPolicy                           [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/PullPolicy @ test-backoff-policy
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-failure[0;22m | [32;1mCreate PullPolicy                           [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/PullPolicy @ test-backoff-policy
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-failure[0;22m | [36;1mCreate PullPolicy                           [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-failure[0;22m | [36;1mCreate broken CachedImage                   [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-pacing
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mCreate PullPolicy                      [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/PullPolicy @ test-conservative
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mCreate PullPolicy                      [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/PullPolicy @ test-conservative
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate PullPolicy                      [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate CachedImage referencing policy  [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/discovery
+    sink.go:61: | 13:30:57 | [32;1mdiscovery[0;22m | [32;1mCreate DiscoveryPolicy with query/signal/ranking pipeline    [0;22m | [32;1mPATCH[0;22m     | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-prometheus
+    sink.go:61: | 13:30:57 | [32;1mdiscovery[0;22m | [32;1mCreate DiscoveryPolicy with query/signal/ranking pipeline    [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-prometheus
+    sink.go:61: | 13:30:57 | [36;1mdiscovery[0;22m | [36;1mCreate DiscoveryPolicy with query/signal/ranking pipeline    [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery[0;22m | [36;1mAssert pipeline executed and images were discovered          [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-failure
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-failure[0;22m | [36;1mCreate broken CachedImage                   [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+=== NAME  chainsaw/cachedimage-pacing
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate CachedImage referencing policy  [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ test-paced
+=== NAME  chainsaw/discovery
+    sink.go:61: | 13:30:57 | [36;1mdiscovery[0;22m | [36;1mAssert pipeline executed and images were discovered          [0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-prometheus
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset[0;22m | [32;1mCreate CachedImageSet              [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImageSet @ test-set
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset-discovery[0;22m | [32;1mCreate PullPolicy                                          [0;22m | [32;1mPATCH[0;22m     | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/PullPolicy @ test-set-policy
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset-discovery[0;22m | [32;1mCreate PullPolicy                                          [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/PullPolicy @ test-set-policy
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset[0;22m | [32;1mCreate CachedImageSet              [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImageSet @ test-set
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mCreate PullPolicy                                          [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mCreate CachedImageSet              [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mVerify child CachedImages created  [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mCreate DiscoveryPolicy with pipeline schema                [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-basic
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-basic[0;22m | [32;1mCreate CachedImage        [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-nginx
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-basic[0;22m | [32;1mCreate CachedImage        [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ test-nginx
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-basic[0;22m | [36;1mCreate CachedImage        [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-basic[0;22m | [36;1mVerify drop Pod is created[0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-basic[0;22m | [36;1mVerify drop Pod is created[0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | v1/Pod @ drop-system/*
+=== NAME  chainsaw/discovery-loki
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-loki[0;22m | [32;1mCreate DiscoveryPolicy with a Loki query and eventPullTime signals  [0;22m | [32;1mPATCH[0;22m     | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-loki
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-loki[0;22m | [32;1mCreate DiscoveryPolicy with a Loki query and eventPullTime signals  [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-loki
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-loki[0;22m | [36;1mCreate DiscoveryPolicy with a Loki query and eventPullTime signals  [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-loki[0;22m | [36;1mAssert pipeline executed and images were discovered from Loki events[0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/discovery-registry
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-registry[0;22m | [32;1mCreate DiscoveryPolicy with registry query                       [0;22m | [32;1mPATCH[0;22m     | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-registry
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-registry[0;22m | [32;1mCreate DiscoveryPolicy with registry query                       [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-registry
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-registry[0;22m | [36;1mCreate DiscoveryPolicy with registry query                       [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-registry[0;22m | [36;1mAssert pipeline executed and images were discovered from registry[0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mVerify child CachedImages created  [0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ *
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mCreate DiscoveryPolicy with pipeline schema                [0;22m | [36;1mAPPLY[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-prometheus-discovery
+=== NAME  chainsaw/discovery-loki
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-loki[0;22m | [36;1mAssert pipeline executed and images were discovered from Loki events[0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-loki
+=== NAME  chainsaw/discovery-registry
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-registry[0;22m | [36;1mAssert pipeline executed and images were discovered from registry[0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-registry
+=== NAME  chainsaw/discovery-failure
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-failure[0;22m | [32;1mAssert DNSError condition is set                      [0;22m | [32;1mASSERT[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mAssert DNSError condition is set                      [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mCleanup                                               [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mCleanup                                               [0;22m | [36;1mDELETE[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+=== NAME  chainsaw/cachedimage-failure
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-failure[0;22m | [32;1mCreate broken CachedImage                   [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-failure[0;22m | [32;1mCreate broken CachedImage                   [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-failure[0;22m | [36;1mCreate broken CachedImage                   [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-failure[0;22m | [36;1mWait for Degraded status with failure reason[0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-pacing
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mCreate CachedImage referencing policy  [0;22m | [32;1mCREATE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-paced
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mCreate CachedImage referencing policy  [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ test-paced
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate CachedImage referencing policy  [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mVerify at most one active Pod at a time[0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mVerify at most one active Pod at a time[0;22m | [36;1mCMD[0;22m       | [36;1mRUN[0;22m   |
+        === COMMAND
+        /usr/bin/sh -c count=$(kubectl get pods -n drop-system -l app.kubernetes.io/managed-by=drop,drop.corewire.io/cachedimage=test-paced --no-headers 2>/dev/null | wc -l)
+        if [ "$count" -gt 1 ]; then
+          echo "FAIL: expected at most 1 drop pod, got $count"
+          exit 1
+        fi
+        echo "OK: $count drop pod(s) active"
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset[0;22m | [32;1mVerify child CachedImages created  [0;22m | [32;1mASSERT[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ *
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mVerify child CachedImages created  [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mDelete CachedImageSet and verify GC[0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimage-basic
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-basic[0;22m | [32;1mVerify drop Pod is created[0;22m | [32;1mASSERT[0;22m    | [32;1mDONE[0;22m  | v1/Pod @ drop-system/*
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-basic[0;22m | [36;1mVerify drop Pod is created[0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-basic[0;22m | [36;1mWait for Ready status     [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-basic[0;22m | [36;1mWait for Ready status     [0;22m | [36;1mCMD[0;22m       | [36;1mRUN[0;22m   |
+        === COMMAND
+        /usr/bin/sh -c deadline=$(( $(date +%s) + 90 ))
+        while [ "$(date +%s)" -lt "$deadline" ]; do
+          phase=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.phase}' 2>/dev/null || true)
+          nodes_ready=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.nodesReady}' 2>/dev/null || true)
+          nodes_targeted=$(kubectl get cachedimage test-nginx -o jsonpath='{.status.nodesTargeted}' 2>/dev/null || true)
+        
+          case "$nodes_ready" in
+            ''|*[!0-9]*) nodes_ready=0 ;;
+          esac
+          case "$nodes_targeted" in
+            ''|*[!0-9]*) nodes_targeted=0 ;;
+          esac
+        
+          if [ "$nodes_targeted" -ge 1 ] && [ "$nodes_ready" = "$nodes_targeted" ] && [ "$phase" = "Ready" ]; then
+            echo "OK: CachedImage reached Ready with $nodes_ready/$nodes_targeted target nodes"
+            exit 0
+          fi
+        
+          sleep 2
+        done
+        
+        kubectl get cachedimage test-nginx -o yaml
+        echo "FAIL: CachedImage did not reach Ready on all targeted nodes"
+        exit 1
+=== NAME  chainsaw/cachedimage-failure
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-failure[0;22m | [36;1mWait for Degraded status with failure reason[0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mDelete CachedImageSet and verify GC[0;22m | [36;1mDELETE[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImageSet @ test-set
+=== NAME  chainsaw/discovery-failure
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-failure[0;22m | [32;1mCleanup                                               [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset-discovery[0;22m | [32;1mCreate DiscoveryPolicy with pipeline schema                [0;22m | [32;1mPATCH[0;22m     | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-prometheus-discovery
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset-discovery[0;22m | [32;1mCreate DiscoveryPolicy with pipeline schema                [0;22m | [32;1mAPPLY[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-prometheus-discovery
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mCreate DiscoveryPolicy with pipeline schema                [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mWait for DiscoveryPolicy to be reconciled                  [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/discovery-failure
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-failure[0;22m | [32;1mCleanup                                               [0;22m | [32;1mDELETE[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mCleanup                                               [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mCreate DiscoveryPolicy with broken Prometheus endpoint[0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [33;1mdiscovery-failure[0;22m | [33;1mCreate DiscoveryPolicy with broken Prometheus endpoint[0;22m | [33;1mDELETE[0;22m    | [33;1mOK[0;22m    | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-broken-prom
+        === ERROR
+        discoverypolicies.drop.corewire.io "test-broken-prom" not found
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1mCreate DiscoveryPolicy with broken Prometheus endpoint[0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mdiscovery-failure[0;22m | [36;1m@chainsaw                                             [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mWait for DiscoveryPolicy to be reconciled                  [0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-prometheus-discovery
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset[0;22m | [32;1mDelete CachedImageSet and verify GC[0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImageSet @ test-set
+=== NAME  chainsaw/discovery-failure
+    sink.go:61: | 13:30:57 | [32;1mdiscovery-failure[0;22m | [32;1m@chainsaw                                             [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-model-troll
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset[0;22m | [32;1mDelete CachedImageSet and verify GC[0;22m | [32;1mDELETE[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImageSet @ test-set
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mDelete CachedImageSet and verify GC[0;22m | [36;1mERROR[0;22m     | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ *
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset[0;22m | [32;1mDelete CachedImageSet and verify GC[0;22m | [32;1mERROR[0;22m     | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ *
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mDelete CachedImageSet and verify GC[0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mCreate CachedImageSet              [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [33;1mcachedimageset[0;22m | [33;1mCreate CachedImageSet              [0;22m | [33;1mDELETE[0;22m    | [33;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImageSet @ test-set
+        === ERROR
+        cachedimagesets.drop.corewire.io "test-set" not found
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1mCreate CachedImageSet              [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimageset[0;22m | [36;1m@chainsaw                          [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [32;1mcachedimageset[0;22m | [32;1m@chainsaw                          [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-healthy-poodle
+=== NAME  chainsaw/cachedimage-pacing
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mVerify at most one active Pod at a time[0;22m | [36;1mSCRIPT[0;22m    | [36;1mLOG[0;22m   |
+        === STDOUT
+        OK: 0 drop pod(s) active
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mVerify at most one active Pod at a time[0;22m | [32;1mSCRIPT[0;22m    | [32;1mDONE[0;22m  |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mVerify at most one active Pod at a time[0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCleanup                                [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCleanup                                [0;22m | [36;1mDELETE[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ test-paced
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mCleanup                                [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-paced
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mCleanup                                [0;22m | [32;1mDELETE[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ test-paced
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCleanup                                [0;22m | [36;1mDELETE[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/PullPolicy @ test-conservative
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mCleanup                                [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/PullPolicy @ test-conservative
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1mCleanup                                [0;22m | [32;1mDELETE[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/PullPolicy @ test-conservative
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCleanup                                [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate CachedImage referencing policy  [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [33;1mcachedimage-pacing[0;22m | [33;1mCreate CachedImage referencing policy  [0;22m | [33;1mDELETE[0;22m    | [33;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-paced
+        === ERROR
+        cachedimages.drop.corewire.io "test-paced" not found
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate CachedImage referencing policy  [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate PullPolicy                      [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [33;1mcachedimage-pacing[0;22m | [33;1mCreate PullPolicy                      [0;22m | [33;1mDELETE[0;22m    | [33;1mOK[0;22m    | drop.corewire.io/v1alpha1/PullPolicy @ test-conservative
+        === ERROR
+        pullpolicies.drop.corewire.io "test-conservative" not found
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1mCreate PullPolicy                      [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+    sink.go:61: | 13:30:57 | [36;1mcachedimage-pacing[0;22m | [36;1m@chainsaw                              [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:30:57 | [32;1mcachedimage-pacing[0;22m | [32;1m@chainsaw                              [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-giving-liger
+=== NAME  chainsaw/discovery-failure
+    sink.go:61: | 13:31:02 | [36;1mdiscovery-failure[0;22m | [36;1m@chainsaw                                             [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+=== NAME  chainsaw/cachedimageset
+    sink.go:61: | 13:31:02 | [36;1mcachedimageset[0;22m | [36;1m@chainsaw                          [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+=== NAME  chainsaw/cachedimage-pacing
+    sink.go:61: | 13:31:03 | [36;1mcachedimage-pacing[0;22m | [36;1m@chainsaw                              [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+=== NAME  chainsaw/cachedimage-basic
+    sink.go:61: | 13:31:04 | [36;1mcachedimage-basic[0;22m | [36;1mWait for Ready status     [0;22m | [36;1mSCRIPT[0;22m    | [36;1mLOG[0;22m   |
+        === STDOUT
+        OK: CachedImage reached Ready with 2/2 target nodes
+    sink.go:61: | 13:31:04 | [32;1mcachedimage-basic[0;22m | [32;1mWait for Ready status     [0;22m | [32;1mSCRIPT[0;22m    | [32;1mDONE[0;22m  |
+    sink.go:61: | 13:31:04 | [36;1mcachedimage-basic[0;22m | [36;1mWait for Ready status     [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:04 | [36;1mcachedimage-basic[0;22m | [36;1mCleanup                   [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:04 | [36;1mcachedimage-basic[0;22m | [36;1mCleanup                   [0;22m | [36;1mDELETE[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ test-nginx
+    sink.go:61: | 13:31:04 | [32;1mcachedimage-basic[0;22m | [32;1mCleanup                   [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-nginx
+    sink.go:61: | 13:31:04 | [32;1mcachedimage-basic[0;22m | [32;1mCleanup                   [0;22m | [32;1mDELETE[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ test-nginx
+    sink.go:61: | 13:31:04 | [36;1mcachedimage-basic[0;22m | [36;1mCleanup                   [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:04 | [36;1mcachedimage-basic[0;22m | [36;1mCreate CachedImage        [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:04 | [33;1mcachedimage-basic[0;22m | [33;1mCreate CachedImage        [0;22m | [33;1mDELETE[0;22m    | [33;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-nginx
+        === ERROR
+        cachedimages.drop.corewire.io "test-nginx" not found
+    sink.go:61: | 13:31:04 | [36;1mcachedimage-basic[0;22m | [36;1mCreate CachedImage        [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:04 | [36;1mcachedimage-basic[0;22m | [36;1m@chainsaw                 [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:04 | [32;1mcachedimage-basic[0;22m | [32;1m@chainsaw                 [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-modern-egret
+=== NAME  chainsaw/cachedimage-failure
+    sink.go:61: | 13:31:08 | [32;1mcachedimage-failure[0;22m | [32;1mWait for Degraded status with failure reason[0;22m | [32;1mASSERT[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mWait for Degraded status with failure reason[0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mVerify consecutiveFailures is tracked       [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mVerify consecutiveFailures is tracked       [0;22m | [36;1mASSERT[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+    sink.go:61: | 13:31:08 | [32;1mcachedimage-failure[0;22m | [32;1mVerify consecutiveFailures is tracked       [0;22m | [32;1mASSERT[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mVerify consecutiveFailures is tracked       [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mCleanup                                     [0;22m | [36;1mTRY[0;22m       | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mCleanup                                     [0;22m | [36;1mDELETE[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+    sink.go:61: | 13:31:08 | [32;1mcachedimage-failure[0;22m | [32;1mCleanup                                     [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+    sink.go:61: | 13:31:08 | [32;1mcachedimage-failure[0;22m | [32;1mCleanup                                     [0;22m | [32;1mDELETE[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mCleanup                                     [0;22m | [36;1mDELETE[0;22m    | [36;1mRUN[0;22m   | drop.corewire.io/v1alpha1/PullPolicy @ test-backoff-policy
+    sink.go:61: | 13:31:08 | [32;1mcachedimage-failure[0;22m | [32;1mCleanup                                     [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | drop.corewire.io/v1alpha1/PullPolicy @ test-backoff-policy
+    sink.go:61: | 13:31:08 | [32;1mcachedimage-failure[0;22m | [32;1mCleanup                                     [0;22m | [32;1mDELETE[0;22m    | [32;1mDONE[0;22m  | drop.corewire.io/v1alpha1/PullPolicy @ test-backoff-policy
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mCleanup                                     [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mCreate broken CachedImage                   [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:08 | [33;1mcachedimage-failure[0;22m | [33;1mCreate broken CachedImage                   [0;22m | [33;1mDELETE[0;22m    | [33;1mOK[0;22m    | drop.corewire.io/v1alpha1/CachedImage @ test-broken-image
+        === ERROR
+        cachedimages.drop.corewire.io "test-broken-image" not found
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mCreate broken CachedImage                   [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mCreate PullPolicy                           [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:08 | [33;1mcachedimage-failure[0;22m | [33;1mCreate PullPolicy                           [0;22m | [33;1mDELETE[0;22m    | [33;1mOK[0;22m    | drop.corewire.io/v1alpha1/PullPolicy @ test-backoff-policy
+        === ERROR
+        pullpolicies.drop.corewire.io "test-backoff-policy" not found
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1mCreate PullPolicy                           [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:08 | [36;1mcachedimage-failure[0;22m | [36;1m@chainsaw                                   [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:08 | [32;1mcachedimage-failure[0;22m | [32;1m@chainsaw                                   [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-hip-horse
+=== NAME  chainsaw/cachedimage-basic
+    sink.go:61: | 13:31:09 | [36;1mcachedimage-basic[0;22m | [36;1m@chainsaw                 [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+=== NAME  chainsaw/cachedimage-failure
+    sink.go:61: | 13:31:13 | [36;1mcachedimage-failure[0;22m | [36;1m@chainsaw                                   [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+=== NAME  chainsaw/cachedimageset-discovery
+    sink.go:61: | 13:31:57 | [31;1mcachedimageset-discovery[0;22m | [31;1mWait for DiscoveryPolicy to be reconciled                  [0;22m | [31;1mASSERT[0;22m    | [31;1mERROR[0;22m | drop.corewire.io/v1alpha1/DiscoveryPolicy @ test-prometheus-discovery
+        === ERROR
+        -------------------------------------------------------------------
+        drop.corewire.io/v1alpha1/DiscoveryPolicy/test-prometheus-discovery
+        -------------------------------------------------------------------
+        * status.(queryCount == `1`): Invalid value: false: Expected value: true
+        
+        --- expected
+        +++ actual
+        @@ -2,7 +2,5 @@
+         kind: DiscoveryPolicy
+         metadata:
+           name: test-prometheus-discovery
+        -status:
+        -  (conditions[?type == 'Ready'] | length(@) > `0`): true
+        -  (queryCount == `1`): true
+        +status: {}
+    sink.go:61: | 13:31:57 | [36;1mcachedimageset-discovery[0;22m | [36;1mWait for DiscoveryPolicy to be reconciled                  [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:31:57 | [36;1mcachedimageset-discovery[0;22m | [36;1m@chainsaw                                                  [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:31:57 | [32;1mcachedimageset-discovery[0;22m | [32;1m@chainsaw                                                  [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-viable-kingfish
+    sink.go:61: | 13:32:02 | [36;1mcachedimageset-discovery[0;22m | [36;1m@chainsaw                                                  [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+=== NAME  chainsaw/discovery
+    sink.go:61: | 13:32:57 | [31;1mdiscovery[0;22m | [31;1mAssert pipeline executed and images were discovered          [0;22m | [31;1mASSERT[0;22m    | [31;1mERROR[0;22m | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-prometheus
+        === ERROR
+        --------------------------------------------------------
+        drop.corewire.io/v1alpha1/DiscoveryPolicy/e2e-prometheus
+        --------------------------------------------------------
+        * status.(queryCount == `1`): Invalid value: false: Expected value: true
+        
+        --- expected
+        +++ actual
+        @@ -2,10 +2,5 @@
+         kind: DiscoveryPolicy
+         metadata:
+           name: e2e-prometheus
+        -status:
+        -  (conditions[?type == 'Ready']):
+        -  - reason: Synced
+        -    status: "True"
+        -  (imageCount > `0`): true
+        -  (queryCount == `1`): true
+        +status: {}
+    sink.go:61: | 13:32:57 | [36;1mdiscovery[0;22m | [36;1mAssert pipeline executed and images were discovered          [0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:32:57 | [36;1mdiscovery[0;22m | [36;1m@chainsaw                                                    [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:32:57 | [32;1mdiscovery[0;22m | [32;1m@chainsaw                                                    [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-closing-egret
+=== NAME  chainsaw/discovery-loki
+    sink.go:61: | 13:32:57 | [31;1mdiscovery-loki[0;22m | [31;1mAssert pipeline executed and images were discovered from Loki events[0;22m | [31;1mASSERT[0;22m    | [31;1mERROR[0;22m | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-loki
+        === ERROR
+        --------------------------------------------------
+        drop.corewire.io/v1alpha1/DiscoveryPolicy/e2e-loki
+        --------------------------------------------------
+        * status.(queryCount == `1`): Invalid value: false: Expected value: true
+        
+        --- expected
+        +++ actual
+        @@ -2,18 +2,5 @@
+         kind: DiscoveryPolicy
+         metadata:
+           name: e2e-loki
+        -status:
+        -  (conditions[?type == 'Ready']):
+        -  - reason: Synced
+        -    status: "True"
+        -  (imageCount > `0`): true
+        -  (length(discoveredImages[?contains(image, 'test/myapp:v1')]) > `0`): true
+        -  (length(discoveredImages[?contains(image, 'test/tools:v1')]) > `0`): true
+        -  (length(discoveredImages[?contains(image, 'test/worker:v2')]) > `0`): true
+        -  (queryCount == `1`): true
+        -  (queryResults[?name == 'image-pull-events'] | [0].status): success
+        -  (queryResults[?name == 'image-pull-events'] | [0].type): loki
+        -  (signalResults[?name == 'p50-cold-pull-time'] | [0].images > `0`): true
+        -  (signalResults[?name == 'p50-cold-pull-time'] | [0].status): success
+        -  (signalResults[?name == 'pull-failures'] | [0].status): success
+        +status: {}
+    sink.go:61: | 13:32:57 | [36;1mdiscovery-loki[0;22m | [36;1mAssert pipeline executed and images were discovered from Loki events[0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:32:57 | [36;1mdiscovery-loki[0;22m | [36;1m@chainsaw                                                           [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+=== NAME  chainsaw/discovery-registry
+    sink.go:61: | 13:32:57 | [31;1mdiscovery-registry[0;22m | [31;1mAssert pipeline executed and images were discovered from registry[0;22m | [31;1mASSERT[0;22m    | [31;1mERROR[0;22m | drop.corewire.io/v1alpha1/DiscoveryPolicy @ e2e-registry
+        === ERROR
+        ------------------------------------------------------
+        drop.corewire.io/v1alpha1/DiscoveryPolicy/e2e-registry
+        ------------------------------------------------------
+        * status.(queryCount == `1`): Invalid value: false: Expected value: true
+        
+        --- expected
+        +++ actual
+        @@ -2,10 +2,5 @@
+         kind: DiscoveryPolicy
+         metadata:
+           name: e2e-registry
+        -status:
+        -  (conditions[?type == 'Ready']):
+        -  - reason: Synced
+        -    status: "True"
+        -  (imageCount > `0`): true
+        -  (queryCount == `1`): true
+        +status: {}
+    sink.go:61: | 13:32:57 | [36;1mdiscovery-registry[0;22m | [36;1mAssert pipeline executed and images were discovered from registry[0;22m | [36;1mTRY[0;22m       | [36;1mEND[0;22m   |
+    sink.go:61: | 13:32:57 | [36;1mdiscovery-registry[0;22m | [36;1m@chainsaw                                                        [0;22m | [36;1mCLEANUP[0;22m   | [36;1mBEGIN[0;22m |
+    sink.go:61: | 13:32:57 | [32;1mdiscovery-registry[0;22m | [32;1m@chainsaw                                                        [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-finer-mantis
+=== NAME  chainsaw/discovery-loki
+    sink.go:61: | 13:32:57 | [32;1mdiscovery-loki[0;22m | [32;1m@chainsaw                                                           [0;22m | [32;1mDELETE[0;22m    | [32;1mOK[0;22m    | v1/Namespace @ chainsaw-distinct-asp
+    sink.go:61: | 13:33:02 | [36;1mdiscovery-loki[0;22m | [36;1m@chainsaw                                                           [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+=== NAME  chainsaw/discovery
+    sink.go:61: | 13:33:02 | [36;1mdiscovery[0;22m | [36;1m@chainsaw                                                    [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+=== NAME  chainsaw/discovery-registry
+    sink.go:61: | 13:33:02 | [36;1mdiscovery-registry[0;22m | [36;1m@chainsaw                                                        [0;22m | [36;1mCLEANUP[0;22m   | [36;1mEND[0;22m   |
+--- FAIL: chainsaw (0.00s)
+    --- PASS: chainsaw/discovery-failure (5.47s)
+    --- PASS: chainsaw/cachedimageset (5.71s)
+    --- PASS: chainsaw/cachedimage-pacing (5.87s)
+    --- PASS: chainsaw/cachedimage-basic (12.80s)
+    --- PASS: chainsaw/cachedimage-failure (16.77s)
+    --- FAIL: chainsaw/cachedimageset-discovery (65.52s)
+    --- FAIL: chainsaw/discovery-loki (125.66s)
+    --- FAIL: chainsaw/discovery (125.75s)
+    --- FAIL: chainsaw/discovery-registry (125.86s)
+FAIL
+Tests Summary...
+- Passed  tests 5
+- Failed  tests 4
+- Skipped tests 0
+Done with failures.
+Error: some tests failed
+make: *** [Makefile:85: test-e2e] Error 1

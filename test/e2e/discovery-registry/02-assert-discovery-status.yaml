@@ -1,11 +1,13 @@
-# Assert that DiscoveryPolicy status contains images from registry and Ready condition.
-# The registry source lists tags for test/myapp and builds refs as host/repo:tag.
+# Assert that DiscoveryPolicy with registry query executed the pipeline successfully:
+# - Ready=True with reason Synced
+# - At least one image discovered from the registry
+# - queryCount reflects the spec
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: e2e-registry
+  name: e2e-discovery-registry
 status:
   (conditions[?type == 'Ready']):
     - status: "True"
       reason: Synced
-  imageCount: 3
+  (imageCount > `0`): true

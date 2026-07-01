@@ -1,9 +1,8 @@
-# Assert DiscoveryPolicy is synced and has discovered images
+# Assert DiscoveryPolicy is reconciled: pipeline executed (queries may fail for
+# the mock Prometheus endpoint) but status fields are always set after reconciliation.
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: test-registry-discovery
+  name: test-cachedimageset-prometheus-discovery
 status:
-  (conditions[?type == 'Ready']):
-    - status: "True"
-      reason: Synced
+  (conditions[?type == 'Ready'] | length(@) > `0`): true

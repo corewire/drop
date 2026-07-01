@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" font-family="system-ui, -apple-system, sans-serif" font-size="12" content="&lt;mxfile host=&quot;app.diagrams.net&quot;&gt;&lt;diagram name=&quot;DiscoveryPolicy pipeline&quot; id=&quot;discovery-pipeline&quot;&gt;&lt;mxGraphModel dx=&quot;900&quot; dy=&quot;600&quot; grid=&quot;1&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;0&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;760&quot; pageHeight=&quot;470&quot; math=&quot;0&quot; shadow=&quot;0&quot;&gt;&lt;root&gt;&lt;mxCell id=&quot;0&quot;/&gt;&lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;&lt;mxCell id=&quot;title&quot; value=&quot;DiscoveryPolicy pipeline&quot; style=&quot;text;html=1;align=center;fontSize=16;fontStyle=1;fontColor=#1A1A2E;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;20&quot; y=&quot;14&quot; width=&quot;720&quot; height=&quot;24&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;subtitle&quot; value=&quot;queries -&amp;gt; signals -&amp;gt; ranking -&amp;gt; discoveredImages -&amp;gt; CachedImageSet -&amp;gt; CachedImage -&amp;gt; pull pods&quot; style=&quot;text;html=1;align=center;fontSize=11;fontColor=#666666;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;20&quot; y=&quot;38&quot; width=&quot;720&quot; height=&quot;16&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;h1&quot; value=&quot;STAGE 1 - queries&quot; style=&quot;text;html=1;align=center;fontSize=11;fontStyle=1;fontColor=#8A8F99;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;20&quot; y=&quot;64&quot; width=&quot;152&quot; height=&quot;18&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;h2&quot; value=&quot;STAGE 2 - signals&quot; style=&quot;text;html=1;align=center;fontSize=11;fontStyle=1;fontColor=#8A8F99;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;208&quot; y=&quot;64&quot; width=&quot;160&quot; height=&quot;18&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;h3&quot; value=&quot;STAGE 3 - ranking&quot; style=&quot;text;html=1;align=center;fontSize=11;fontStyle=1;fontColor=#8A8F99;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;396&quot; y=&quot;64&quot; width=&quot;160&quot; height=&quot;18&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;h4&quot; value=&quot;materialization&quot; style=&quot;text;html=1;align=center;fontSize=11;fontStyle=1;fontColor=#8A8F99;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;584&quot; y=&quot;64&quot; width=&quot;160&quot; height=&quot;18&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;q1&quot; value=&quot;prometheus query&amp;#10;range/instant image samples&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#EAEEFD;strokeColor=#4361EE;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;20&quot; y=&quot;100&quot; width=&quot;152&quot; height=&quot;48&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;q2&quot; value=&quot;loki query&amp;#10;pull events / durations&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#EAEEFD;strokeColor=#4361EE;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;20&quot; y=&quot;162&quot; width=&quot;152&quot; height=&quot;48&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;q3&quot; value=&quot;registry query&amp;#10;repo tags -&amp;gt; image refs&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#EAEEFD;strokeColor=#4361EE;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;20&quot; y=&quot;224&quot; width=&quot;152&quot; height=&quot;48&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;s1&quot; value=&quot;aggregate&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#F1E7F8;strokeColor=#7209B7;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;208&quot; y=&quot;94&quot; width=&quot;160&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;s2&quot; value=&quot;timeWeightedAggregate&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#F1E7F8;strokeColor=#7209B7;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;208&quot; y=&quot;148&quot; width=&quot;160&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;s3&quot; value=&quot;windowAggregate&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#F1E7F8;strokeColor=#7209B7;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;208&quot; y=&quot;202&quot; width=&quot;160&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;s4&quot; value=&quot;eventPullTime&amp;#10;requires loki events&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#F1E7F8;strokeColor=#7209B7;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;208&quot; y=&quot;256&quot; width=&quot;160&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;r1&quot; value=&quot;signal&amp;#10;scalar: signal: name&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#FBE6EE;strokeColor=#D81159;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;396&quot; y=&quot;118&quot; width=&quot;160&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;r2&quot; value=&quot;weightedSum&amp;#10;terms: signal + weight&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#FBE6EE;strokeColor=#D81159;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;396&quot; y=&quot;174&quot; width=&quot;160&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;r3&quot; value=&quot;modelExposure&amp;#10;pre/target/pull-time signals&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#FBE6EE;strokeColor=#D81159;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;396&quot; y=&quot;230&quot; width=&quot;160&quot; height=&quot;44&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;m1&quot; value=&quot;status.discoveredImages&amp;#10;image + rank + finalScore&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#EDEDF1;strokeColor=#1A1A2E;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;584&quot; y=&quot;108&quot; width=&quot;160&quot; height=&quot;62&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;m2&quot; value=&quot;CachedImageSet&amp;#10;reads discoveryPolicyRef&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#E4F2EB;strokeColor=#0B7A4B;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;584&quot; y=&quot;184&quot; width=&quot;160&quot; height=&quot;52&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;m3&quot; value=&quot;CachedImage + pull pods&amp;#10;paced by PullPolicy&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#E4F2EB;strokeColor=#0B7A4B;fontColor=#1A1A2E;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;584&quot; y=&quot;250&quot; width=&quot;160&quot; height=&quot;52&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;mxCell id=&quot;footer&quot; value=&quot;ranked discoveredImages are consumed by CachedImageSet and materialized as CachedImage pull targets&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E3E3EE;fontColor=#666666;fontSize=10;arcSize=16;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;&lt;mxGeometry x=&quot;20&quot; y=&quot;338&quot; width=&quot;724&quot; height=&quot;40&quot; as=&quot;geometry&quot;/&gt;&lt;/mxCell&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;&lt;/diagram&gt;&lt;/mxfile&gt;">
+  <rect width="760" height="470" fill="#fafafa" rx="8"/>
+
+  <text x="380" y="28" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a1a2e">DiscoveryPolicy pipeline</text>
+  <text x="380" y="46" text-anchor="middle" font-size="11" fill="#666">queries -> signals -> ranking -> discoveredImages -> CachedImageSet -> CachedImage -> pull pods</text>
+
+  <g stroke="#e1e4ea" stroke-width="1" stroke-dasharray="4,4">
+    <line x1="188" y1="86" x2="188" y2="386"/>
+    <line x1="376" y1="86" x2="376" y2="386"/>
+    <line x1="564" y1="86" x2="564" y2="386"/>
+  </g>
+
+  <g text-anchor="middle" font-size="11" font-weight="bold" fill="#8a8f99">
+    <text x="96" y="76">STAGE 1 - queries</text>
+    <text x="282" y="76">STAGE 2 - signals</text>
+    <text x="470" y="76">STAGE 3 - ranking</text>
+    <text x="660" y="76">materialization</text>
+  </g>
+
+  <g>
+    <rect x="20" y="100" width="152" height="48" rx="8" fill="#4361ee" fill-opacity="0.10" stroke="#4361ee" stroke-width="1.6"/>
+    <text x="96" y="120" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">prometheus query</text>
+    <text x="96" y="136" text-anchor="middle" font-size="9" fill="#4361ee">range/instant image samples</text>
+
+    <rect x="20" y="162" width="152" height="48" rx="8" fill="#4361ee" fill-opacity="0.10" stroke="#4361ee" stroke-width="1.6"/>
+    <text x="96" y="182" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">loki query</text>
+    <text x="96" y="198" text-anchor="middle" font-size="9" fill="#4361ee">pull events / durations</text>
+
+    <rect x="20" y="224" width="152" height="48" rx="8" fill="#4361ee" fill-opacity="0.10" stroke="#4361ee" stroke-width="1.6"/>
+    <text x="96" y="244" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">registry query</text>
+    <text x="96" y="260" text-anchor="middle" font-size="9" fill="#4361ee">repo tags -> image refs</text>
+  </g>
+
+  <g>
+    <rect x="208" y="94" width="160" height="44" rx="8" fill="#7209b7" fill-opacity="0.10" stroke="#7209b7" stroke-width="1.6"/>
+    <text x="288" y="121" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">aggregate</text>
+
+    <rect x="208" y="148" width="160" height="44" rx="8" fill="#7209b7" fill-opacity="0.10" stroke="#7209b7" stroke-width="1.6"/>
+    <text x="288" y="175" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">timeWeightedAggregate</text>
+
+    <rect x="208" y="202" width="160" height="44" rx="8" fill="#7209b7" fill-opacity="0.10" stroke="#7209b7" stroke-width="1.6"/>
+    <text x="288" y="229" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">windowAggregate</text>
+
+    <rect x="208" y="256" width="160" height="44" rx="8" fill="#7209b7" fill-opacity="0.10" stroke="#7209b7" stroke-width="1.6"/>
+    <text x="288" y="275" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">eventPullTime</text>
+    <text x="288" y="288" text-anchor="middle" font-size="8" fill="#7209b7">requires loki events</text>
+  </g>
+  <text x="288" y="320" text-anchor="middle" font-size="9" fill="#8a8f99">aggregate/timeWeighted/window accept any source</text>
+  <text x="288" y="332" text-anchor="middle" font-size="8" fill="#8a8f99">eventPullTime requires Loki kubernetes events</text>
+
+  <g>
+    <rect x="396" y="118" width="160" height="44" rx="8" fill="#d81159" fill-opacity="0.10" stroke="#d81159" stroke-width="1.6"/>
+    <text x="476" y="137" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">signal</text>
+    <text x="476" y="151" text-anchor="middle" font-size="8" fill="#d81159">scalar: signal: &lt;name&gt;</text>
+
+    <rect x="396" y="174" width="160" height="44" rx="8" fill="#d81159" fill-opacity="0.10" stroke="#d81159" stroke-width="1.6"/>
+    <text x="476" y="193" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">weightedSum</text>
+    <text x="476" y="207" text-anchor="middle" font-size="8" fill="#d81159">terms: signal + weight</text>
+
+    <rect x="396" y="230" width="160" height="44" rx="8" fill="#d81159" fill-opacity="0.10" stroke="#d81159" stroke-width="1.6"/>
+    <text x="476" y="249" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">modelExposure</text>
+    <text x="476" y="263" text-anchor="middle" font-size="8" fill="#d81159">pre/target/pull-time signals</text>
+  </g>
+  <text x="476" y="294" text-anchor="middle" font-size="9" fill="#8a8f99">pick exactly one ranking strategy</text>
+
+  <g>
+    <rect x="584" y="108" width="160" height="62" rx="8" fill="#1a1a2e" fill-opacity="0.06" stroke="#1a1a2e" stroke-width="1.6"/>
+    <text x="664" y="132" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">status.discoveredImages</text>
+    <text x="664" y="147" text-anchor="middle" font-size="9" fill="#666">image + rank + finalScore</text>
+
+    <rect x="584" y="184" width="160" height="52" rx="8" fill="#0b7a4b" fill-opacity="0.10" stroke="#0b7a4b" stroke-width="1.6"/>
+    <text x="664" y="205" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">CachedImageSet</text>
+    <text x="664" y="220" text-anchor="middle" font-size="9" fill="#0b7a4b">reads discoveryPolicyRef</text>
+
+    <rect x="584" y="250" width="160" height="52" rx="8" fill="#0b7a4b" fill-opacity="0.10" stroke="#0b7a4b" stroke-width="1.6"/>
+    <text x="664" y="271" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">CachedImage + pull pods</text>
+    <text x="664" y="286" text-anchor="middle" font-size="9" fill="#0b7a4b">paced by PullPolicy</text>
+  </g>
+
+  <rect x="20" y="338" width="724" height="40" rx="8" fill="#fff" stroke="#e3e3ee" stroke-width="1"/>
+  <text x="380" y="362" text-anchor="middle" font-size="10" fill="#666">ranked discoveredImages are consumed by CachedImageSet and materialized as CachedImage pull targets</text>
+</svg>

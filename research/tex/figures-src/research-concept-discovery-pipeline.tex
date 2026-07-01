@@ -1,0 +1,46 @@
+\documentclass[border=10pt]{standalone}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\definecolor{INK}{HTML}{1A1A2E}
+\definecolor{BG}{HTML}{FAFAFA}
+\definecolor{SUB}{HTML}{555566}
+\definecolor{OBS}{HTML}{4361EE}
+\definecolor{SIG}{HTML}{2A9D8F}
+\definecolor{RANK}{HTML}{D81159}
+\definecolor{ACT}{HTML}{F4A261}
+
+\begin{document}
+\pagecolor{BG}
+\begin{tikzpicture}[
+  font=\sffamily,
+  box/.style={rounded corners=4pt, draw=INK, line width=0.8pt, minimum width=4.6cm, minimum height=1.6cm, align=center},
+  obs/.style={box, fill=OBS!12},
+  sig/.style={box, fill=SIG!12},
+  rank/.style={box, fill=RANK!12},
+  act/.style={box, fill=ACT!16},
+  arr/.style={-{Stealth[length=2.5mm]}, draw=INK, line width=0.9pt},
+  note/.style={font=\scriptsize, text=SUB, align=center}
+]
+
+\node[obs] (o) {\textbf{Observations}\\Prometheus + k8s events + job metadata};
+\node[sig, right=1.2cm of o] (s) {\textbf{Signals}\\$S_I$, $S_I^{\mathrm{dev}}$, $C_I^{\max}$, $\hat p_I$};
+\node[rank, right=1.2cm of s] (r) {\textbf{Ranking}\\Weighted sum or model-aware score};
+\node[act, right=1.2cm of r] (a) {\textbf{Action}\\Select Top-$K$ images + prewarm target nodes};
+
+\draw[arr] (o) -- (s);
+\draw[arr] (s) -- (r);
+\draw[arr] (r) -- (a);
+
+\node[note, below=0.45cm of s] {
+Query $\rightarrow$ aggregate $\rightarrow$ rank $\rightarrow$ materialize.\
+Implementation can vary; the model stays the same.
+};
+
+\node[note, below=1.35cm of r] {
+Example model-aware score: $\;\mathrm{score}(I)=J_{\mathrm{target}}(I)\left(1-\frac1N\right)^{J_{\mathrm{pre}}(I)}\hat p_I$
+};
+
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,32 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-discovery-loki
+spec:
+  queries:
+    - name: discovery-loki-image-pull-events
+      type: loki
+      loki:
+        endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
+        queryType: range
+        lookback: 24h
+        query: '{drop_e2e="true"} | json | reason="Pulled" | name=~"e2e-loki-success-pod"'
+        parser:
+          type: kubernetesEvents
+          podField: name
+          reasonField: reason
+          messageField: msg
+          imageField: msg
+  signals:
+    # Mean cold-pull time derived from the "Successfully pulled ... in Xs" messages.
+    - name: avg-cold-pull-time
+      query: discovery-loki-image-pull-events
+      type: eventPullTime
+      eventPullTime:
+        metric: pullTime
+        statistic: avg
+  ranking:
+    strategy: signal
+    signal: avg-cold-pull-time
+  syncInterval: 30s
+  maxImages: 10

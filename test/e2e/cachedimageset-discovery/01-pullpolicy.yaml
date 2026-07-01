@@ -1,7 +1,7 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: PullPolicy
 metadata:
-  name: test-set-policy
+  name: test-cachedimageset-set-policy
 spec:
   maxConcurrentNodes: 1
   minDelayBetweenPulls: 1s

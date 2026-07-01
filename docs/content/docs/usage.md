@@ -1,5 +1,5 @@
 ---
-title: Usage
+title: Basic Usage
 weight: 2
 description: Create and manage cached images.
 llmsDescription: |
@@ -100,4 +100,6 @@ kubectl describe cachedimage nginx
 kubectl get cachedimages -w
 ```
 
-A CachedImage is Ready when all targeted nodes have the image cached.
+A CachedImage is Ready when all targeted nodes have the image cached. 
+
+This is the most basic usage of the drop operator. For more advanced usage, see the [Discovery](../discovery) section, which explains how to use the Loki and Registry sources to generate signals for image caching based on Kubernetes events, registry tags, and prometheus metrics. 

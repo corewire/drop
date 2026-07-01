@@ -19,6 +19,14 @@ echo "[e2e-infra] Deploying Prometheus with seed data..."
 kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/prometheus-config.yaml"
 kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/prometheus.yaml"
 
+# --- Deploy Loki for image-pull event discovery ---
+echo "[e2e-infra] Deploying Loki..."
+kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/loki.yaml"
+
+# --- Deploy Alloy to ship real Kubernetes events into Loki ---
+echo "[e2e-infra] Deploying Alloy (kubernetes_events -> Loki)..."
+kubectl apply -f "$SCRIPT_DIR/alloy.yaml"
+
 # --- Wait for readiness ---
 echo "[e2e-infra] Waiting for registry to be ready..."
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/registry --timeout=90s
@@ -43,6 +51,13 @@ echo "[e2e-infra] Containerd mirror configured on all nodes."
 echo "[e2e-infra] Waiting for Prometheus to be ready..."
 kubectl -n "$NAMESPACE" wait --for=condition=available deployment/prometheus --timeout=90s
 
+echo "[e2e-infra] Waiting for Loki to be ready..."
+# Loki single-binary startup can lag behind registry/prometheus in CI clusters.
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/loki --timeout=300s
+
+echo "[e2e-infra] Waiting for Alloy to be ready..."
+kubectl -n "$NAMESPACE" wait --for=condition=available deployment/alloy --timeout=120s
+
 # --- Seed the registry with a few images ---
 echo "[e2e-infra] Seeding registry with test images..."
 REGISTRY_POD=$(kubectl -n "$NAMESPACE" get pods -l app=registry -o jsonpath='{.items[0].metadata.name}')
@@ -57,6 +72,12 @@ echo "[e2e-infra] Seeding Prometheus with image metrics..."
 kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/seed-metrics-job.yaml"
 kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-metrics --timeout=60s 2>/dev/null || true
 
+# --- Seed Loki with image-pull events (Alloy-style JSON structure) ---
+echo "[e2e-infra] Seeding Loki with image-pull events..."
+kubectl apply -n "$NAMESPACE" -f "$SCRIPT_DIR/seed-loki-job.yaml"
+kubectl -n "$NAMESPACE" wait --for=condition=complete job/seed-loki --timeout=180s
+
 echo "[e2e-infra] Infrastructure ready."
 echo "  Prometheus: http://prometheus.$NAMESPACE.svc.cluster.local:9090"
+echo "  Loki:       http://loki.$NAMESPACE.svc.cluster.local:3100"
 echo "  Registry:   http://registry.$NAMESPACE.svc.cluster.local:5000"

@@ -1,15 +1,49 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: registry-discovery
+  name: gitlab-hybrid-usage-concurrency
 spec:
-  sources:
-    - type: registry
-      registry:
-        url: "https://registry.example.com"
-        repositories:
-          - "myorg/myapp"
-          - "myorg/worker"
-        topX: 5
-  syncInterval: 5m
-  maxImages: 20
+  syncInterval: 1h
+  maxImages: 30
+
+  queries:
+    - name: runner-image-usage
+      type: prometheus
+      prometheus:
+        endpoint: https://mimir.example.com
+        queryType: range
+        lookback: 168h
+        step: 1m
+        query: |
+          count(
+            container_memory_working_set_bytes{
+              container!="",
+              container!="POD",
+              namespace="gitlab-runner",
+              pod=~"runner-.*"
+            }
+          ) by (image)
+
+  signals:
+    - name: total-usage
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+
+    - name: peak-concurrency
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: max
+
+  ranking:
+    strategy: weightedSum
+    weightedSum:
+      normalize: minMax
+      missingSignal: zero
+      terms:
+        - signal: total-usage
+          weight: "700m"
+        - signal: peak-concurrency
+          weight: "300m"

@@ -82,9 +82,11 @@ local('kubectl create namespace e2e-infra --dry-run=client -o yaml | kubectl app
 k8s_yaml('hack/e2e-infra/prometheus-config.yaml')
 k8s_yaml('hack/e2e-infra/prometheus.yaml')
 k8s_yaml('hack/e2e-infra/registry.yaml')
+k8s_yaml('hack/e2e-infra/loki.yaml')
 
 k8s_resource('prometheus', objects=['prometheus-config:configmap', 'prometheus:serviceaccount', 'prometheus-metrics-reader:clusterrolebinding'], port_forwards=['9090:9090'], labels=['infra'])
 k8s_resource('registry', port_forwards=['5000:5000'], labels=['infra'])
+k8s_resource('loki', objects=['loki-config:configmap'], port_forwards=['3100:3100'], labels=['infra'])
 
 # Configure kind nodes to reach the in-cluster registry.
 # Kubelet/containerd can't resolve cluster DNS, so we point them at the registry's ClusterIP.
@@ -98,6 +100,14 @@ local_resource(
 # Seed registry with test images
 k8s_yaml('hack/e2e-infra/seed-registry-job.yaml')
 k8s_resource('seed-registry', labels=['infra'], resource_deps=['registry-mirror'])
+
+# Seed Loki with image-pull events (Alloy-style JSON structure)
+k8s_yaml('hack/e2e-infra/seed-loki-job.yaml')
+k8s_resource('seed-loki', labels=['infra'], resource_deps=['loki'])
+
+# Alloy: tail real Kubernetes events into Loki (drop_e2e=true)
+k8s_yaml('hack/e2e-infra/alloy.yaml')
+k8s_resource('alloy', objects=['alloy:serviceaccount', 'alloy-events:clusterrole', 'alloy-events:clusterrolebinding', 'alloy-config:configmap'], labels=['infra'], resource_deps=['loki'])
 
 # --- Grafana with Drop dashboard ---
 # Create dashboard ConfigMap from the shipped JSON, then apply grafana manifests.
@@ -150,7 +160,13 @@ k8s_resource(
         'dev-set:cachedimageset',
         'dev-set-discovered:cachedimageset',
         'dev-prometheus:discoverypolicy',
+        'dev-prometheus-instant:discoverypolicy',
+        'dev-hybrid:discoverypolicy',
+        'dev-timeweighted:discoverypolicy',
+        'dev-window:discoverypolicy',
+        'dev-loki:discoverypolicy',
         'dev-registry:discoverypolicy',
+        'dev-modelexposure:discoverypolicy',
         'test-broken-prom:discoverypolicy',
         'test-broken-registry:discoverypolicy',
         'test-notfound-repo:discoverypolicy',

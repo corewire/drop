@@ -1,0 +1,21 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-discovery-registry-gitlab-helper
+spec:
+  queries:
+    - name: helper-tags
+      type: registry
+      registry:
+        url: "http://registry.e2e-infra.svc.cluster.local:5000"
+        repositories:
+          - test/gitlab-runner-helper
+        # Only the plain x86_64 runner releases (excludes -latest and arm flavor)
+        tagFilter: "^x86_64-v[0-9]+\\.[0-9]+\\.[0-9]+$"
+        # Pin the version substring for sorting
+        versionPattern: "x86_64-v(.+)"
+        # Keep the 2 newest releases
+        topX: 2
+  # No signals/ranking: registry tags come back newest-first
+  syncInterval: 30s
+  maxImages: 10

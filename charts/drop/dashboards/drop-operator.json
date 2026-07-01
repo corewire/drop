@@ -36,7 +36,7 @@
   "timezone": "browser",
   "title": "Drop Operator",
   "uid": "drop-operator",
-  "version": 2,
+  "version": 3,
   "refresh": "10s",
   "panels": [
     {
@@ -412,6 +412,124 @@
       "datasource": "Prometheus",
       "targets": [{ "expr": "sum by (image, node) (drop_images_cached_total{image=~\"$image\"})", "format": "table", "instant": true }],
       "transformations": [{ "id": "organize", "options": { "excludeByName": { "Time": true } } }]
+    },
+    {
+      "id": 106,
+      "title": "Operator Resources",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 70,
+      "title": "Operator CPU (cores)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 61 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "sum(rate(process_cpu_seconds_total{job=\"drop-operator\"}[5m]))", "legendFormat": "cpu" }],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 3, "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 71,
+      "title": "Operator Memory (RSS)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 61 },
+      "datasource": "Prometheus",
+      "targets": [{ "expr": "process_resident_memory_bytes{job=\"drop-operator\"}", "legendFormat": "rss" }],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 107,
+      "title": "Pull Duration by Image",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 69 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 72,
+      "title": "Pull Duration per Image (p50 / p90 / p95)",
+      "description": "Per-image pull duration percentiles. Use this to identify images with a slow tail — candidates for pre-caching.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 70 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[10m])))", "legendFormat": "p50 {{image}}" },
+        { "expr": "histogram_quantile(0.90, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[10m])))", "legendFormat": "p90 {{image}}" },
+        { "expr": "histogram_quantile(0.95, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[10m])))", "legendFormat": "p95 {{image}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 73,
+      "title": "Images with p90 Pull > 30s",
+      "description": "Images whose p90 cold-pull time exceeds 30s — the strongest candidates to add to a CachedImageSet.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 70 },
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "histogram_quantile(0.90, sum by (le, image) (rate(drop_pull_duration_seconds_bucket[1h]))) > 30", "legendFormat": "{{image}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "color": { "fixedColor": "orange", "mode": "fixed" }
+        }
+      }
+    },
+    {
+      "id": 108,
+      "title": "Loki: Pull Events",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 78 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 74,
+      "title": "Pull Events",
+      "description": "Raw Pulled events from Loki — the same records eventPullTime signals consume. Filter by namespace or image to explore pull latency.",
+      "type": "logs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 79 },
+      "datasource": "Loki",
+      "targets": [
+        { "expr": "{job=\"kubernetes-events\"} | json | reason = `Pulled`", "legendFormat": "" }
+      ],
+      "options": { "dedupStrategy": "none", "showLabels": false, "sortOrder": "Descending", "wrapLogMessage": true }
+    },
+    {
+      "id": 75,
+      "title": "Pull Event Rate by Namespace",
+      "description": "Rate of Pulled events per namespace — useful for spotting burst activity or missing cache coverage.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 89 },
+      "datasource": "Loki",
+      "targets": [
+        { "expr": "sum by (namespace) (rate({job=\"kubernetes-events\"} | json | reason = `Pulled` [5m]))", "legendFormat": "{{namespace}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops/s", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 76,
+      "title": "Slow Pulls (≥ 10s)",
+      "description": "Pull events where the duration string has 2+ digits before the decimal point, i.e. the pull took 10s or more.",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 89 },
+      "datasource": "Loki",
+      "targets": [
+        { "expr": "{job=\"kubernetes-events\"} | json | reason = `Pulled` | message =~ `in [1-9][0-9]+\\.`", "legendFormat": "" }
+      ],
+      "options": { "dedupStrategy": "none", "showLabels": false, "sortOrder": "Descending", "wrapLogMessage": true }
     }
   ]
 }

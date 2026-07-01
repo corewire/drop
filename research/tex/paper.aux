@@ -1,0 +1,140 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{clusterapioverview}
+\citation{clusterapiconcepts}
+\providecommand \oddpage@label [2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Per-Image Model Setup}{2}{section.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Notation used in the per-image model. The symbols describe one OCI image \(I\).}}{3}{table.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:notation}{{1}{3}{Notation used in the per-image model. The symbols describe one OCI image \(I\)}{table.caption.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Core Per-Image Model}{3}{section.3}\protected@file@percent }
+\newlabel{sec:core-model}{{3}{3}{Core Per-Image Model}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Scheduling interval and assumptions}{3}{subsection.3.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Node-dot representation of the initial cache state for one OCI image \(I\). Each dot is an eligible CI node. Light blue nodes are cold; light red nodes are warm.}}{4}{figure.caption.2}\protected@file@percent }
+\newlabel{fig:nodedots-initial}{{1}{4}{Node-dot representation of the initial cache state for one OCI image \(I\). Each dot is an eligible CI node. Light blue nodes are cold; light red nodes are warm}{figure.caption.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Burst arrival: jobs scheduled onto cold nodes}{4}{subsection.3.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Burst-arrival example for image \(I\) with \(N=10\), \(c=6\), and \(J_b=5\). Node color still shows cache state: light blue is cold and light red is warm. The arrows show one possible assignment of five jobs to nodes. This sample outcome is illustrative; the expectation below averages over all assignments under the placement baseline.}}{4}{figure.caption.3}\protected@file@percent }
+\newlabel{fig:nodedots-burst}{{2}{4}{Burst-arrival example for image \(I\) with \(N=10\), \(c=6\), and \(J_b=5\). Node color still shows cache state: light blue is cold and light red is warm. The arrows show one possible assignment of five jobs to nodes. This sample outcome is illustrative; the expectation below averages over all assignments under the placement baseline}{figure.caption.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Newly warmed nodes}{5}{subsection.3.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Cache-propagation view of the same sample outcome. Although three jobs were scheduled onto cold nodes, only two distinct nodes become newly warm because \(J_1\) and \(J_2\) were scheduled onto the same node.}}{5}{figure.caption.4}\protected@file@percent }
+\newlabel{fig:nodedots-cache}{{3}{5}{Cache-propagation view of the same sample outcome. Although three jobs were scheduled onto cold nodes, only two distinct nodes become newly warm because \(J_1\) and \(J_2\) were scheduled onto the same node}{figure.caption.4}{}}
+\citation{kubernetesimages}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Sequential arrival}{6}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Kubernetes interpretation}{6}{subsection.3.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Affected job-minutes}{6}{subsection.3.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Rolling-Concurrency Extension}{7}{section.4}\protected@file@percent }
+\newlabel{sec:rolling-concurrency}{{4}{7}{Rolling-Concurrency Extension}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Availability-time model}{7}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Example: sequential, rolling, and full-burst arrival}{8}{subsection.4.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Rolling-concurrency example with \(N=2\), \(K=2\), and \(p_I=60\) seconds. Waiting is measured only for image \(I\) availability; useful runtime is shown to explain when the next queued job can start.}}{8}{table.caption.5}\protected@file@percent }
+\newlabel{tab:rolling-example}{{2}{8}{Rolling-concurrency example with \(N=2\), \(K=2\), and \(p_I=60\) seconds. Waiting is measured only for image \(I\) availability; useful runtime is shown to explain when the next queued job can start}{table.caption.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Rolling-concurrency example. Jobs \(J_1\) and \(J_2\) both wait a full \(p_I=60\) seconds on \(N_0\). Job \(J_4\) starts while image \(I\) is still unavailable on \(N_1\) and waits only the remaining 30 seconds until \(T_{N_1}(I)\).}}{8}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:rolling-node-timeline}{{4}{8}{Rolling-concurrency example. Jobs \(J_1\) and \(J_2\) both wait a full \(p_I=60\) seconds on \(N_0\). Job \(J_4\) starts while image \(I\) is still unavailable on \(N_1\) and waits only the remaining 30 seconds until \(T_{N_1}(I)\)}{figure.caption.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Comparison of the same deterministic example under all three modes. The rolling case is a time-aware operational case between the sequential and full-burst analytical references. Each full block represents one \(p_I=60\) second image wait; the half block represents a 30 second remaining wait.}}{9}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:rolling-boundary-check}{{5}{9}{Comparison of the same deterministic example under all three modes. The rolling case is a time-aware operational case between the sequential and full-burst analytical references. Each full block represents one \(p_I=60\) second image wait; the half block represents a 30 second remaining wait}{figure.caption.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Developer-time weighting in rolling concurrency}{9}{subsection.4.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Developer-time weighting for image-wait intervals. Only the counted weighted overlap is shown: waiting during \(f(t)=0\) is omitted, shoulder-period waiting contributes partially, and waiting during the main developer feedback window contributes fully.}}{9}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:developer-weighted-wait}{{6}{9}{Developer-time weighting for image-wait intervals. Only the counted weighted overlap is shown: waiting during \(f(t)=0\) is omitted, shoulder-period waiting contributes partially, and waiting during the main developer feedback window contributes fully}{figure.caption.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Single-Image Node Rotation Scenario}{10}{section.5}\protected@file@percent }
+\newlabel{sec:primary-scenario}{{5}{10}{Single-Image Node Rotation Scenario}{section.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Parameters for the representative CI node-pool rotation scenario. Image-specific job counts refer only to jobs using the modeled OCI image digest.}}{10}{table.caption.9}\protected@file@percent }
+\newlabel{tab:main-scenario-parameters}{{3}{10}{Parameters for the representative CI node-pool rotation scenario. Image-specific job counts refer only to jobs using the modeled OCI image digest}{table.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Daily traffic and developer-time weighting}{10}{subsection.5.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Compact scenario timeline for the numerical model. Bars show total CI job volume by hour. Background bands define the developer-time weight \(f(t)\): no weighting outside developer-relevant periods, partial weighting during shoulder periods, and full weighting during the main developer feedback window.}}{11}{figure.caption.10}\protected@file@percent }
+\newlabel{fig:dailyoverlap}{{7}{11}{Compact scenario timeline for the numerical model. Bars show total CI job volume by hour. Background bands define the developer-time weight \(f(t)\): no weighting outside developer-relevant periods, partial weighting during shoulder periods, and full weighting during the main developer feedback window}{figure.caption.10}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Cache-state progression after the CI node-pool rotation. The table tracks jobs using image \(I\), not all CI jobs.}}{11}{table.caption.11}\protected@file@percent }
+\newlabel{tab:nightcache}{{4}{11}{Cache-state progression after the CI node-pool rotation. The table tracks jobs using image \(I\), not all CI jobs}{table.caption.11}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Expected cache-warming progress for image \(I\) between the 00:00 rotation and the 09:00 developer feedback window. Normal background traffic warms only part of the CI node pool before the high-weight developer feedback window begins.}}{12}{figure.caption.12}\protected@file@percent }
+\newlabel{fig:nightcacheprogress}{{8}{12}{Expected cache-warming progress for image \(I\) between the 00:00 rotation and the 09:00 developer feedback window. Normal background traffic warms only part of the CI node pool before the high-weight developer feedback window begins}{figure.caption.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Rolling-concurrency impact at 09:00}{12}{subsection.5.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Rolling-concurrency approximation at the 09:00 developer feedback window for one image \(I\). The table shows how cold-node exposure and cache warming evolve across five active sets of 100 jobs.}}{12}{table.caption.13}\protected@file@percent }
+\newlabel{tab:morningrolling}{{5}{12}{Rolling-concurrency approximation at the 09:00 developer feedback window for one image \(I\). The table shows how cold-node exposure and cache warming evolve across five active sets of 100 jobs}{table.caption.13}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Portfolio Extension for the Numerical Scenario}{13}{section.6}\protected@file@percent }
+\newlabel{sec:multi-image}{{6}{13}{Portfolio Extension for the Numerical Scenario}{section.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Portfolio application for the midnight-rotation scenario. The table ranks CI images by estimated developer waiting contribution \(D_I\). The values are illustrative inputs for a 25,000-job day on a 100-node CI pool; production inputs should be measured from CI history, Kubernetes workload data, registry data, or monitoring data.}}{13}{table.caption.14}\protected@file@percent }
+\newlabel{tab:multiimage}{{6}{13}{Portfolio application for the midnight-rotation scenario. The table ranks CI images by estimated developer waiting contribution \(D_I\). The values are illustrative inputs for a 25,000-job day on a 100-node CI pool; production inputs should be measured from CI history, Kubernetes workload data, registry data, or monitoring data}{table.caption.14}{}}
+\citation{schedulerconfig}
+\citation{kubeletconfig}
+\citation{kubernetesdaemonset}
+\citation{kubernetesimagepuller}
+\citation{kubefledged}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Cumulative affected job-minutes across the 30-image portfolio in the numerical scenario. Images are ordered by modeled contribution \(D_I\); the steep early slope shows where prewarming has the largest expected effect.}}{14}{figure.caption.15}\protected@file@percent }
+\newlabel{fig:multiimagecumulative}{{9}{14}{Cumulative affected job-minutes across the 30-image portfolio in the numerical scenario. Images are ordered by modeled contribution \(D_I\); the steep early slope shows where prewarming has the largest expected effect}{figure.caption.15}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Kubernetes Scheduler Notes}{14}{section.7}\protected@file@percent }
+\newlabel{sec:scheduler-notes}{{7}{14}{Kubernetes Scheduler Notes}{section.7}{}}
+\citation{drop}
+\citation{dropdiscovery}
+\citation{prometheusoverview}
+\citation{mimiroverview}
+\citation{dropdiscovery}
+\citation{dropdiscovery}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Prewarming Implementation and Image Discovery}{15}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Usage-based discovery strategies}{15}{subsection.8.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Usage-based discovery strategies that can be computed from historical CI image observations. These strategies do not require image-size metadata.}}{16}{table.caption.16}\protected@file@percent }
+\newlabel{tab:discovery-strategies}{{7}{16}{Usage-based discovery strategies that can be computed from historical CI image observations. These strategies do not require image-size metadata}{table.caption.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Discovery pipeline abstraction}{17}{subsection.8.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Discovery strategies expressed as rankings over named signals. The table separates the research model from any concrete controller API.}}{17}{table.caption.17}\protected@file@percent }
+\newlabel{tab:strategy-signal-map}{{8}{17}{Discovery strategies expressed as rankings over named signals. The table separates the research model from any concrete controller API}{table.caption.17}{}}
+\citation{kubernetesimages}
+\citation{kubeletconfig}
+\citation{containerdcri}
+\citation{stargzsnapshotter}
+\citation{sociintro}
+\citation{socifargate}
+\citation{spegel}
+\citation{spegelarchitecture}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Windowed usage aggregation for image discovery. A metric query returns image-labeled samples over a lookback window. The discovery step sums samples per image, ranks the resulting scores, and selects the highest-ranked images for prewarming. The score is a ranking signal for discovery, not a direct estimate of developer waiting contribution.}}{18}{figure.caption.18}\protected@file@percent }
+\newlabel{fig:usage-window-aggregation}{{10}{18}{Windowed usage aggregation for image discovery. A metric query returns image-labeled samples over a lookback window. The discovery step sums samples per image, ranks the resulting scores, and selects the highest-ranked images for prewarming. The score is a ranking signal for discovery, not a direct estimate of developer waiting contribution}{figure.caption.18}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Practical pull and cache-effect metrics}{18}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Related Work}{18}{section.9}\protected@file@percent }
+\citation{kubeletmetrics}
+\@writefile{toc}{\contentsline {section}{\numberline {10}Real-Cluster Benchmark Methodology}{19}{section.10}\protected@file@percent }
+\newlabel{sec:real-cluster-benchmark-methodology}{{10}{19}{Real-Cluster Benchmark Methodology}{section.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.1}Measuring image availability on the cluster}{19}{subsection.10.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Controlled benchmark scenarios}{20}{subsection.10.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.3}Real-cluster replay methodology for GitLab Kubernetes executor}{21}{subsection.10.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.4}Stateful mirror replay model}{21}{subsection.10.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.5}Synthetic evaluator sanity check}{22}{subsection.10.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Synthetic 20-run replay results for a 25{,}000-job GitLab Kubernetes executor workload. Values are means across runs. The results are generated test data for methodology validation, not production measurements.}}{22}{table.caption.19}\protected@file@percent }
+\newlabel{tab:synthetic-20run-results}{{9}{22}{Synthetic 20-run replay results for a 25{,}000-job GitLab Kubernetes executor workload. Values are means across runs. The results are generated test data for methodology validation, not production measurements}{table.caption.19}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Mean developer feedback window affected job-minutes by cache policy across 20 synthetic 25{,}000-job replay runs. Prewarming reduces cold-node hits; the mirror-sensitivity policies reduce the modeled cost of remaining cold pulls; combining both mechanisms gives the strongest non-oracle result in this synthetic setup.}}{23}{figure.caption.20}\protected@file@percent }
+\newlabel{fig:synthetic-cold-exposure-20runs}{{11}{23}{Mean developer feedback window affected job-minutes by cache policy across 20 synthetic 25{,}000-job replay runs. Prewarming reduces cold-node hits; the mirror-sensitivity policies reduce the modeled cost of remaining cold pulls; combining both mechanisms gives the strongest non-oracle result in this synthetic setup}{figure.caption.20}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Synthetic 20-run usage-only discovery-strategy comparison for top-10 prewarming. Values are means across runs. The results evaluate ranking behavior on generated data and are not production measurements.}}{23}{table.caption.21}\protected@file@percent }
+\newlabel{tab:synthetic-discovery-strategy-results}{{10}{23}{Synthetic 20-run usage-only discovery-strategy comparison for top-10 prewarming. Values are means across runs. The results evaluate ranking behavior on generated data and are not production measurements}{table.caption.21}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Synthetic 20-run oracle-gap discovery comparison for top-10 prewarming. Values are means across runs. The model-aware exposure score substantially closes the gap to the oracle in this generated setup, but the results remain methodology checks rather than production measurements.}}{24}{table.caption.22}\protected@file@percent }
+\newlabel{tab:synthetic-oracle-gap-results}{{11}{24}{Synthetic 20-run oracle-gap discovery comparison for top-10 prewarming. Values are means across runs. The model-aware exposure score substantially closes the gap to the oracle in this generated setup, but the results remain methodology checks rather than production measurements}{table.caption.22}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Mean developer-window affected job-minutes saved by top-10 discovery strategy across 20 synthetic oracle-gap replay runs. Usage-only strategies cluster around 17--19\% developer-window savings. Adding pull-time information improves the ranking, and the model-aware exposure score closes most of the gap to the oracle upper bound.}}{25}{figure.caption.23}\protected@file@percent }
+\newlabel{fig:synthetic-oracle-gap-dev-savings}{{12}{25}{Mean developer-window affected job-minutes saved by top-10 discovery strategy across 20 synthetic oracle-gap replay runs. Usage-only strategies cluster around 17--19\% developer-window savings. Adding pull-time information improves the ranking, and the model-aware exposure score closes most of the gap to the oracle upper bound}{figure.caption.23}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11}Conclusion}{25}{section.11}\protected@file@percent }
+\bibcite{gitlabjobs}{1}
+\bibcite{gitlabpipelines}{2}
+\bibcite{kubernetespods}{3}
+\bibcite{kubernetesnodes}{4}
+\bibcite{kubernetesimages}{5}
+\bibcite{kubeletconfig}{6}
+\bibcite{schedulerconfig}{7}
+\bibcite{kubernetesdaemonset}{8}
+\bibcite{ociimage}{9}
+\bibcite{ociimageconfig}{10}
+\bibcite{ocidistribution}{11}
+\bibcite{containerdcri}{12}
+\bibcite{kubernetesimagepuller}{13}
+\bibcite{kubefledged}{14}
+\bibcite{drop}{15}
+\bibcite{dropdiscovery}{16}
+\bibcite{stargzsnapshotter}{17}
+\bibcite{sociintro}{18}
+\bibcite{socifargate}{19}
+\bibcite{clusterapimachinedeployment}{20}
+\bibcite{prometheusoverview}{21}
+\bibcite{mimiroverview}{22}
+\bibcite{kubestatemetrics}{23}
+\bibcite{kubeletmetrics}{24}
+\bibcite{clusterapioverview}{25}
+\bibcite{clusterapiconcepts}{26}
+\bibcite{spegel}{27}
+\bibcite{spegelarchitecture}{28}
+\gdef \@abspage@last{27}

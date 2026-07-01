@@ -1,14 +1,25 @@
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: e2e-prometheus
+  name: e2e-discovery-prometheus
 spec:
-  sources:
-    - type: prometheus
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
-        query: 'count(container_memory_working_set_bytes{container!="", namespace="build-stuff"}) by (image)'
+        queryType: range
         lookback: 24h
         step: 5m
+        query: 'count(container_memory_working_set_bytes{container!="", namespace="build-stuff"}) by (image)'
+  signals:
+    - name: total-usage
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal: total-usage
   syncInterval: 30s
   maxImages: 10

@@ -1,0 +1,23 @@
+{{- $src := .Destination -}}
+{{- if not (or (hasPrefix $src "http://") (hasPrefix $src "https://") (hasPrefix $src "//") (hasPrefix $src "data:")) -}}
+  {{- if hasPrefix $src "/" -}}
+    {{- $src = (strings.TrimPrefix "/" $src) | relURL -}}
+  {{- else -}}
+    {{- $src = $src | relURL -}}
+  {{- end -}}
+{{- end -}}
+{{- $src = $src | safeURL -}}
+{{- $alt := .PlainText -}}
+{{- $title := .Title -}}
+{{- if .IsBlock -}}
+<figure class="hx-figure">
+  <a href="{{ $src }}" class="hx-zoomable" data-hx-modal-image{{ with $title }} data-caption="{{ . | htmlEscape }}"{{ end }}>
+    <img src="{{ $src }}" {{- with $alt }} alt="{{ . }}"{{ end -}} {{- with $title }} title="{{ . }}"{{ end -}} loading="lazy" decoding="async">
+  </a>
+  {{- with $title }}<figcaption>{{ . }}</figcaption>{{ end -}}
+</figure>
+{{- else -}}
+<a href="{{ $src }}" class="hx-zoomable hx-zoomable-inline" data-hx-modal-image{{ with $title }} data-caption="{{ . | htmlEscape }}"{{ end }}>
+  <img src="{{ $src }}" {{- with $alt }} alt="{{ . }}"{{ end -}} {{- with $title }} title="{{ . }}"{{ end -}} loading="lazy" decoding="async">
+</a>
+{{- end -}}

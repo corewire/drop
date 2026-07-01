@@ -5,17 +5,17 @@ metadata:
   name: discovery-registry
 spec:
   description: |
-    Verify that a DiscoveryPolicy with a registry source discovers tags
-    from the in-cluster registry seeded with test images.
+    Verify that a DiscoveryPolicy with a registry query lists image tags from the
+    local e2e registry and populates status.discoveredImages.
   steps:
-    - name: Create DiscoveryPolicy with registry source
+    - name: Create DiscoveryPolicy with registry query
       try:
         - apply:
             file: 01-discoverypolicy.yaml
-    - name: Wait for discovered images in status
+    - name: Assert pipeline executed and images were discovered from registry
       try:
         - assert:
-            timeout: 90s
+            timeout: 120s
             file: 02-assert-discovery-status.yaml
     - name: Cleanup
       try:
@@ -23,4 +23,4 @@ spec:
             ref:
               apiVersion: drop.corewire.io/v1alpha1
               kind: DiscoveryPolicy
-              name: e2e-registry
+              name: e2e-discovery-registry

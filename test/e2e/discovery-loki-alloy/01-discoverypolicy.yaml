@@ -1,0 +1,31 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-discovery-loki-alloy
+spec:
+  queries:
+    - name: alloy-k8s-events
+      type: loki
+      loki:
+        endpoint: "http://loki.e2e-infra.svc.cluster.local:3100"
+        queryType: range
+        lookback: 24h
+        query: '{drop_e2e="true"} | json | reason="Pulled" | name=~"e2e-alloy-success-pod"'
+        parser:
+          type: kubernetesEvents
+          podField: name
+          reasonField: reason
+          messageField: msg
+          imageField: msg
+  signals:
+    - name: avg-cold-pull-time
+      query: alloy-k8s-events
+      type: eventPullTime
+      eventPullTime:
+        metric: pullTime
+        statistic: avg
+  ranking:
+    strategy: signal
+    signal: avg-cold-pull-time
+  syncInterval: 15s
+  maxImages: 10
