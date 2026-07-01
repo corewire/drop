@@ -56,6 +56,48 @@ startup_delay = container_started - pod_scheduled
 
 as a conservative CI startup-delay proxy. It includes image pull/unpack plus container creation overhead.
 
+## Fetch straight from a live cluster
+
+`fetch_cluster_data.py` builds every input CSV for you from a cluster's
+Prometheus and Loki. You only supply the two endpoints; sensible query defaults
+cover GitLab Kubernetes-executor pods (`pod=~"runner-.*"`).
+
+It assumes:
+
+- Kubernetes events are shipped to Loki by **Grafana Alloy**
+  (`loki.source.kubernetes_events`), so each log line is a JSON event with
+  `reason`, `name`, and `msg` fields. Pull durations and image sizes are parsed
+  from kubelet "Successfully pulled image ..." messages.
+- Per-pod placement and lifecycle come from **kube-state-metrics**
+  (`kube_pod_info`, `kube_pod_container_info`, `kube_pod_created`,
+  `kube_pod_start_time`, `kube_pod_completion_time`).
+
+```bash
+# Port-forward Prometheus and Loki first, then:
+python fetch_cluster_data.py \
+  --prometheus-url http://localhost:9090 \
+  --loki-url       http://localhost:3100 \
+  --lookback 24h \
+  --out data
+
+python evaluate_replay.py --data data --out outputs
+python evaluate_discovery_strategies.py --data data --out outputs/strategy_eval
+```
+
+It writes `images.csv`, `gitlab_runner_jobs.csv`,
+`prometheus_image_samples_5m.csv`, and `kubernetes_events.csv` in the exact
+schema the evaluator expects. Override the queries when your labels differ:
+
+- `--pod-selector` — kube-state-metrics selector for your runner pods.
+- `--loki-query` — LogQL selector for your Alloy event stream.
+- `--usage-query` — PromQL for running-container usage grouped by `image`.
+- `--start` / `--end` — RFC3339 window (defaults to the last `--lookback`).
+- `--token` / `FETCH_TOKEN` — bearer token if the APIs require auth.
+
+The observed pull time each job experienced (`observed_image_wait_seconds`) and
+whether it was a cold hit (`observed_cold_hit`) are derived by joining real Loki
+pull events to each pod, so the observed-impact ranking uses live data.
+
 ## Replay semantics
 
 The replay follows the rolling-concurrency model from the paper:

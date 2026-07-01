@@ -673,9 +673,26 @@ ranking:
 
 Exactly one ranking strategy per policy.
 
+Input to Stage 3 is always:
+1. Candidate image set from Stage 1 queries (`collectImages` from query results).
+2. Per-image signal values from Stage 2 (`signalValues[signalName][image]`).
+3. Ranking config from `spec.ranking`.
+
+Ranking does not fetch new data sources by itself. It only combines values already produced by Stages 1 and 2.
+
 ![Decision map for ranking strategy selection: use signal for one dominant metric, weightedSum for balancing known trade-offs, and modelExposure for minimizing cold-node impact in rotating clusters.](/images/ranking-decision-map.svg)
 
-![The three ranking strategies side by side: signal orders by a single signal, weightedSum blends normalized signals, and modelExposure models post-rotation cold-node exposure.](/images/ranking-strategies.svg)
+![Ranking data flow by strategy: all strategies start from Stage 1 candidate images and Stage 2 signal maps; signal uses one signal key, weightedSum combines multiple normalized signal keys, modelExposure combines target/pre usage plus a pull-time signal and node count.](/images/ranking-strategies.svg)
+
+### Where Ranking Data Comes From
+
+| Strategy | Reads from Stage 1 | Reads from Stage 2 | Extra config input |
+|---|---|---|---|
+| `signal` | Candidate image list | One signal map selected by `ranking.signal` | none |
+| `weightedSum` | Candidate image list | Multiple signal maps listed in `ranking.weightedSum.signals[].name` | Per-signal weights |
+| `modelExposure` | Candidate image list | Three signal maps referenced by `targetSignal`, `preSignal`, `pullTimeSignal` | Node count (`nodes`) |
+
+If a referenced signal name is missing, the image score falls back to `0` for that term (or to default/fallback ordering when no ranking config is usable).
 
 ### `signal`
 

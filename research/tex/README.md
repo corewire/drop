@@ -6,6 +6,7 @@ This folder contains the mathematical model and paper assets used to explain col
 
 - `paper.tex`: primary model/paper source
 - `paper.pdf`: latest rendered paper output
+- `figures-src/`: standalone TikZ figure sources compiled to SVG for docs
 - `generated/`: CSV and table artifacts used by the paper
 - `figures/`: exported figures referenced by the paper
 

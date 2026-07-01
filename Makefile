@@ -158,7 +158,9 @@ docs-images-gen: docs-images-setup ## Generate docs SVG charts from sample data.
 	@cd $(DOCS_IMG_SRC_DIR) && \
 	. .venv/bin/activate && \
 	python signal-eventpulltime.py && \
-	python discovery-charts.py
+	python discovery-charts.py && \
+	python research-doc-assets.py && \
+	python research-tikz-assets.py
 
 .PHONY: static
 static: docs-images-gen ## Generate all maintained static docs graphics.

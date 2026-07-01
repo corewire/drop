@@ -42,9 +42,10 @@ Design specs for a future DiscoveryPolicy UI. All previews use a dry-run API —
 
 ## Architecture
 
-- Previews (query editor, weight sliders) computed via a `/dryrun` endpoint or CLI tool
+- Previews (query editor, weight sliders) computed via `/dry-runs` endpoints or CLI tooling
 - Dry-run takes a `DiscoveryPolicySpec`, runs the pipeline once, returns full result without writing status
 - CR only stores the last committed sync result (slimmed status)
+- If `spec.ranking` is omitted, engine fallback ranks by per-image max raw sample value
 - UI richness comes from dry-run responses, not from bloating the stored status
 
 ## 5. Interactive Policy Builder and Replay Lab
@@ -515,6 +516,17 @@ Use this schema as the generator input contract.
 			"type": "string",
 			"enum": ["signal", "weightedSum", "modelExposure"]
 		},
+		"nodeCountConfig": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"count": { "type": "integer", "minimum": 1 },
+				"selector": {
+					"type": "object",
+					"additionalProperties": true
+				}
+			}
+		},
 		"prometheusQuery": {
 			"type": "object",
 			"required": ["endpoint", "query"],
@@ -725,10 +737,10 @@ Use this schema as the generator input contract.
 				},
 				"modelExposure": {
 					"type": "object",
-					"required": ["nodeCount", "preWindowUsageSignal", "targetWindowUsageSignal", "pullTimeSignal"],
+					"required": ["preWindowUsageSignal", "targetWindowUsageSignal", "pullTimeSignal"],
 					"additionalProperties": false,
 					"properties": {
-						"nodeCount": { "type": "integer", "minimum": 1 },
+						"nodes": { "$ref": "#/$defs/nodeCountConfig" },
 						"preWindowUsageSignal": { "type": "string", "minLength": 1 },
 						"targetWindowUsageSignal": { "type": "string", "minLength": 1 },
 						"pullTimeSignal": { "type": "string", "minLength": 1 }
@@ -815,6 +827,8 @@ Use this schema as the generator input contract.
 ### 9.1 Notes for Generator Authors
 
 - The schema intentionally allows unknown `spec` keys via `additionalProperties: true` to preserve round-trip YAML fields.
+- `modelExposure.nodes.selector` is intentionally open-typed in this schema; pass through the Kubernetes `NodeSelector` object as-is.
+- `modelExposure.nodes.selector` takes precedence over `modelExposure.nodes.count`; `count` is fallback/default `N`.
 - Enforce cross-reference checks in generator/runtime logic:
 	- `signals[].query` must reference an existing `queries[].name`
 	- ranking signal references must point to existing `signals[].name`
@@ -1109,3 +1123,25 @@ spec:
 	]
 }
 ```
+
+### 10.7 Sample ModelExposure Snippet (Latest)
+
+```yaml
+ranking:
+	strategy: modelExposure
+	modelExposure:
+		nodes:
+			count: 8
+			selector:
+				nodeSelectorTerms:
+					- matchExpressions:
+							- key: node-role.kubernetes.io/worker
+								operator: Exists
+		preWindowUsageSignal: usage-pre
+		targetWindowUsageSignal: usage-target
+		pullTimeSignal: pull-time-p95
+```
+
+Behavior:
+- If `nodes.selector` is set, node count is resolved dynamically from Ready nodes matching the selector.
+- If selector resolution fails or selector is unset, `nodes.count` is used as fallback.

@@ -1,20 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" font-family="system-ui, -apple-system, sans-serif" font-size="12">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 474" font-family="system-ui, -apple-system, sans-serif" font-size="12">
   <!-- Background -->
-  <rect width="760" height="420" fill="#fafafa" rx="8"/>
+  <rect width="760" height="474" fill="#fafafa" rx="8"/>
 
   <!-- Title -->
-  <text x="380" y="26" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">Ranking Strategies</text>
-  <text x="380" y="44" text-anchor="middle" font-size="11" fill="#666">How signals are combined into the final ordered image list (one strategy per policy)</text>
+  <text x="380" y="26" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">Stage 3 Ranking: Data Inputs and Strategy</text>
+  <text x="380" y="44" text-anchor="middle" font-size="11" fill="#666">Ranking uses existing Stage 1 and Stage 2 outputs; it does not fetch new data.</text>
+
+  <!-- Common input strip -->
+  <rect x="20" y="56" width="720" height="44" rx="8" fill="#ffffff" stroke="#d0d4dd"/>
+  <text x="40" y="74" font-size="10" font-weight="bold" fill="#1a1a2e">Common inputs to Stage 3:</text>
+  <text x="40" y="90" font-size="10" fill="#444">Stage 1 candidate images (collectImages) + Stage 2 signal maps (signalValues[name][image]) + spec.ranking config</text>
+
+  <line x1="136" y1="100" x2="136" y2="110" stroke="#b2b8c5"/>
+  <line x1="380" y1="100" x2="380" y2="110" stroke="#b2b8c5"/>
+  <line x1="624" y1="100" x2="624" y2="110" stroke="#b2b8c5"/>
 
   <!-- ================= signal ================= -->
-  <g transform="translate(20,66)">
+  <g transform="translate(20,112)">
     <rect x="0" y="0" width="232" height="320" rx="8" fill="#fff" stroke="#d81159" stroke-width="1.5"/>
     <rect x="0" y="0" width="232" height="34" rx="8" fill="#d81159" fill-opacity="0.1"/>
     <text x="116" y="22" text-anchor="middle" font-size="13" font-weight="bold" fill="#d81159">signal</text>
     <text x="116" y="52" text-anchor="middle" font-size="10" fill="#666">Rank directly by one signal.</text>
 
     <!-- single signal bar chart -->
-    <text x="116" y="78" text-anchor="middle" font-size="9" fill="#999">signalRef: total-usage</text>
+    <text x="116" y="78" text-anchor="middle" font-size="9" fill="#999">reads one signal key from signalValues</text>
     <g>
       <rect x="40" y="110" width="34" height="70" rx="3" fill="#d81159" fill-opacity="0.75"/>
       <rect x="98" y="92"  width="34" height="88" rx="3" fill="#d81159" fill-opacity="0.75"/>
@@ -38,11 +47,11 @@
   </g>
 
   <!-- ================= weightedSum ================= -->
-  <g transform="translate(264,66)">
+  <g transform="translate(264,112)">
     <rect x="0" y="0" width="232" height="320" rx="8" fill="#fff" stroke="#d81159" stroke-width="1.5"/>
     <rect x="0" y="0" width="232" height="34" rx="8" fill="#d81159" fill-opacity="0.1"/>
     <text x="116" y="22" text-anchor="middle" font-size="13" font-weight="bold" fill="#d81159">weightedSum</text>
-    <text x="116" y="52" text-anchor="middle" font-size="10" fill="#666">Blend normalized signals.</text>
+    <text x="116" y="52" text-anchor="middle" font-size="10" fill="#666">Blend multiple normalized signal maps.</text>
 
     <!-- formula -->
     <rect x="20" y="64" width="192" height="24" rx="4" fill="#d81159" fill-opacity="0.06"/>
@@ -50,8 +59,8 @@
 
     <!-- two stacked weighted bars -->
     <g>
-      <text x="40" y="106" font-size="9" fill="#7209b7">w=0.7 total-usage</text>
-      <text x="40" y="186" font-size="9" fill="#4361ee">w=0.3 peak-concurrency</text>
+      <text x="40" y="106" font-size="9" fill="#7209b7">signal A from signalValues, w=0.7</text>
+      <text x="40" y="186" font-size="9" fill="#4361ee">signal B from signalValues, w=0.3</text>
 
       <!-- img A -->
       <text x="40" y="124" font-size="9" fill="#666">img A</text>
@@ -79,7 +88,7 @@
   </g>
 
   <!-- ================= modelExposure ================= -->
-  <g transform="translate(508,66)">
+  <g transform="translate(508,112)">
     <rect x="0" y="0" width="232" height="320" rx="8" fill="#fff" stroke="#d81159" stroke-width="1.5"/>
     <rect x="0" y="0" width="232" height="34" rx="8" fill="#d81159" fill-opacity="0.1"/>
     <text x="116" y="22" text-anchor="middle" font-size="13" font-weight="bold" fill="#d81159">modelExposure</text>
@@ -96,7 +105,7 @@
       <rect x="20" y="128" width="192" height="22" rx="4" fill="#4361ee" fill-opacity="0.08"/>
       <text x="30" y="143" fill="#1a1a2e">J_pre — pre-window usage</text>
       <rect x="20" y="156" width="192" height="22" rx="4" fill="#0b7a4b" fill-opacity="0.08"/>
-      <text x="30" y="171" fill="#1a1a2e">p̂ — cold pull time (loki)</text>
+      <text x="30" y="171" fill="#1a1a2e">p̂ — pull-time signal (from Stage 2)</text>
     </g>
     <text x="116" y="196" text-anchor="middle" font-size="8.5" fill="#999">N = nodeCount · favors slow, post-rotation hot images</text>
 
@@ -112,5 +121,5 @@
   </g>
 
   <!-- Footer -->
-  <text x="380" y="406" text-anchor="middle" font-size="10" fill="#999">Top maxImages entries become status.discoveredImages and are materialized as CachedImage resources.</text>
+  <text x="380" y="460" text-anchor="middle" font-size="10" fill="#999">Top maxImages entries become status.discoveredImages and are materialized as CachedImage resources.</text>
 </svg>
