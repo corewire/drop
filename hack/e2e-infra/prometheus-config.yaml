@@ -104,3 +104,47 @@ data:
               namespace: "aggregation-test"
               pod: "init-ddd"
             expr: "500"
+      # Metrics for the modelExposure ranking + dynamic nodeSelector e2e test.
+      # Constant recording rules so that aggregate:max yields exact signal values.
+      # Two images in the modelexposure-test namespace:
+      #   imgA → target=4, pre=1, pull=1
+      #   imgB → target=4, pre=3, pull=1
+      # score(I) = J_target * (1 - 1/N)^J_pre * p_hat, with N = Ready worker nodes.
+      # On the kind cluster N=2 (control-plane excluded via nodeSelector), so:
+      #   imgA = 4 * 0.5^1 * 1 = 2     (rank 1)
+      #   imgB = 4 * 0.5^3 * 1 = 0.5   (rank 2)
+      # The exact finalScore values only hold when N=2, proving the dynamic
+      # nodeSelector count took effect (N=3 or N=1 would change them).
+      - name: seed_modelexposure_metrics
+        interval: 10s
+        rules:
+          - record: me_target_usage
+            labels:
+              image: "docker.io/library/nginx:1.25-alpine"
+              namespace: "modelexposure-test"
+            expr: "4"
+          - record: me_pre_usage
+            labels:
+              image: "docker.io/library/nginx:1.25-alpine"
+              namespace: "modelexposure-test"
+            expr: "1"
+          - record: me_pull_seconds
+            labels:
+              image: "docker.io/library/nginx:1.25-alpine"
+              namespace: "modelexposure-test"
+            expr: "1"
+          - record: me_target_usage
+            labels:
+              image: "docker.io/library/redis:7-alpine"
+              namespace: "modelexposure-test"
+            expr: "4"
+          - record: me_pre_usage
+            labels:
+              image: "docker.io/library/redis:7-alpine"
+              namespace: "modelexposure-test"
+            expr: "3"
+          - record: me_pull_seconds
+            labels:
+              image: "docker.io/library/redis:7-alpine"
+              namespace: "modelexposure-test"
+            expr: "1"

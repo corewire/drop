@@ -3,10 +3,20 @@ kind: DiscoveryPolicy
 metadata:
   name: test-broken-prom
 spec:
-  sources:
-    - type: prometheus
+  queries:
+    - name: broken-query
+      type: prometheus
       prometheus:
         endpoint: "http://nonexistent-prometheus:9090"
         query: "up{}"
+  signals:
+    - name: total-usage
+      query: broken-query
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal: total-usage
   syncInterval: 30m
   maxImages: 10

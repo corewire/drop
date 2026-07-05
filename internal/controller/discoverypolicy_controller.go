@@ -10,13 +10,8 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
-	"net"
 	"net/http"
-	"net/url"
-	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -26,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -45,14 +41,16 @@ type DiscoveryPolicyReconciler struct {
 const (
 	reasonDNSError          = "DNSError"
 	reasonConnectionRefused = "ConnectionRefused"
+	secretHeaderPrefix      = "headers."
 )
 
 // +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=drop.corewire.io,resources=discoverypolicies/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
-// Reconcile queries discovery sources and updates the DiscoveryPolicy status.
+// Reconcile executes the query/signal/ranking pipeline for a DiscoveryPolicy and updates status.
 func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 
@@ -65,215 +63,193 @@ func (r *DiscoveryPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	// 2. Query each source
+	log.Info("reconciling DiscoveryPolicy",
+		"queries", len(dp.Spec.Queries),
+		"signals", len(dp.Spec.Signals),
+	)
+
+	// 2. Execute pipeline
+	// Resolve dynamic node count (modelExposure nodeSelector) into a spec copy so
+	// the pure pipeline sees a concrete N. The live object is never mutated.
+	spec := dp.Spec.DeepCopy()
+	if err := r.resolveDynamicNodeCount(ctx, spec); err != nil {
+		log.Error(err, "resolving dynamic node count; falling back to static nodeCount")
+	}
+	httpClientFunc := r.buildHTTPClientFunc(dp)
+	result := discovery.ExecutePipeline(ctx, *spec, httpClientFunc)
+
+	// 3. Build status patch
 	patch := client.MergeFrom(dp.DeepCopy())
-	var allResults []discovery.ImageResult
-	allSourcesHealthy := true
-	var lastFailReason, lastFailMessage string
-
-	for i, src := range dp.Spec.Sources {
-		source, err := r.buildSource(ctx, src)
-		if err != nil {
-			log.Error(err, "building source", "index", i, "type", src.Type)
-			allSourcesHealthy = false
-			lastFailReason, lastFailMessage = classifyError(err)
-			dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(0)
-			continue
-		}
-
-		start := time.Now()
-		results, err := source.Fetch(ctx)
-		elapsed := time.Since(start).Seconds()
-		dropmetrics.DiscoverySourceLatencySeconds.WithLabelValues(dp.Name, src.Type).Observe(elapsed)
-
-		if err != nil {
-			log.Error(err, "fetching from source", "index", i, "type", src.Type)
-			allSourcesHealthy = false
-			lastFailReason, lastFailMessage = classifyError(err)
-			dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(0)
-			continue
-		}
-
-		dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, src.Type, sourceEndpoint(src)).Set(1)
-
-		// Tag results with source type
-		for j := range results {
-			results[j] = discovery.ImageResult{
-				Image: results[j].Image,
-				Score: results[j].Score,
-			}
-		}
-		dropmetrics.DiscoveryImagesFound.WithLabelValues(dp.Name, src.Type).Set(float64(len(results)))
-		allResults = append(allResults, results...)
-	}
-
-	// 3. Merge results (deduplicate by image, keep highest score)
-	merged := deduplicateResults(allResults)
-
-	// 4. Apply image filter
-	if dp.Spec.ImageFilter != "" {
-		re, err := regexp.Compile(dp.Spec.ImageFilter)
-		if err != nil {
-			log.Error(err, "compiling image filter regex")
-		} else {
-			var filtered []discovery.ImageResult
-			for _, r := range merged {
-				if re.MatchString(r.Image) {
-					filtered = append(filtered, r)
-				}
-			}
-			merged = filtered
-		}
-	}
-
-	// 5. Sort by score descending, truncate to maxImages
-	sort.Slice(merged, func(i, j int) bool {
-		if merged[i].Score != merged[j].Score {
-			return merged[i].Score > merged[j].Score
-		}
-		return merged[i].Image < merged[j].Image
-	})
-
-	maxImages := dp.Spec.MaxImages
-	if maxImages <= 0 {
-		maxImages = 50
-	}
-	if int32(len(merged)) > maxImages {
-		merged = merged[:maxImages]
-	}
-
-	// 6. Write status
-	// On total failure and previous results exist, keep last good results
-	if len(merged) == 0 && !allSourcesHealthy && len(dp.Status.DiscoveredImages) > 0 {
-		log.Info("all sources failed, keeping previous discovery results")
-	} else {
-		discoveredImages := make([]dropv1alpha1.DiscoveredImage, 0, len(merged))
-		for _, r := range merged {
-			discoveredImages = append(discoveredImages, dropv1alpha1.DiscoveredImage{
-				Image:  r.Image,
-				Score:  r.Score,
-				Source: "discovery",
-			})
-		}
-		dp.Status.DiscoveredImages = discoveredImages
-	}
-
 	now := metav1.Now()
-	if allSourcesHealthy || len(merged) > 0 {
-		dp.Status.LastSyncTime = &now
+
+	dp.Status.LastSyncTime = &now
+	dp.Status.QueryResults = result.QueryResults
+	dp.Status.DiscoveredImages = result.Images
+	dp.Status.ImageCount = int32(len(result.Images))
+
+	// Determine overall health from query results
+	allHealthy, failReason, failMsg := summarizeQueryResults(result.QueryResults)
+
+	// Emit per-query metrics
+	for _, qr := range result.QueryResults {
+		healthy := float64(0)
+		if qr.Status == dropv1alpha1.QueryResultStatusSuccess {
+			healthy = 1
+		}
+		dropmetrics.DiscoverySourceHealth.WithLabelValues(dp.Name, string(qr.Type), qr.Name).Set(healthy)
 	}
 
-	// 7. Set conditions
-	sourceCondition := metav1.Condition{
-		Type:               "SourceHealthy",
-		ObservedGeneration: dp.Generation,
-		LastTransitionTime: now,
-	}
-	if allSourcesHealthy {
-		sourceCondition.Status = metav1.ConditionTrue
-		sourceCondition.Reason = "AllSourcesHealthy"
-		sourceCondition.Message = "All discovery sources responded successfully"
-	} else {
-		sourceCondition.Status = metav1.ConditionFalse
-		sourceCondition.Reason = "SourceError"
-		sourceCondition.Message = "One or more sources failed to respond"
-	}
-	meta.SetStatusCondition(&dp.Status.Conditions, sourceCondition)
-
+	// 4. Set Ready condition
 	readyCondition := metav1.Condition{
 		Type:               conditionTypeReady,
 		ObservedGeneration: dp.Generation,
 		LastTransitionTime: now,
 	}
-	if allSourcesHealthy {
+	if allHealthy || len(result.Images) > 0 {
 		readyCondition.Status = metav1.ConditionTrue
 		readyCondition.Reason = "Synced"
-		readyCondition.Message = fmt.Sprintf("Discovered %d images", len(dp.Status.DiscoveredImages))
-	} else if len(dp.Status.DiscoveredImages) > 0 {
-		readyCondition.Status = metav1.ConditionTrue
-		readyCondition.Reason = "PartiallyFailed"
-		readyCondition.Message = fmt.Sprintf("Discovered %d images, but some sources failed: %s", len(dp.Status.DiscoveredImages), lastFailMessage)
+		readyCondition.Message = fmt.Sprintf("Pipeline executed successfully; %d images discovered.", len(result.Images))
 	} else {
 		readyCondition.Status = metav1.ConditionFalse
-		readyCondition.Reason = lastFailReason
-		if lastFailReason == "" {
-			readyCondition.Reason = "SyncFailed"
-		}
-		if lastFailMessage != "" {
-			readyCondition.Message = lastFailMessage
-		} else {
-			readyCondition.Message = "All sources failed, no images discovered"
-		}
+		readyCondition.Reason = failReason
+		readyCondition.Message = failMsg
 	}
 	meta.SetStatusCondition(&dp.Status.Conditions, readyCondition)
-
-	// Set scalar counts for printer columns
-	dp.Status.SourceCount = int32(len(dp.Spec.Sources))
-	dp.Status.ImageCount = int32(len(dp.Status.DiscoveredImages))
 
 	if err := r.Status().Patch(ctx, dp, patch); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patching status: %w", err)
 	}
 
-	// 8. Requeue after sync interval
+	// 5. Requeue after sync interval
 	syncInterval := dp.Spec.SyncInterval.Duration
 	if syncInterval == 0 {
 		syncInterval = 30 * time.Minute
 	}
 
-	// If sources failed, return error → controller-runtime rate limiter
-	// applies exponential backoff (standard k8s pattern).
-	if !allSourcesHealthy && len(dp.Status.DiscoveredImages) == 0 {
-		return ctrl.Result{}, fmt.Errorf("discovery sync failed: %s", lastFailMessage)
+	// Return an error to trigger rate-limited backoff when all queries failed and no images available.
+	if !allHealthy && len(result.Images) == 0 {
+		return ctrl.Result{}, fmt.Errorf("discovery sync failed: %s", failMsg)
 	}
 
 	return ctrl.Result{RequeueAfter: syncInterval}, nil
 }
 
-// buildSource creates the appropriate Source implementation from a DiscoverySource config.
-func (r *DiscoveryPolicyReconciler) buildSource(ctx context.Context, src dropv1alpha1.DiscoverySource) (discovery.Source, error) {
-	httpClient, err := r.buildHTTPClient(ctx, src.SecretRef)
-	if err != nil {
-		return nil, fmt.Errorf("building HTTP client: %w", err)
+// buildHTTPClientFunc returns a discovery.HTTPClientFunc that provides per-query auth/TLS clients.
+func (r *DiscoveryPolicyReconciler) buildHTTPClientFunc(dp *dropv1alpha1.DiscoveryPolicy) discovery.HTTPClientFunc {
+	// Build a name → secretRef index for quick lookup
+	secretIndex := make(map[string]*corev1.LocalObjectReference, len(dp.Spec.Queries))
+	for _, q := range dp.Spec.Queries {
+		if q.SecretRef != nil {
+			secretIndex[q.Name] = q.SecretRef
+		}
 	}
 
-	switch src.Type {
-	case "prometheus":
-		if src.Prometheus == nil {
-			return nil, fmt.Errorf("prometheus config is required when type=prometheus")
+	return func(innerCtx context.Context, queryName string) (*http.Client, error) {
+		secretRef, hasSecret := secretIndex[queryName]
+		if !hasSecret {
+			return &http.Client{Timeout: 30 * time.Second}, nil
 		}
-		var lookback time.Duration
-		if src.Prometheus.Lookback != nil {
-			lookback = src.Prometheus.Lookback.Duration
+		return r.buildHTTPClient(innerCtx, secretRef)
+	}
+}
+
+// resolveDynamicNodeCount counts Ready nodes matching the modelExposure node selector
+// (if configured) and writes the result into spec.Ranking.ModelExposure.Nodes.Count.
+// spec must be a deep copy — the live DiscoveryPolicy object is never mutated.
+// When the selector is unset, the static count is left untouched.
+func (r *DiscoveryPolicyReconciler) resolveDynamicNodeCount(ctx context.Context, spec *dropv1alpha1.DiscoveryPolicySpec) error {
+	if spec.Ranking == nil || spec.Ranking.ModelExposure == nil {
+		return nil
+	}
+	nodes := spec.Ranking.ModelExposure.Nodes
+	if nodes == nil || nodes.Selector == nil {
+		return nil
+	}
+
+	// Use the scheduler's own matcher so matchExpressions (labels) and matchFields
+	// (e.g. metadata.name) are evaluated exactly as node affinity would.
+	matcher, err := nodeaffinity.NewNodeSelector(nodes.Selector)
+	if err != nil {
+		return fmt.Errorf("invalid node selector: %w", err)
+	}
+
+	nodeList := &corev1.NodeList{}
+	if err := r.List(ctx, nodeList); err != nil {
+		return fmt.Errorf("listing nodes: %w", err)
+	}
+
+	count := int32(0)
+	for i := range nodeList.Items {
+		node := &nodeList.Items[i]
+		if isNodeReady(node) && matcher.Match(node) {
+			count++
 		}
-		var step time.Duration
-		if src.Prometheus.Step != nil {
-			step = src.Prometheus.Step.Duration
+	}
+	nodes.Count = &count
+	return nil
+}
+
+// isNodeReady reports whether a node has a Ready condition set to True.
+func isNodeReady(node *corev1.Node) bool {
+	for _, c := range node.Status.Conditions {
+		if c.Type == corev1.NodeReady {
+			return c.Status == corev1.ConditionTrue
 		}
-		return discovery.NewPrometheusSource(src.Prometheus.Endpoint, src.Prometheus.Query, src.Prometheus.QueryType, lookback, src.Prometheus.AggregationMethod, step, httpClient), nil
-	case "registry":
-		if src.Registry == nil {
-			return nil, fmt.Errorf("registry config is required when type=registry")
+	}
+	return false
+}
+
+// summarizeQueryResults determines overall health and a human-readable reason/message.
+func summarizeQueryResults(qrs []dropv1alpha1.QueryResult) (allHealthy bool, reason, message string) {
+	if len(qrs) == 0 {
+		return true, "Synced", "No queries configured."
+	}
+
+	var failures []string
+	for _, qr := range qrs {
+		if qr.Status != dropv1alpha1.QueryResultStatusSuccess {
+			failures = append(failures, fmt.Sprintf("%s: %s", qr.Name, qr.Message))
 		}
-		return discovery.NewRegistrySource(
-			src.Registry.URL,
-			src.Registry.Repositories,
-			src.Registry.TagFilter,
-			src.Registry.TopX,
-			src.Registry.ImageTemplate,
-			httpClient,
-		), nil
+	}
+
+	if len(failures) == 0 {
+		return true, "Synced", ""
+	}
+
+	// Classify the first failure for the Reason field
+	reason = classifyReason(failures[0])
+	message = strings.Join(failures, "; ")
+	return false, reason, message
+}
+
+// classifyReason maps a failure message to a k8s-style reason string.
+func classifyReason(msg string) string {
+	switch {
+	case strings.Contains(msg, "no such host") || strings.Contains(msg, "server misbehaving") || strings.Contains(msg, "lookup"):
+		return reasonDNSError
+	case strings.Contains(msg, "connection refused"):
+		return reasonConnectionRefused
+	case strings.Contains(msg, "timeout") || strings.Contains(msg, "deadline exceeded"):
+		return "Timeout"
+	case strings.Contains(msg, "401") || strings.Contains(msg, "Unauthorized"):
+		return "Unauthorized"
+	case strings.Contains(msg, "403") || strings.Contains(msg, "Forbidden"):
+		return "Forbidden"
+	case strings.Contains(msg, "404") || strings.Contains(msg, "NotFound"):
+		return "NotFound"
+	case strings.Contains(msg, "certificate") || strings.Contains(msg, "x509"):
+		return "TLSError"
 	default:
-		return nil, fmt.Errorf("unsupported source type: %s", src.Type)
+		return "SyncFailed"
 	}
 }
 
 // buildHTTPClient creates an HTTP client with auth/TLS from a Secret.
 func (r *DiscoveryPolicyReconciler) buildHTTPClient(ctx context.Context, secretRef *corev1.LocalObjectReference) (*http.Client, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
+	httpClient := &http.Client{Timeout: 30 * time.Second}
 
 	if secretRef == nil {
-		return client, nil
+		return httpClient, nil
 	}
 
 	secret := &corev1.Secret{}
@@ -313,8 +289,8 @@ func (r *DiscoveryPolicyReconciler) buildHTTPClient(ctx context.Context, secretR
 		transport.base = &http.Transport{TLSClientConfig: tlsConfig}
 	}
 
-	client.Transport = transport
-	return client, nil
+	httpClient.Transport = transport
+	return httpClient, nil
 }
 
 // authTransport adds authentication headers from a Secret to HTTP requests.
@@ -324,7 +300,7 @@ type authTransport struct {
 }
 
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Bearer token auth
+	// ****** auth
 	if token, ok := t.secret.Data["token"]; ok {
 		req.Header.Set("Authorization", "Bearer "+string(token))
 	}
@@ -338,33 +314,13 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Custom headers (headers.<name>)
 	for key, value := range t.secret.Data {
-		if len(key) > 8 && key[:8] == "headers." {
-			headerName := key[8:]
+		if strings.HasPrefix(key, secretHeaderPrefix) {
+			headerName := key[len(secretHeaderPrefix):]
 			req.Header.Set(headerName, string(value))
 		}
 	}
 
 	return t.base.RoundTrip(req)
-}
-
-// deduplicateResults merges results, keeping the highest score per image.
-func deduplicateResults(results []discovery.ImageResult) []discovery.ImageResult {
-	seen := make(map[string]discovery.ImageResult, len(results))
-	for _, r := range results {
-		if existing, ok := seen[r.Image]; ok {
-			if r.Score > existing.Score {
-				seen[r.Image] = r
-			}
-		} else {
-			seen[r.Image] = r
-		}
-	}
-
-	deduplicated := make([]discovery.ImageResult, 0, len(seen))
-	for _, r := range seen {
-		deduplicated = append(deduplicated, r)
-	}
-	return deduplicated
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -373,137 +329,4 @@ func (r *DiscoveryPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&dropv1alpha1.DiscoveryPolicy{}).
 		Named("discoverypolicy").
 		Complete(r)
-}
-
-// sourceEndpoint returns the endpoint URL for a discovery source (for metric labels).
-func sourceEndpoint(src dropv1alpha1.DiscoverySource) string {
-	switch src.Type {
-	case "prometheus":
-		if src.Prometheus != nil {
-			return src.Prometheus.Endpoint
-		}
-	case "registry":
-		if src.Registry != nil {
-			return src.Registry.URL
-		}
-	}
-	return "unknown"
-}
-
-// classifyError maps a source fetch error into a k8s-style reason and human-readable message.
-func classifyError(err error) (reason, message string) {
-	if err == nil {
-		return "", ""
-	}
-
-	errStr := err.Error()
-
-	// Network-level errors (typed)
-	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Timeout() {
-		return "Timeout", cleanMessage(errStr)
-	}
-
-	var dnsErr *net.DNSError
-	if errors.As(err, &dnsErr) {
-		return reasonDNSError, fmt.Sprintf("cannot resolve host %q", dnsErr.Name)
-	}
-
-	var opErr *net.OpError
-	if errors.As(err, &opErr) {
-		if opErr.Op == "dial" {
-			// Check if the underlying error is DNS
-			if strings.Contains(opErr.Err.Error(), "lookup") || strings.Contains(opErr.Err.Error(), "no such host") || strings.Contains(opErr.Err.Error(), "server misbehaving") {
-				host := extractHost(errStr)
-				return reasonDNSError, fmt.Sprintf("cannot resolve host %q", host)
-			}
-			host := extractHost(errStr)
-			return reasonConnectionRefused, fmt.Sprintf("cannot connect to %s", host)
-		}
-	}
-
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
-		inner := urlErr.Err.Error()
-		if strings.Contains(inner, "no such host") || strings.Contains(inner, "server misbehaving") || strings.Contains(inner, "lookup") {
-			host := extractHost(errStr)
-			return reasonDNSError, fmt.Sprintf("cannot resolve host %q", host)
-		}
-		if strings.Contains(inner, "connection refused") {
-			host := extractHost(errStr)
-			return reasonConnectionRefused, fmt.Sprintf("cannot connect to %s", host)
-		}
-	}
-
-	// HTTP status-based errors
-	if strings.Contains(errStr, "status 401") {
-		return "Unauthorized", cleanMessage(errStr)
-	}
-	if strings.Contains(errStr, "status 403") {
-		return "Forbidden", cleanMessage(errStr)
-	}
-	if strings.Contains(errStr, "status 404") {
-		return "NotFound", cleanMessage(errStr)
-	}
-	if strings.Contains(errStr, "status 5") {
-		return "ServerError", cleanMessage(errStr)
-	}
-
-	// String-based fallbacks
-	if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "server misbehaving") {
-		host := extractHost(errStr)
-		return reasonDNSError, fmt.Sprintf("cannot resolve host %q", host)
-	}
-	if strings.Contains(errStr, "connection refused") {
-		host := extractHost(errStr)
-		return reasonConnectionRefused, fmt.Sprintf("cannot connect to %s", host)
-	}
-	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "deadline exceeded") {
-		return "Timeout", cleanMessage(errStr)
-	}
-	if strings.Contains(errStr, "certificate") || strings.Contains(errStr, "x509") {
-		return "TLSError", cleanMessage(errStr)
-	}
-	if strings.Contains(errStr, "decoding") || strings.Contains(errStr, "unmarshal") || strings.Contains(errStr, "invalid") {
-		return "InvalidResponse", cleanMessage(errStr)
-	}
-
-	return "SyncFailed", cleanMessage(errStr)
-}
-
-// extractHost pulls the hostname (or host:port) from a Go error string like
-// "... lookup nonexistent-prometheus on 10.96.0.10:53 ..." or
-// "... dial tcp nonexistent-registry:5000 ..."
-func extractHost(errStr string) string {
-	// Try "lookup <host> on" pattern (DNS errors)
-	if idx := strings.Index(errStr, "lookup "); idx != -1 {
-		rest := errStr[idx+len("lookup "):]
-		if end := strings.IndexAny(rest, " :"); end != -1 {
-			return rest[:end]
-		}
-		return rest
-	}
-	// Try to extract from URL pattern "://<host>..."
-	if idx := strings.Index(errStr, "://"); idx != -1 {
-		rest := errStr[idx+3:]
-		if end := strings.IndexAny(rest, "/?"); end != -1 {
-			return rest[:end]
-		}
-		return rest
-	}
-	return "unknown"
-}
-
-// cleanMessage truncates verbose Go error chains for human display.
-func cleanMessage(errStr string) string {
-	// Take the last meaningful segment after the last colon-space
-	parts := strings.Split(errStr, ": ")
-	if len(parts) > 2 {
-		// Keep last 2 segments for context
-		return strings.Join(parts[len(parts)-2:], ": ")
-	}
-	if len(errStr) > 120 {
-		return errStr[:120] + "..."
-	}
-	return errStr
 }

@@ -2,3 +2,123 @@
 {{- with .OutputFormats.Get "markdown" -}}
 <link href="{{ .Permalink }}" rel="alternate" type="text/markdown" title="{{ $.Title }}" />
 {{- end -}}
+
+<style>
+	.content figure.hx-figure {
+		margin: 1.25rem 0;
+	}
+
+	.content figure.hx-figure > a.hx-zoomable {
+		display: block;
+		width: 100%;
+	}
+
+	.content figure.hx-figure img {
+		width: 100%;
+		max-width: 1200px;
+		margin: 0 auto;
+		border-radius: 0.5rem;
+		cursor: zoom-in;
+	}
+
+	.content a.hx-zoomable-inline img {
+		cursor: zoom-in;
+	}
+
+	dialog.hx-image-modal {
+		width: min(96vw, 1500px);
+		max-height: 94vh;
+		border: 0;
+		border-radius: 0.75rem;
+		padding: 0.75rem;
+		background: #0f1115;
+		color: #f3f4f6;
+	}
+
+	dialog.hx-image-modal::backdrop {
+		background: rgba(10, 12, 16, 0.8);
+	}
+
+	.hx-image-modal-inner {
+		display: grid;
+		gap: 0.5rem;
+		align-items: start;
+	}
+
+	.hx-image-modal img {
+		width: 100%;
+		max-height: calc(94vh - 4rem);
+		object-fit: contain;
+		border-radius: 0.5rem;
+		background: #ffffff;
+	}
+
+	.hx-image-modal-caption {
+		font-size: 0.9rem;
+		color: #d1d5db;
+	}
+
+	.hx-image-modal-close {
+		justify-self: end;
+		border: 1px solid #4b5563;
+		background: #111827;
+		color: #f9fafb;
+		border-radius: 0.375rem;
+		padding: 0.35rem 0.6rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+</style>
+
+<script>
+	document.addEventListener("DOMContentLoaded", function () {
+		var triggers = document.querySelectorAll("[data-hx-modal-image]");
+		if (!triggers.length) {
+			return;
+		}
+
+		var dialog = document.createElement("dialog");
+		dialog.className = "hx-image-modal";
+		dialog.innerHTML = ""
+			+ '<div class="hx-image-modal-inner">'
+			+ '  <button type="button" class="hx-image-modal-close" aria-label="Close image">Close</button>'
+			+ '  <img alt="Expanded image">'
+			+ '  <div class="hx-image-modal-caption" aria-live="polite"></div>'
+			+ '</div>';
+		document.body.appendChild(dialog);
+
+		var closeBtn = dialog.querySelector(".hx-image-modal-close");
+		var modalImg = dialog.querySelector("img");
+		var caption = dialog.querySelector(".hx-image-modal-caption");
+
+		closeBtn.addEventListener("click", function () {
+			dialog.close();
+		});
+
+		dialog.addEventListener("click", function (event) {
+			var rect = dialog.getBoundingClientRect();
+			var inDialog =
+				rect.top <= event.clientY &&
+				event.clientY <= rect.top + rect.height &&
+				rect.left <= event.clientX &&
+				event.clientX <= rect.left + rect.width;
+			if (!inDialog) {
+				dialog.close();
+			}
+		});
+
+		triggers.forEach(function (trigger) {
+			trigger.addEventListener("click", function (event) {
+				event.preventDefault();
+				var img = trigger.querySelector("img");
+				if (!img) {
+					return;
+				}
+				modalImg.src = img.currentSrc || img.src;
+				modalImg.alt = img.alt || "Expanded image";
+				caption.textContent = trigger.getAttribute("data-caption") || img.alt || "";
+				dialog.showModal();
+			});
+		});
+	});
+</script>

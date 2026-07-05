@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: discovery-modelexposure
+spec:
+  description: |
+    Verify the modelExposure ranking strategy with a DYNAMIC node count.
+    The DiscoveryPolicy uses nodes.selector (control-plane excluded) so the
+    operator counts Ready worker nodes via the Kubernetes API at sync time
+    (N=2 on the kind cluster). The asserted finalScore values only hold when
+    N=2, proving the dynamic node-count resolution took effect rather than the
+    static nodes.count fallback.
+  steps:
+    - name: Create DiscoveryPolicy with modelExposure + dynamic node selector
+      try:
+        - apply:
+            file: 01-discoverypolicy.yaml
+    - name: Assert ranking used the dynamic node count (N=2)
+      try:
+        - assert:
+            timeout: 120s
+            file: 02-assert-discovery-status.yaml
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: DiscoveryPolicy
+              name: e2e-discovery-modelexposure

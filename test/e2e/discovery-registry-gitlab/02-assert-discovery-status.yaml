@@ -1,0 +1,21 @@
+# Assert the GitLab runner helper registry query ranks tags version-aware:
+# - Ready=True / Synced
+# - Exactly 2 images kept (topX=2), excluding -latest and the arm flavor
+# - rank 1 is x86_64-v19.0.0 (newest)
+# - rank 2 is x86_64-v18.10.0, proving 18.10.0 > 18.5.0 (version-aware, not lexical)
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-discovery-registry-gitlab-helper
+status:
+  (conditions[?type == 'Ready']):
+    - status: "True"
+      reason: Synced
+  imageCount: 2
+  # Plain structural array assertion: chainsaw matches elements positionally,
+  # so this proves the order (rank 1 newest first) without fragile JMESPath.
+  discoveredImages:
+    - image: registry.e2e-infra.svc.cluster.local:5000/test/gitlab-runner-helper:x86_64-v19.0.0
+      rank: 1
+    - image: registry.e2e-infra.svc.cluster.local:5000/test/gitlab-runner-helper:x86_64-v18.10.0
+      rank: 2

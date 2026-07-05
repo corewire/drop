@@ -33,4 +33,5 @@ Drop pre-caches images *before* workloads need them, paces pulls to stay within 
 | [Monitoring](monitoring/) | Prometheus metrics, events, status conditions |
 | [Reference](reference/) | CRD field reference, errors, metrics, architecture |
 | [Developing](developing/) | Build, test, lint, project structure |
+| [Research](research/) | Research paper, benchmark model summaries, and figures |
 | [For AI Agents](for-ai-agents/) | llms.txt, Markdown API, generation architecture |

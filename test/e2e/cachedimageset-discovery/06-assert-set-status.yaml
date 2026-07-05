@@ -1,8 +1,0 @@
-# Assert CachedImageSet shows healthy status
-apiVersion: drop.corewire.io/v1alpha1
-kind: CachedImageSet
-metadata:
-  name: test-discovered-set
-status:
-  (conditions[?type == 'Ready']):
-    - status: "True"

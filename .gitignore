@@ -43,3 +43,16 @@ docs/.hugo_build.lock
 # Generated CRD chart templates (produced by make sync-crds in CI)
 charts/drop-crds/templates/drop.corewire.io_*.yaml
 charts/drop/templates/crds-drop.corewire.io_*.yaml
+
+# Imported research archives (always unpack; never commit zip bundles)
+research/**/*.zip
+
+# Python cache artifacts
+__pycache__/
+*.pyc
+
+# Local Python virtual environments
+.venv/
+
+# Local docs image generation workspace artifacts
+docs/static/images/src/usr/

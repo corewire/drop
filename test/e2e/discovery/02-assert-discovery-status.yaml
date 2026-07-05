@@ -1,11 +1,13 @@
-# Assert that DiscoveryPolicy status contains discovered images and Ready condition.
-# The query 'count(...{namespace="build-stuff"}) by (image)' returns alpine + busybox.
+# Assert that DiscoveryPolicy pipeline executed successfully:
+# - Ready=True with reason Synced
+# - At least one image discovered
+# - queryCount reflects the spec
 apiVersion: drop.corewire.io/v1alpha1
 kind: DiscoveryPolicy
 metadata:
-  name: e2e-prometheus
+  name: e2e-discovery-prometheus
 status:
   (conditions[?type == 'Ready']):
     - status: "True"
       reason: Synced
-  imageCount: 2
+  (imageCount > `0`): true

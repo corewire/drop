@@ -20,9 +20,6 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].reason
       name: Status
       type: string
-    - jsonPath: .status.sourceCount
-      name: Sources
-      type: integer
     - jsonPath: .status.imageCount
       name: Images
       type: integer
@@ -76,29 +73,88 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
-              sources:
-                description: |-
-                  Sources is the list of discovery backends to query. At least one source is required.
-                  Multiple sources are merged and ranked together before maxImages is applied.
+              queries:
+                description: Queries is the list of named raw-data sources. Each query
+                  is referenced by name from signals.
                 items:
-                  description: DiscoverySource defines a single discovery backend.
+                  description: DiscoveryQuery defines a named raw-data source referenced
+                    by signals.
                   properties:
+                    loki:
+                      description: Loki contains the configuration when type=loki.
+                      properties:
+                        endpoint:
+                          description: |-
+                            Endpoint is the Loki API URL.
+                            Example: "https://loki.example.com"
+                          minLength: 1
+                          type: string
+                        lookback:
+                          description: |-
+                            Lookback is the time window for the query (start=now-lookback, end=now).
+                            Example: "168h" (7 days), "24h"
+                          type: string
+                        parser:
+                          description: Parser configures how log lines are parsed
+                            into structured event records.
+                          properties:
+                            imageField:
+                              description: |-
+                                ImageField is the log label or field from which the image reference is extracted.
+                                For kubernetesEvents, the image is parsed out of the message text.
+                                Example: "message"
+                              type: string
+                            messageField:
+                              description: |-
+                                MessageField is the log label or field that contains the event message.
+                                Example: "message"
+                              type: string
+                            podField:
+                              description: |-
+                                PodField is the log label or field that contains the pod name.
+                                Example: "involvedObject_name"
+                              type: string
+                            reasonField:
+                              description: |-
+                                ReasonField is the log label or field that contains the event reason.
+                                Example: "reason"
+                              type: string
+                            type:
+                              allOf:
+                              - enum:
+                                - kubernetesEvents
+                              - enum:
+                                - kubernetesEvents
+                              description: Type selects the parser. Currently only
+                                "kubernetesEvents" is supported.
+                              type: string
+                          required:
+                          - type
+                          type: object
+                        query:
+                          description: Query is the LogQL expression.
+                          minLength: 1
+                          type: string
+                        queryType:
+                          default: range
+                          description: QueryType controls how the query is executed.
+                            Currently only "range" is supported.
+                          enum:
+                          - range
+                          type: string
+                      required:
+                      - endpoint
+                      - query
+                      type: object
+                    name:
+                      description: |-
+                        Name is the unique identifier for this query within the policy.
+                        Signals reference queries by this name via query.
+                      minLength: 1
+                      type: string
                     prometheus:
                       description: Prometheus contains the configuration when type=prometheus.
                       properties:
-                        aggregationMethod:
-                          description: |-
-                            AggregationMethod controls how data points from a range query are combined into a single score.
-                            Only used when queryType is "range". Ignored for instant queries.
-                            When not set (nil), Drop uses the last data-point value directly — use this when your PromQL
-                            already contains aggregation functions (e.g., count_over_time, topk).
-                            Options: "sum", "count", "avg", "max"
-                          enum:
-                          - sum
-                          - count
-                          - avg
-                          - max
-                          type: string
                         endpoint:
                           description: |-
                             Endpoint is the Prometheus-compatible API URL (Prometheus, Thanos, Mimir, VictoriaMetrics).
@@ -107,35 +163,28 @@ spec:
                           type: string
                         lookback:
                           description: |-
-                            Lookback is the time window for range queries. When queryType is "range",
-                            the operator queries (start=now-lookback, end=now) and aggregates all returned values per image.
-                            The aggregation function is controlled by the aggregationMethod field.
+                            Lookback is the time window for range queries (start=now-lookback, end=now).
                             Required when queryType is "range". Ignored when queryType is "instant".
                             Example: "168h" (7 days), "24h", "72h"
                           type: string
                         query:
                           description: |-
-                            Query is the PromQL expression. It MUST return results with an "image" label —
-                            that label value is used as the discovered image reference.
-                            The query result value is used as the ranking score (higher = more relevant).
-                            Example: count(container_memory_working_set_bytes{container!="",container!="POD",namespace="gitlab-runner"}) by (image)
+                            Query is the PromQL expression. Must return results with an "image" label.
+                            Example: count(container_memory_working_set_bytes{namespace="gitlab-runner"}) by (image)
                           minLength: 1
                           type: string
                         queryType:
                           default: range
-                          description: |-
-                            QueryType controls how the Prometheus query is executed.
-                            "range" uses /api/v1/query_range with a time window defined by lookback.
-                            "instant" uses /api/v1/query for a single point-in-time result.
-                            Default: "range".
+                          description: 'QueryType controls how the query is executed:
+                            "range" or "instant". Default: "range".'
                           enum:
                           - range
                           - instant
                           type: string
                         step:
                           description: |-
-                            Step is the resolution step for range queries (only used when lookback is set).
-                            Smaller steps = more data points = more accurate aggregation but higher Prometheus load.
+                            Step is the resolution step for range queries.
+                            Smaller steps increase data-point density but also increase Prometheus load.
                             Default: 5m. Example: "1m", "15m"
                           type: string
                       required:
@@ -150,8 +199,17 @@ spec:
                             ImageTemplate is a Go text/template for constructing the full image reference from discovered tags.
                             Available variables: {{.Registry}}, {{.Repository}}, {{.Tag}}
                             Default (when unset): "{{.Registry}}/{{.Repository}}:{{.Tag}}"
-                            Example: "{{.Registry}}/{{.Repository}}@{{.Tag}}" (if tags are actually digests)
+                            Example: "registry.example.com/{{.Repository}}:{{.Tag}}"
                           type: string
+                        maxScan:
+                          description: |-
+                            MaxScan caps how many tags are fetched per repository before filtering.
+                            Registries can hold tens of thousands of tags; this bounds the work. Pair
+                            it with tagSeek to fetch only the relevant range. Defaults to 1000 when unset.
+                            Example: 500
+                          format: int32
+                          minimum: 1
+                          type: integer
                         repositories:
                           description: |-
                             Repositories is the list of repository paths to list tags from.
@@ -165,11 +223,21 @@ spec:
                             TagFilter is a regex applied to tag names. Only matching tags are discovered.
                             Example: "^v[0-9]+\\." (semver tags only), "^main-" (main branch builds)
                           type: string
+                        tagSeek:
+                          description: |-
+                            TagSeek is a pagination cursor passed to the registry as the `last` query
+                            parameter. The registry lists tags lexically after this value, letting you
+                            skip large numbers of irrelevant earlier tags without fetching them. It is
+                            not a real tag name — any string works.
+                            Example: "x86_64-u~" jumps straight to the "x86_64-v*" tags on a repo with
+                            tens of thousands of digest tags (GitLab runner helper).
+                          type: string
                         topX:
                           description: |-
                             TopX limits the number of tags kept per repository after tagFilter is applied.
-                            The registry API does not provide creation timestamps here; Drop keeps the last N tags returned by the registry.
-                            Example: 3 (keep the last 3 matching tags returned per repo)
+                            Tags are sorted newest-first (by version) before this cap is applied, so the
+                            newest N tags are kept.
+                            Example: 3 (keep the 3 newest matching tags per repo)
                           format: int32
                           minimum: 1
                           type: integer
@@ -179,16 +247,25 @@ spec:
                             Example: "https://registry.example.com", "https://ghcr.io"
                           minLength: 1
                           type: string
+                        versionPattern:
+                          description: |-
+                            VersionPattern is a regex with a single capture group that extracts the
+                            version substring from each tag for newest-first sorting. Use it when tags
+                            carry a prefix/suffix around the version, e.g. GitLab runner helper tags
+                            like "x86_64-v17.5.0" (pattern "x86_64-v(.+)").
+                            When unset, Drop tries a strict semver parse, then falls back to extracting
+                            an embedded semver substring. Tags with no parseable version keep registry
+                            push order and sort after versioned tags.
+                            Example: "x86_64-v(.+)"
+                          type: string
                       required:
                       - repositories
                       - url
                       type: object
                     secretRef:
                       description: |-
-                        SecretRef references a Secret in the namespace where Drop creates pull Pods.
-                        The default namespace is "drop-system" unless the controller is started with a different --pod-namespace.
+                        SecretRef references a Secret in the pod namespace (default "drop-system") for auth/TLS.
                         Supported Secret keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>.
-                        Example: {name: "prometheus-creds"}
                       properties:
                         name:
                           default: ""
@@ -202,25 +279,475 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type:
-                      description: Type identifies the discovery backend. Must be
-                        "prometheus" or "registry".
-                      enum:
-                      - prometheus
-                      - registry
+                      allOf:
+                      - enum:
+                        - prometheus
+                        - loki
+                        - registry
+                      - enum:
+                        - prometheus
+                        - loki
+                        - registry
+                      description: Type selects the backend. Must be "prometheus",
+                        "loki", or "registry".
                       type: string
                   required:
+                  - name
                   - type
                   type: object
-                minItems: 1
+                type: array
+              ranking:
+                description: Ranking defines how signals are combined into a final
+                  ordered image list.
+                properties:
+                  modelExposure:
+                    description: ModelExposure is required when strategy=modelExposure.
+                    properties:
+                      nodes:
+                        description: |-
+                          Nodes determines N (the eligible node count) in the exposure formula,
+                          either as a static count or dynamically via a label selector.
+                        properties:
+                          count:
+                            description: |-
+                              Count is the static number of eligible nodes.
+                              Used when Selector is unset, or as a fallback if node discovery fails.
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          selector:
+                            description: |-
+                              Selector dynamically determines N by counting Ready nodes that match it via the
+                              Kubernetes API at each sync. This is a standard node selector (the same shape used
+                              by node affinity): nodeSelectorTerms are ORed, and within a term matchExpressions
+                              (node labels) and matchFields (e.g. metadata.name) are ANDed. A nil selector counts
+                              all Ready nodes. When set, it takes precedence over Count.
+                            properties:
+                              nodeSelectorTerms:
+                                description: Required. A list of node selector terms.
+                                  The terms are ORed.
+                                items:
+                                  description: |-
+                                    A null or empty node selector term matches no objects. The requirements of
+                                    them are ANDed.
+                                    The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.
+                                  properties:
+                                    matchExpressions:
+                                      description: A list of node selector requirements
+                                        by node's labels.
+                                      items:
+                                        description: |-
+                                          A node selector requirement is a selector that contains values, a key, and an operator
+                                          that relates the key and values.
+                                        properties:
+                                          key:
+                                            description: The label key that the selector
+                                              applies to.
+                                            type: string
+                                          operator:
+                                            description: |-
+                                              Represents a key's relationship to a set of values.
+                                              Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                            type: string
+                                          values:
+                                            description: |-
+                                              An array of string values. If the operator is In or NotIn,
+                                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. If the operator is Gt or Lt, the values
+                                              array must have a single element, which will be interpreted as an integer.
+                                              This array is replaced during a strategic merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    matchFields:
+                                      description: A list of node selector requirements
+                                        by node's fields.
+                                      items:
+                                        description: |-
+                                          A node selector requirement is a selector that contains values, a key, and an operator
+                                          that relates the key and values.
+                                        properties:
+                                          key:
+                                            description: The label key that the selector
+                                              applies to.
+                                            type: string
+                                          operator:
+                                            description: |-
+                                              Represents a key's relationship to a set of values.
+                                              Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                            type: string
+                                          values:
+                                            description: |-
+                                              An array of string values. If the operator is In or NotIn,
+                                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. If the operator is Gt or Lt, the values
+                                              array must have a single element, which will be interpreted as an integer.
+                                              This array is replaced during a strategic merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - nodeSelectorTerms
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
+                      preWindowUsageSignal:
+                        description: |-
+                          PreWindowUsageSignal is the name of the signal representing usage before the target window.
+                          Must match a signals[].name within the same policy.
+                        minLength: 1
+                        type: string
+                      pullTimeSignal:
+                        description: |-
+                          PullTimeSignal is the name of the signal providing per-image pull-time estimates.
+                          Must match a signals[].name within the same policy.
+                        minLength: 1
+                        type: string
+                      targetWindowUsageSignal:
+                        description: |-
+                          TargetWindowUsageSignal is the name of the signal representing usage during the target window.
+                          Must match a signals[].name within the same policy.
+                        minLength: 1
+                        type: string
+                    required:
+                    - preWindowUsageSignal
+                    - pullTimeSignal
+                    - targetWindowUsageSignal
+                    type: object
+                  signal:
+                    description: |-
+                      Signal is the name of the signal whose values determine image rank.
+                      Must match a signals[].name within the same policy. Required when strategy=signal.
+                    type: string
+                  strategy:
+                    allOf:
+                    - enum:
+                      - signal
+                      - weightedSum
+                      - modelExposure
+                    - enum:
+                      - signal
+                      - weightedSum
+                      - modelExposure
+                    description: Strategy selects the ranking algorithm.
+                    type: string
+                  weightedSum:
+                    description: WeightedSum is required when strategy=weightedSum.
+                    properties:
+                      missingSignal:
+                        allOf:
+                        - enum:
+                          - zero
+                          - drop
+                        - enum:
+                          - zero
+                          - drop
+                        default: zero
+                        description: |-
+                          MissingSignal controls behavior when an image has no value for a required signal.
+                          "zero" treats missing as 0; "drop" removes the image from ranking.
+                        type: string
+                      normalize:
+                        allOf:
+                        - enum:
+                          - minMax
+                        - enum:
+                          - minMax
+                        default: minMax
+                        description: |-
+                          Normalize selects the normalization method applied to each signal before weighting.
+                          Currently only "minMax" is supported.
+                        type: string
+                      terms:
+                        description: Terms is the list of signals and their weights.
+                        items:
+                          description: WeightedSumTerm defines one signal contribution
+                            in a weightedSum ranking.
+                          properties:
+                            signal:
+                              description: |-
+                                Signal is the name of the signal to include in the weighted sum.
+                                Must match a signals[].name within the same policy.
+                              minLength: 1
+                              type: string
+                            weight:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: |-
+                                Weight is the factor applied to the normalized signal value.
+                                All weights should be non-negative; they do not need to sum to 1.
+                                Example: "0.7"
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                          required:
+                          - signal
+                          - weight
+                          type: object
+                        minItems: 1
+                        type: array
+                    required:
+                    - missingSignal
+                    - normalize
+                    - terms
+                    type: object
+                required:
+                - strategy
+                type: object
+              signals:
+                description: |-
+                  Signals is the list of named per-image metrics derived from query results.
+                  Each signal is referenced by name from the ranking configuration.
+                items:
+                  description: DiscoverySignal defines a named per-image metric derived
+                    from a single query.
+                  properties:
+                    aggregate:
+                      description: Aggregate is required when type=aggregate.
+                      properties:
+                        method:
+                          allOf:
+                          - enum:
+                            - sum
+                            - count
+                            - avg
+                            - max
+                            - min
+                          - enum:
+                            - sum
+                            - count
+                            - avg
+                            - max
+                            - min
+                          description: Method is the aggregation function applied
+                            to all samples per image.
+                          type: string
+                      required:
+                      - method
+                      type: object
+                    eventPullTime:
+                      description: EventPullTime is required when type=eventPullTime.
+                      properties:
+                        metric:
+                          default: pullTime
+                          description: |-
+                            Metric selects which per-image quantity to aggregate. Defaults to pullTime,
+                            which correlates strongly with cold-start cost. Use imageSize to rank by bytes.
+                          enum:
+                          - pullTime
+                          - imageSize
+                          type: string
+                        statistic:
+                          allOf:
+                          - enum:
+                            - p50
+                            - p90
+                            - p95
+                            - avg
+                            - max
+                            - count
+                          - enum:
+                            - p50
+                            - p90
+                            - p95
+                            - avg
+                            - max
+                            - count
+                          description: Statistic selects how the metric's samples
+                            are aggregated per image.
+                          type: string
+                      required:
+                      - statistic
+                      type: object
+                    name:
+                      description: |-
+                        Name is the unique identifier for this signal within the policy.
+                        Ranking configurations reference signals by this name.
+                      minLength: 1
+                      type: string
+                    query:
+                      description: |-
+                        Query is the name of the query that provides raw data for this signal.
+                        Must match a queries[].name within the same policy.
+                      minLength: 1
+                      type: string
+                    timeWeightedAggregate:
+                      description: TimeWeightedAggregate is required when type=timeWeightedAggregate.
+                      properties:
+                        defaultWeight:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: |-
+                            DefaultWeight is applied to samples that do not fall in any configured window.
+                            Use "0" to exclude off-hours samples entirely.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        method:
+                          allOf:
+                          - enum:
+                            - sum
+                            - count
+                            - avg
+                            - max
+                            - min
+                          - enum:
+                            - sum
+                            - count
+                            - avg
+                            - max
+                            - min
+                          description: Method is the aggregation function applied
+                            after weighting (currently only "sum" is meaningful).
+                          type: string
+                        timezone:
+                          description: |-
+                            Timezone is the IANA time zone used to evaluate window boundaries (wall-clock hours).
+                            Example: "Europe/Berlin", "America/New_York", "UTC"
+                          minLength: 1
+                          type: string
+                        windows:
+                          description: Windows is the list of hour-of-day windows
+                            with associated weights.
+                          items:
+                            description: TimeWeightedWindow defines a wall-clock hour
+                              range and its weight factor.
+                            properties:
+                              endHour:
+                                description: EndHour is the exclusive end of the window
+                                  in local time (1–24).
+                                format: int32
+                                maximum: 24
+                                minimum: 1
+                                type: integer
+                              startHour:
+                                description: StartHour is the inclusive start of the
+                                  window in local time (0–23).
+                                format: int32
+                                maximum: 23
+                                minimum: 0
+                                type: integer
+                              weight:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: |-
+                                  Weight is the factor applied to sample values within this window.
+                                  Use "1.0" for full weight, "0.3" for partial, "0" to exclude.
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - endHour
+                            - startHour
+                            - weight
+                            type: object
+                          minItems: 1
+                          type: array
+                      required:
+                      - defaultWeight
+                      - method
+                      - timezone
+                      - windows
+                      type: object
+                    type:
+                      allOf:
+                      - enum:
+                        - aggregate
+                        - timeWeightedAggregate
+                        - windowAggregate
+                        - eventPullTime
+                      - enum:
+                        - aggregate
+                        - timeWeightedAggregate
+                        - windowAggregate
+                        - eventPullTime
+                      description: Type selects the signal derivation method.
+                      type: string
+                    windowAggregate:
+                      description: WindowAggregate is required when type=windowAggregate.
+                      properties:
+                        method:
+                          allOf:
+                          - enum:
+                            - sum
+                            - count
+                            - avg
+                            - max
+                            - min
+                          - enum:
+                            - sum
+                            - count
+                            - avg
+                            - max
+                            - min
+                          description: Method is the aggregation function applied
+                            to the windowed samples.
+                          type: string
+                        relativeWindow:
+                          description: |-
+                            RelativeWindow aggregates only samples from the last N duration before now.
+                            Mutually exclusive with window + timezone.
+                            Example: "2h" (last 2 hours)
+                          type: string
+                        timezone:
+                          description: |-
+                            Timezone is the IANA time zone for evaluating wall-clock window boundaries.
+                            Required when window is set.
+                          type: string
+                        window:
+                          description: |-
+                            Window defines fixed wall-clock start/end times within each day.
+                            Mutually exclusive with relativeWindow.
+                          properties:
+                            end:
+                              description: |-
+                                End is the exclusive end time in "HH:MM" format (24-hour, local time).
+                                Example: "17:00"
+                              pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+                              type: string
+                            start:
+                              description: |-
+                                Start is the inclusive start time in "HH:MM" format (24-hour, local time).
+                                Example: "09:00"
+                              pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+                              type: string
+                          required:
+                          - end
+                          - start
+                          type: object
+                      required:
+                      - method
+                      type: object
+                  required:
+                  - name
+                  - query
+                  - type
+                  type: object
                 type: array
               syncInterval:
                 default: 30m
                 description: |-
-                  SyncInterval is how often the operator re-queries all sources and updates status.discoveredImages.
+                  SyncInterval is how often the operator re-runs the pipeline and updates status.discoveredImages.
                   Default: "30m". Example: "1h", "15m"
                 type: string
-            required:
-            - sources
             type: object
           status:
             description: DiscoveryPolicyStatus defines the observed state of DiscoveryPolicy.
@@ -283,28 +810,28 @@ spec:
                   type: object
                 type: array
               discoveredImages:
-                description: DiscoveredImages is the list of discovered images from
-                  all sources.
+                description: DiscoveredImages is the ordered list of discovered and
+                  ranked images.
                 items:
-                  description: DiscoveredImage represents a single discovered image
-                    with metadata.
+                  description: DiscoveredImage represents a single discovered and
+                    ranked image.
                   properties:
+                    finalScore:
+                      description: FinalScore is the computed ranking score as a decimal
+                        string.
+                      type: string
                     image:
                       description: Image is the fully qualified image reference.
                       type: string
-                    score:
-                      description: Score is the ranking score from the source (higher
-                        = more relevant).
-                      format: int64
+                    rank:
+                      description: Rank is the position of this image in the final
+                        ordered list (1 = highest score).
+                      format: int32
                       type: integer
-                    source:
-                      description: Source identifies which discovery source produced
-                        this image.
-                      type: string
                   required:
+                  - finalScore
                   - image
-                  - score
-                  - source
+                  - rank
                   type: object
                 type: array
               imageCount:
@@ -312,14 +839,44 @@ spec:
                 format: int32
                 type: integer
               lastSyncTime:
-                description: LastSyncTime is the timestamp of the last successful
-                  sync.
+                description: LastSyncTime is the timestamp of the last reconciliation
+                  attempt.
                 format: date-time
                 type: string
-              sourceCount:
-                description: SourceCount is the number of configured sources.
-                format: int32
-                type: integer
+              queryResults:
+                description: QueryResults reports the outcome of each named query
+                  execution.
+                items:
+                  description: QueryResult reports the outcome of a single named query
+                    execution.
+                  properties:
+                    message:
+                      description: Message describes the failure reason when status=failed.
+                      type: string
+                    name:
+                      description: Name matches the queries[].name that produced this
+                        result.
+                      type: string
+                    status:
+                      description: Status is "success" or "failed".
+                      enum:
+                      - success
+                      - failed
+                      type: string
+                    type:
+                      description: Type is the query backend type (prometheus, loki,
+                        or registry).
+                      enum:
+                      - prometheus
+                      - loki
+                      - registry
+                      type: string
+                  required:
+                  - name
+                  - status
+                  - type
+                  type: object
+                type: array
             type: object
         type: object
     served: true

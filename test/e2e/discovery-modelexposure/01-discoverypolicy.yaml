@@ -1,0 +1,65 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: DiscoveryPolicy
+metadata:
+  name: e2e-discovery-modelexposure
+spec:
+  queries:
+    - name: target-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 1h
+        step: 5m
+        query: 'me_target_usage{namespace="modelexposure-test"}'
+    - name: pre-usage
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 1h
+        step: 5m
+        query: 'me_pre_usage{namespace="modelexposure-test"}'
+    - name: pull-seconds
+      type: prometheus
+      prometheus:
+        endpoint: "http://prometheus.e2e-infra.svc.cluster.local:9090"
+        queryType: range
+        lookback: 1h
+        step: 5m
+        query: 'me_pull_seconds{namespace="modelexposure-test"}'
+  signals:
+    # Constant recording rules => max yields the exact seeded value.
+    - name: target-window-usage
+      query: target-usage
+      type: aggregate
+      aggregate:
+        method: max
+    - name: pre-window-usage
+      query: pre-usage
+      type: aggregate
+      aggregate:
+        method: max
+    - name: avg-pull-time
+      query: pull-seconds
+      type: aggregate
+      aggregate:
+        method: max
+  ranking:
+    strategy: modelExposure
+    modelExposure:
+      # Dynamic node count: count Ready nodes that are NOT control-plane
+      # (control-plane carries a NoSchedule taint and is not a pull target).
+      # On the kind cluster this resolves to N=2 workers.
+      nodes:
+        count: 99 # fallback only; must be ignored when selector resolves
+        selector:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+      preWindowUsageSignal: pre-window-usage
+      targetWindowUsageSignal: target-window-usage
+      pullTimeSignal: avg-pull-time
+  syncInterval: 30s
+  maxImages: 10

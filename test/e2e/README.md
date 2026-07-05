@@ -11,7 +11,7 @@ This directory contains scenario-based E2E tests using [Kyverno Chainsaw](https:
 
 ```bash
 # From repo root
-make test-e2e-chainsaw
+make test-e2e
 ```
 
 ## Test Scenarios
@@ -19,7 +19,12 @@ make test-e2e-chainsaw
 | Directory | Description |
 |-----------|-------------|
 | `cachedimage-basic/` | Basic CachedImage creation and pod scheduling |
+| `cachedimage-failure/` | Failure backoff and Degraded phase behavior |
 | `cachedimage-pacing/` | PullPolicy pacing enforcement |
 | `cachedimageset/` | CachedImageSet managing child resources |
-| `discovery-prometheus/` | DiscoveryPolicy with mock Prometheus |
-| `pull-policy-backoff/` | Failure backoff behavior |
+| `cachedimageset-discovery/` | CachedImageSet backed by a DiscoveryPolicy |
+| `discovery/` | DiscoveryPolicy with mock Prometheus |
+| `discovery-failure/` | DiscoveryPolicy with unreachable Prometheus endpoint |
+| `discovery-loki/` | DiscoveryPolicy with real Alloy-ingested Loki events + eventPullTime signals |
+| `discovery-modelexposure/` | DiscoveryPolicy modelExposure ranking with dynamic nodeSelector node count |
+| `discovery-registry/` | DiscoveryPolicy listing tags from a mock registry |

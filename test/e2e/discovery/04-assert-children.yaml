@@ -3,4 +3,4 @@ apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImage
 metadata:
   labels:
-    drop.corewire.io/imageset: discovered-set
+    drop.corewire.io/imageset: e2e-discovery-set

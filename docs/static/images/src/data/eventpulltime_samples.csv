@@ -1,0 +1,15 @@
+image,t_start_s,pull_s
+nginx:1.25,40,14
+nginx:1.25,95,15
+nginx:1.25,150,16
+nginx:1.25,220,17
+nginx:1.25,285,17
+nginx:1.25,355,18
+nginx:1.25,430,19
+nginx:1.25,510,20
+redis:7,70,20
+redis:7,165,22
+redis:7,255,22
+redis:7,350,24
+redis:7,455,25.2
+redis:7,540,30

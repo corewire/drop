@@ -9,7 +9,7 @@
 </p>
 
 
-A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery. 
+A Kubernetes operator that pre-pulls container images onto nodes — safely, with pacing, and with automatic discovery.
 
 ## Why
 
@@ -45,6 +45,8 @@ VERSION="$(curl -fsSL https://api.github.com/repos/corewire/drop/releases/latest
 
 # Install CRDs first so upgrades stay predictable
 helm install drop-crds oci://ghcr.io/corewire/charts/drop-crds \
+  --namespace drop-system \
+  --create-namespace \
   --version "$VERSION"
 
 # Install the operator
@@ -115,18 +117,19 @@ spec:
   maxImages: 20
   # Only keep images from your internal registry (regex filter, optional)
   imageFilter: "registry.example.com/.*"
-  sources:
-    - type: prometheus
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         # Any Prometheus-compatible API (Prometheus, Thanos, Mimir, VictoriaMetrics)
         endpoint: https://mimir.example.com
         # Aggregate over the last 7 days using query_range; counts container
         # instances per image across the window to produce a usage score
+        queryType: range
         lookback: 168h
         # Resolution step for range queries (default: 5m)
         step: 5m
         # PromQL query — MUST return results with an "image" label.
-        # The result value becomes the ranking score (higher = cached first).
         query: |
           count(
             container_memory_working_set_bytes{
@@ -135,9 +138,18 @@ spec:
             }
           ) by (image)
       # Optional: Secret in the Drop pod namespace (default: drop-system)
-      # Supported keys: token, username, password, ca.crt, tls.crt, tls.key
+      # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
         name: prometheus-creds
+  signals:
+    - name: total-usage
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal: total-usage
 ---
 # --- 3. CachedImageSet: ties discovery + policy together, targets nodes ---
 apiVersion: drop.corewire.io/v1alpha1
@@ -304,18 +316,19 @@ spec:
   maxImages: 30
   # Only keep images matching this regex (optional)
   imageFilter: "registry.example.com/.*"
-  sources:
-    - type: prometheus
+  queries:
+    - name: runner-image-usage
+      type: prometheus
       prometheus:
         # Any Prometheus-compatible API (Prometheus, Thanos, Mimir, VictoriaMetrics)
         endpoint: https://mimir.example.com
         # Aggregate over the last 7 days (uses query_range, sums values per image)
         # Omit for a point-in-time instant query instead
+        queryType: range
         lookback: 168h
         # Resolution step for range queries (default: 5m)
         step: 5m
         # PromQL query — MUST return results with an "image" label.
-        # The result value becomes the ranking score (higher = cached first).
         query: |
           count(
             container_memory_working_set_bytes{
@@ -327,6 +340,15 @@ spec:
       # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
         name: prometheus-creds
+  signals:
+    - name: total-usage
+      query: runner-image-usage
+      type: aggregate
+      aggregate:
+        method: sum
+  ranking:
+    strategy: signal
+    signal: total-usage
 ---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
@@ -342,7 +364,11 @@ spec:
       tag: "3.19"
 ```
 
-### Use case: discover and cache application tags from a registry
+### Use case: discover and cache GitLab runner helper images from a registry
+
+GitLab runner helper tags carry an arch/flavor prefix (e.g. `x86_64-v17.5.0`).
+Drop extracts the embedded version automatically; `versionPattern` is shown for
+clarity but is optional here.
 
 ```yaml
 apiVersion: v1
@@ -362,24 +388,30 @@ metadata:
 spec:
   syncInterval: 15m
   maxImages: 10
-  sources:
-    - type: registry
+  queries:
+    - name: registry-tags
+      type: registry
       registry:
         # Registry base URL
-        url: https://registry.example.com
+        url: https://registry.gitlab.com
         # Repositories to list tags from
         repositories:
-          - team/frontend
-          - team/backend
-          - team/worker
-        # Only discover semver tags (regex on tag name)
-        tagFilter: "^v[0-9]+\\."
-        # Keep only the last 3 matching tags returned by the registry
+          - gitlab-org/gitlab-runner/gitlab-runner-helper
+        # Only discover x86_64 semver tags (regex on tag name)
+        tagFilter: "^x86_64-v[0-9]+\\."
+        # Optional: pin where the version lives in the tag (capture group 1)
+        versionPattern: "x86_64-v(.+)"
+        # Optional: skip straight to the x86_64-v* tags (registry `last` cursor)
+        tagSeek: "x86_64-u~"
+        # Optional: cap tags fetched per repo before filtering (default 1000)
+        maxScan: 2000
+        # Keep only the 3 newest matching tags (newest first)
         topX: 3
       # Optional: Secret in the Drop pod namespace (default: drop-system)
       # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
         name: registry-api-creds
+  # No signals/ranking needed: registry tags are returned newest-first.
 ---
 apiVersion: drop.corewire.io/v1alpha1
 kind: CachedImageSet
@@ -388,27 +420,6 @@ metadata:
 spec:
   discoveryPolicyRef:
     name: latest-app-tags
-```
-
-## Quick Start
-
-```bash
-# Install CRDs and operator via Helm
-helm install drop charts/drop -n drop-system --create-namespace
-
-# Cache a single image
-kubectl apply -f - <<YAML
-apiVersion: drop.corewire.io/v1alpha1
-kind: CachedImage
-metadata:
-  name: nginx
-spec:
-  image: docker.io/library/nginx
-  tag: 1.25-alpine
-YAML
-
-# Check status
-kubectl get cachedimage nginx -o wide
 ```
 
 ## CRDs
@@ -442,24 +453,53 @@ dev-set    AllReady    3/3     3         dev-registry   1h
 web-apps   Degraded    1/3     3                        10m
 
 $ kubectl get discoverypolicies
-NAME             STATUS              SOURCES   IMAGES   LASTSYNC   AGE
-dev-registry     Synced              1         3        30s        1h
-broken-prom      ConnectionRefused   1         0                   5m
-bad-auth         Unauthorized        1         0                   2m
+NAME             STATUS              IMAGES   LASTSYNC   AGE
+dev-registry     Synced              3        30s        1h
+broken-prom      ConnectionRefused   0                   5m
+bad-auth         Unauthorized        0                   2m
 ```
+
+## Research And Benchmark
+
+The repo includes the replay benchmark used in the research docs and paper.
+
+```bash
+# Synthetic benchmark day + replay
+make research-bench-setup
+make research-bench-generate
+make research-bench-replay
+make research-bench-discovery
+
+# Or fetch real-cluster inputs from Prometheus + Loki
+cd research/benchmark/evaluator
+. .venv/bin/activate
+python fetch_cluster_data.py \
+  --prometheus-url http://localhost:9090 \
+  --loki-url http://localhost:3100 \
+  --out data
+```
+
+See `research/benchmark/evaluator/README.md` for the full input schema and live-cluster workflow.
 
 ## Development
 
 ```bash
-# Prerequisites: Go 1.23+, Kind, Tilt, Helm
-make generate      # deepcopy
-make manifests     # CRDs + RBAC
+# Prerequisites: Go 1.26+, Kind, Tilt, Helm
+make codegen       # deepcopy + CRDs + generated docs
 go build ./...     # compile
+make test          # unit tests
+make lint          # golangci-lint
 
-# Local dev loop (Kind + Tilt)
+# Local dev loop: creates kind, deploys Drop, Prometheus, Loki, Grafana, docs
 tilt up
 ```
 
 ## Docs
 
 Full documentation at **[corewire.github.io/drop/](https://corewire.github.io/drop/)** (GitHub Pages).
+
+```bash
+make static        # regenerate maintained docs graphics
+make docs-gen      # regenerate AI-facing docs
+cd docs && hugo server --buildDrafts --port 1313
+```

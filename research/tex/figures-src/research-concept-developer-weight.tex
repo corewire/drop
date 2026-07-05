@@ -1,0 +1,65 @@
+\documentclass[border=10pt]{standalone}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+
+\definecolor{INK}{HTML}{1A1A2E}
+\definecolor{BG}{HTML}{FAFAFA}
+\definecolor{SUB}{HTML}{555566}
+\definecolor{LOW}{HTML}{F4A261}
+\definecolor{HIGH}{HTML}{E76F51}
+\definecolor{OFF}{HTML}{ADB5BD}
+
+\begin{document}
+\pagecolor{BG}
+\begin{tikzpicture}[
+    x=0.62cm, y=0.66cm,
+    tick/.style={font=\scriptsize, text=SUB},
+    band/.style={font=\scriptsize\bfseries},
+    wlow/.style={fill=LOW!30, draw=LOW!80!black, line width=0.5pt},
+    whigh/.style={fill=HIGH!40, draw=HIGH!85!black, line width=0.5pt},
+    joblabel/.style={font=\scriptsize, anchor=east, text=INK},
+    note/.style={font=\scriptsize, text=SUB},
+  ]
+
+  % weight bands
+  \fill[OFF!18] (0,0.6) rectangle (7,5.6);
+  \fill[LOW!12] (7,0.6) rectangle (9,5.6);
+  \fill[HIGH!16] (9,0.6) rectangle (17,5.6);
+  \fill[LOW!12] (17,0.6) rectangle (20,5.6);
+  \fill[OFF!18] (20,0.6) rectangle (24,5.6);
+
+  \node[band, text=OFF!60!black] at (3.5,5.95) {$f(t)=0$};
+  \node[band, text=LOW!70!black] at (8,5.95) {$0.3$};
+  \node[band, text=HIGH!75!black] at (13,5.95) {$f(t)=1$ (peak dev window)};
+  \node[band, text=LOW!70!black] at (18.5,5.95) {$0.3$};
+  \node[band, text=OFF!60!black] at (22,5.95) {$0$};
+
+  % axis
+  \draw[->, SUB!70, line width=0.7pt] (0,0.5) -- (24.4,0.5) node[right, tick] {hour};
+  \foreach \x/\lab in {0/00,7/07,9/09,12/12,17/17,20/20,24/24} {
+    \draw[SUB!45] (\x,0.6) -- (\x,0.4);
+    \node[tick, anchor=north] at (\x,0.32) {\lab};
+  }
+
+  % job wait bars (only the weighted overlap shown)
+  \node[joblabel] at (-0.3,4.6) {night job};
+  \draw[wlow] (3.0,4.45) rectangle (5.0,4.75);
+  \node[note, anchor=west] at (5.2,4.6) {off-hours wait: warms a node but no dev impact};
+
+  \node[joblabel] at (-0.3,3.6) {shoulder job};
+  \draw[wlow] (7.5,3.45) rectangle (9.0,3.75);
+  \draw[whigh] (9.0,3.45) rectangle (10.5,3.75);
+  \node[note, anchor=west] at (10.7,3.6) {partial $\rightarrow$ full as it crosses 09:00};
+
+  \node[joblabel] at (-0.3,2.6) {peak job};
+  \draw[whigh] (11.0,2.45) rectangle (13.6,2.75);
+  \node[note, anchor=west] at (13.8,2.6) {full developer-facing exposure};
+
+  \node[joblabel] at (-0.3,1.6) {evening job};
+  \draw[whigh] (16.0,1.45) rectangle (17.0,1.75);
+  \draw[wlow] (17.0,1.45) rectangle (18.0,1.75);
+  \node[note, anchor=west] at (18.2,1.6) {tapers off after 17:00};
+
+\end{tikzpicture}
+\end{document}

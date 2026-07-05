@@ -1,0 +1,2 @@
+rotation_id,rotation_time,node_selector,nodes_replaced
+midnight-nodepool-rotation,2026-06-18 00:00:00+00:00,ci-node-*,100
