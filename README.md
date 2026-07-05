@@ -45,6 +45,8 @@ VERSION="$(curl -fsSL https://api.github.com/repos/corewire/drop/releases/latest
 
 # Install CRDs first so upgrades stay predictable
 helm install drop-crds oci://ghcr.io/corewire/charts/drop-crds \
+  --namespace drop-system \
+  --create-namespace \
   --version "$VERSION"
 
 # Install the operator
@@ -136,7 +138,7 @@ spec:
             }
           ) by (image)
       # Optional: Secret in the Drop pod namespace (default: drop-system)
-      # Supported keys: token, username, password, ca.crt, tls.crt, tls.key
+      # Supported keys: token, username, password, ca.crt, tls.crt, tls.key, headers.<name>
       secretRef:
         name: prometheus-creds
   signals:
@@ -420,27 +422,6 @@ spec:
     name: latest-app-tags
 ```
 
-## Quick Start
-
-```bash
-# Install CRDs and operator via Helm
-helm install drop charts/drop -n drop-system --create-namespace
-
-# Cache a single image
-kubectl apply -f - <<YAML
-apiVersion: drop.corewire.io/v1alpha1
-kind: CachedImage
-metadata:
-  name: nginx
-spec:
-  image: docker.io/library/nginx
-  tag: 1.25-alpine
-YAML
-
-# Check status
-kubectl get cachedimage nginx -o wide
-```
-
 ## CRDs
 
 All resources are **cluster-scoped** under `drop.corewire.io/v1alpha1`.
@@ -478,18 +459,47 @@ broken-prom      ConnectionRefused   0                   5m
 bad-auth         Unauthorized        0                   2m
 ```
 
+## Research And Benchmark
+
+The repo includes the replay benchmark used in the research docs and paper.
+
+```bash
+# Synthetic benchmark day + replay
+make research-bench-setup
+make research-bench-generate
+make research-bench-replay
+make research-bench-discovery
+
+# Or fetch real-cluster inputs from Prometheus + Loki
+cd research/benchmark/evaluator
+. .venv/bin/activate
+python fetch_cluster_data.py \
+  --prometheus-url http://localhost:9090 \
+  --loki-url http://localhost:3100 \
+  --out data
+```
+
+See `research/benchmark/evaluator/README.md` for the full input schema and live-cluster workflow.
+
 ## Development
 
 ```bash
 # Prerequisites: Go 1.26+, Kind, Tilt, Helm
-make generate      # deepcopy
-make manifests     # CRDs + RBAC
+make codegen       # deepcopy + CRDs + generated docs
 go build ./...     # compile
+make test          # unit tests
+make lint          # golangci-lint
 
-# Local dev loop (Kind + Tilt)
+# Local dev loop: creates kind, deploys Drop, Prometheus, Loki, Grafana, docs
 tilt up
 ```
 
 ## Docs
 
 Full documentation at **[corewire.github.io/drop/](https://corewire.github.io/drop/)** (GitHub Pages).
+
+```bash
+make static        # regenerate maintained docs graphics
+make docs-gen      # regenerate AI-facing docs
+cd docs && hugo server --buildDrafts --port 1313
+```
