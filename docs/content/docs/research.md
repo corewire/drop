@@ -1,5 +1,5 @@
 ---
-title: Research
+title: Research Draft
 weight: 8
 description: Research model, benchmark methodology, and paper assets.
 llmsDescription: |
@@ -34,7 +34,7 @@ The easiest way to hold the whole model in your head is to picture a restaurant 
 | An order that arrives mid-prep and has to wait | An **affected job** |
 | A station finishing prep for the first time | A **newly warmed node** |
 
-![Mise en place analogy for image warm-up](/images/research-concept-mise-en-place.svg "One cold station can delay several food orders before it finishes prep once")
+![Kitchen analogy: three orders queue at one cold station while a warm station serves instantly](/images/research-concept-kitchen.svg "A cold station delays several orders but finishes prep only once")
 
 Here is the one idea everything else rests on:
 

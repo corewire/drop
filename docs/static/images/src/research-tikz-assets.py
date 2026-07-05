@@ -21,6 +21,7 @@ FIGURES = [
     "research-concept-portfolio-cumulative",
     "research-concept-prewarm-vs-mirror",
     "research-concept-benchmark-pipeline",
+    "research-concept-kitchen",
 ]
 
 

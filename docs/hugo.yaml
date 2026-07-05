@@ -20,10 +20,10 @@ markup:
         enable: true
         delimiters:
           block:
-            - ['\\[', '\\]']
+            - ['\[', '\]']
             - ['$$', '$$']
           inline:
-            - ['\\(', '\\)']
+            - ['\(', '\)']
     renderer:
       unsafe: true
   highlight:
