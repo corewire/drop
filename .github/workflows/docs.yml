@@ -40,7 +40,7 @@ jobs:
         working-directory: docs
         run: |
           hugo mod get
-          hugo --minify --baseURL "https://breee.github.io/drop/"
+          hugo --minify --baseURL "https://corewire.github.io/drop/"
 
       - name: Upload artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
