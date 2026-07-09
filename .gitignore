@@ -40,6 +40,14 @@ docs/.hugo_build.lock
 /gen-ai-docs
 .kubeconfig
 
+# Python local artifacts
+__pycache__/
+*.py[cod]
+
+# Local generated assets/research scratch
+docs/static/images/src/
+research/
+
 # Generated CRD chart templates (produced by make sync-crds in CI)
 charts/drop-crds/templates/drop.corewire.io_*.yaml
 charts/drop/templates/crds-drop.corewire.io_*.yaml
