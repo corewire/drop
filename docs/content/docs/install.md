@@ -70,6 +70,27 @@ Key points for ArgoCD CRD management:
 - Set a negative sync-wave (`argocd.argoproj.io/sync-wave: "-1"`) so CRDs are synced before the operator.
 - Disable `crds.install` in the operator chart values.
 
+#### ArgoCD OCI Helm Repository Secret
+
+If your ArgoCD setup needs an explicit Helm OCI repository entry, create this
+repository Secret in the `argocd` namespace:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-repo-ghcr-corewire-charts
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+type: Opaque
+stringData:
+  name: ghcr-corewire-charts
+  type: helm
+  url: ghcr.io/corewire/charts
+  enableOCI: "true"
+```
+
 ### Renovate
 
 The repository includes Renovate custom managers that automatically detect new
