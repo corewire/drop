@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cachedimageset-long-names
+spec:
+  description: |
+    CachedImage names are used as pull Pod label values, which Kubernetes caps
+    at 63 characters. Verify that a set with a long image name gets a child
+    whose pull Pods are accepted, and that the API rejects over-long names.
+  steps:
+    - name: Create a CachedImageSet with a long image name
+      try:
+        - apply:
+            file: 01-cachedimageset.yaml
+    - name: Child name fits and its pull Pod was created
+      try:
+        - assert:
+            timeout: 120s
+            file: 02-assert-child.yaml
+    - name: API rejects over-long names
+      try:
+        - apply:
+            file: 03-cachedimage-name-too-long.yaml
+            expect:
+              - check:
+                  ($error != null): true
+        - apply:
+            file: 04-cachedimageset-name-too-long.yaml
+            expect:
+              - check:
+                  ($error != null): true
+    - name: Cleanup
+      try:
+        - delete:
+            ref:
+              apiVersion: drop.corewire.io/v1alpha1
+              kind: CachedImageSet
+              name: test-set-long-names

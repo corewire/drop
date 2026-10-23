@@ -71,11 +71,20 @@ func (r *CachedImageSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, fmt.Errorf("listing children: %w", err)
 	}
 
-	// Build map of existing children by image ref
+	// Build map of existing children by image ref. Children whose name no longer
+	// matches childName (e.g. over-long names from older versions) are recreated.
 	existingMap := make(map[string]*dropv1alpha1.CachedImage, len(existingChildren.Items))
 	for i := range existingChildren.Items {
 		child := &existingChildren.Items[i]
 		ref := buildChildImageRef(child)
+		entry := dropv1alpha1.ImageEntry{Image: child.Spec.Image, Tag: child.Spec.Tag, Digest: child.Spec.Digest}
+		if child.Name != childName(imageSet.Name, entry) {
+			log.Info("deleting child CachedImage with stale name", "name", child.Name, "image", ref)
+			if err := r.Delete(ctx, child); client.IgnoreNotFound(err) != nil {
+				return ctrl.Result{}, fmt.Errorf("deleting stale child: %w", err)
+			}
+			continue
+		}
 		existingMap[ref] = child
 	}
 
@@ -340,10 +349,11 @@ func imageName(image string) string {
 	return parts[len(parts)-1]
 }
 
-// childName builds the name of the child CachedImage for an image entry.
-// imageName() keeps only the last path segment, so entries that differ solely by
-// registry or org (rd/tools vs dos-devinfra/tools) would otherwise collide on one
-// name and the loser could never be created. The ref digest keeps names unique.
+// childName builds the name of the child CachedImage for an image entry as
+// <image>-<tag>-<hash>. The hash covers the parent name and the full ref, so
+// sets caching the same image, or images sharing a short name across registries
+// (rd/tools vs dos-devinfra/tools), never collide. The parent is on the
+// drop.corewire.io/imageset label.
 func childName(parentName string, img dropv1alpha1.ImageEntry) string {
 	suffix := img.Tag
 	switch {
@@ -353,11 +363,12 @@ func childName(parentName string, img dropv1alpha1.ImageEntry) string {
 		suffix = "latest"
 	}
 	h := fnv.New64a()
-	_, _ = h.Write([]byte(buildEntryRef(img)))
+	_, _ = h.Write([]byte(parentName + "/" + buildEntryRef(img)))
 	unique := fmt.Sprintf("%06x", h.Sum64()&0xffffff)
 
-	base := sanitizeName(fmt.Sprintf("%s-%s-%s", parentName, imageName(img.Image), suffix))
-	if limit := 253 - len(unique) - 1; len(base) > limit {
+	// CachedImage names are used as pod label values, which are capped at 63.
+	base := sanitizeName(fmt.Sprintf("%s-%s", imageName(img.Image), suffix))
+	if limit := 63 - len(unique) - 1; len(base) > limit {
 		base = base[:limit]
 	}
 	return base + "-" + unique

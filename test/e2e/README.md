@@ -24,6 +24,7 @@ make test-e2e
 | `cachedimageset/` | CachedImageSet managing child resources |
 | `cachedimageset-deletion-foreground/` | Foreground-propagation deletion completes, and short-name collisions across registries get distinct children |
 | `cachedimageset-discovery/` | CachedImageSet backed by a DiscoveryPolicy |
+| `cachedimageset-long-names/` | Child names fit the 63-char label limit; over-long CachedImage/CachedImageSet names are rejected |
 | `discovery/` | DiscoveryPolicy with mock Prometheus |
 | `discovery-failure/` | DiscoveryPolicy with unreachable Prometheus endpoint |
 | `discovery-prometheus-basepath/` | DiscoveryPolicy against a Prometheus endpoint with a Mimir-style `/prometheus` base path (via nginx proxy) |

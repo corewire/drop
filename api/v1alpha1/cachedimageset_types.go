@@ -100,6 +100,7 @@ type CachedImageSetStatus struct {
 // +kubebuilder:printcolumn:name="Source",type=string,JSONPath=`.spec.discoveryPolicyRef.name`
 // +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be no more than 63 characters (used as a label value on child CachedImages)"
 
 // CachedImageSet manages a group of images to cache, optionally backed by a DiscoveryPolicy.
 type CachedImageSet struct {

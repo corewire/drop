@@ -1,0 +1,8 @@
+# 64 characters.
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  name: test-cachedimage-name-too-long-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+spec:
+  image: docker.io/library/busybox
+  tag: "1.36"

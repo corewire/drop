@@ -1,0 +1,12 @@
+# Degraded is only reachable once a pull Pod was created and failed. If the Pod
+# is rejected (label value > 63 chars) the reconcile errors before any status.
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImage
+metadata:
+  labels:
+    drop.corewire.io/imageset: test-set-long-names
+  (length(name) <= `63`): true
+status:
+  phase: Degraded
+  (conditions[?type == 'Ready']):
+    - status: "False"
