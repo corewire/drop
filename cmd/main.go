@@ -195,9 +195,19 @@ func main() {
 		// intervals for our own CRDs where timely reconciliation matters.
 		Cache: cache.Options{
 			SyncPeriod: ptr.To(10 * time.Minute), // default for all types
+			// Without scoping, the cache holds every Pod, Secret and full Node in
+			// the cluster, which OOMs the manager on large clusters.
+			DefaultTransform: cache.TransformStripManagedFields(),
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Node{}: {
 					SyncPeriod: ptr.To(30 * time.Minute), // nodes rarely change
+					Transform:  stripNodeImages,
+				},
+				&corev1.Pod{}: {
+					Namespaces: map[string]cache.Config{podNamespace: {}},
+				},
+				&corev1.Secret{}: {
+					Namespaces: map[string]cache.Config{podNamespace: {}},
 				},
 				&dropv1alpha1.CachedImage{}: {
 					SyncPeriod: ptr.To(5 * time.Minute), // CRDs: tighter resync
@@ -276,4 +286,15 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// stripNodeImages drops status.images, by far the largest Node field on nodes
+// with many cached images and never read by drop. A per-object transform
+// replaces DefaultTransform, so managedFields are stripped here too.
+func stripNodeImages(obj any) (any, error) {
+	if node, ok := obj.(*corev1.Node); ok {
+		node.Status.Images = nil
+		node.ManagedFields = nil
+	}
+	return obj, nil
 }
