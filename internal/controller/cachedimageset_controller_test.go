@@ -8,6 +8,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -141,6 +142,63 @@ var _ = Describe("CachedImageSet Controller", func() {
 			Expect(k8sClient.List(ctx, after, listOpts)).To(Succeed())
 			Expect(after.Items).To(BeEmpty(),
 				"terminating set recreated its children, so deletion could never finish")
+		})
+
+		It("rejects CachedImage and CachedImageSet names longer than 63 characters", func() {
+			longName := strings.Repeat("a", 64)
+
+			ci := &dropv1alpha1.CachedImage{
+				ObjectMeta: metav1.ObjectMeta{Name: longName},
+				Spec:       dropv1alpha1.CachedImageSpec{Image: "docker.io/library/nginx"},
+			}
+			err := k8sClient.Create(ctx, ci)
+			Expect(errors.IsInvalid(err)).To(BeTrue(), "expected Invalid, got %v", err)
+
+			set := &dropv1alpha1.CachedImageSet{
+				ObjectMeta: metav1.ObjectMeta{Name: longName},
+				Spec: dropv1alpha1.CachedImageSetSpec{
+					Images: []dropv1alpha1.ImageEntry{{Image: "docker.io/library/nginx"}},
+				},
+			}
+			err = k8sClient.Create(ctx, set)
+			Expect(errors.IsInvalid(err)).To(BeTrue(), "expected Invalid, got %v", err)
+		})
+
+		It("recreates children whose name does not match childName", func() {
+			const setName = "test-imageset-stale-child"
+			entry := dropv1alpha1.ImageEntry{Image: "docker.io/library/nginx", Tag: "1.25"}
+
+			set := &dropv1alpha1.CachedImageSet{
+				ObjectMeta: metav1.ObjectMeta{Name: setName},
+				Spec:       dropv1alpha1.CachedImageSetSpec{Images: []dropv1alpha1.ImageEntry{entry}},
+			}
+			Expect(k8sClient.Create(ctx, set)).To(Succeed())
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, set) })
+
+			stale := &dropv1alpha1.CachedImage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "stale-child-name",
+					Labels: map[string]string{labelImageSet: setName},
+				},
+				Spec: dropv1alpha1.CachedImageSpec{Image: entry.Image, Tag: entry.Tag},
+			}
+			Expect(k8sClient.Create(ctx, stale)).To(Succeed())
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, stale) })
+
+			controllerReconciler := &CachedImageSetReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: setName},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			children := &dropv1alpha1.CachedImageList{}
+			Expect(k8sClient.List(ctx, children, client.MatchingLabels{labelImageSet: setName})).To(Succeed())
+			Expect(children.Items).To(HaveLen(1))
+			Expect(children.Items[0].Name).To(Equal(childName(setName, entry)))
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, &children.Items[0]) })
 		})
 	})
 

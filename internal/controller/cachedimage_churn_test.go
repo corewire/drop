@@ -7,6 +7,7 @@ SPDX-License-Identifier: MIT
 package controller
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,20 @@ func TestChildName_DistinguishesSameShortNameAcrossRegistries(t *testing.T) {
 	}
 }
 
+// Children are cluster-scoped and no longer carry the parent name, so two sets
+// caching the same image must still get distinct children.
+func TestChildName_DistinctAcrossParents(t *testing.T) {
+	entry := dropv1alpha1.ImageEntry{Image: "registry.haufe.io/rd/tools", Tag: "stable"}
+	if childName("set-a", entry) == childName("set-b", entry) {
+		t.Error("same image in two sets maps to one child name")
+	}
+	if got := childName("gitlab-runner-helper-images", dropv1alpha1.ImageEntry{
+		Image: "registry.gitlab.com/gitlab-org/gitlab-runner/gitlab-runner-helper", Tag: "x86_64-v19.3.3",
+	}); !strings.HasPrefix(got, "gitlab-runner-helper-x86-64-v19-3-3-") {
+		t.Errorf("childName = %q, want gitlab-runner-helper-x86-64-v19-3-3-<hash>", got)
+	}
+}
+
 func TestChildName_ValidAndBounded(t *testing.T) {
 	long := "registry.example.com/" + string(make([]byte, 0))
 	for range 40 {
@@ -58,8 +73,8 @@ func TestChildName_ValidAndBounded(t *testing.T) {
 	entry := dropv1alpha1.ImageEntry{Image: long + "image", Tag: "sometag"}
 
 	got := childName("parent", entry)
-	if len(got) > 253 {
-		t.Errorf("childName length = %d, want <= 253", len(got))
+	if len(got) > 63 {
+		t.Errorf("childName length = %d, want <= 63", len(got))
 	}
 	if got[len(got)-1] == '-' {
 		t.Errorf("childName %q must not end in a hyphen", got)

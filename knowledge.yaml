@@ -133,6 +133,7 @@ crds:
         required: false
         doc: 'Conditions represent the latest available observations. Condition types: Ready, PullProgress.'
     markers:
+      - +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be no more than 63 characters (used as a pod label value)"
       - +kubebuilder:printcolumn:name="Policy",type=string,JSONPath=`.spec.policyRef.name`,priority=1
       - +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
       - +kubebuilder:printcolumn:name="Set",type=string,JSONPath=`.metadata.labels.drop\.corewire\.io/imageset`,description="Parent CachedImageSet",priority=1
@@ -222,6 +223,7 @@ crds:
         required: false
         doc: Conditions represent the latest available observations.
     markers:
+      - +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be no more than 63 characters (used as a label value on child CachedImages)"
       - +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
       - +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
       - +kubebuilder:printcolumn:name="Source",type=string,JSONPath=`.spec.discoveryPolicyRef.name`

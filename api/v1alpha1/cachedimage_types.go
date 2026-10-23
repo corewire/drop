@@ -118,6 +118,7 @@ type CachedImageStatus struct {
 // +kubebuilder:printcolumn:name="Set",type=string,JSONPath=`.metadata.labels.drop\.corewire\.io/imageset`,description="Parent CachedImageSet",priority=1
 // +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].message`,priority=1
 // +kubebuilder:printcolumn:name="Policy",type=string,JSONPath=`.spec.policyRef.name`,priority=1
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be no more than 63 characters (used as a pod label value)"
 
 // CachedImage ensures a single container image is pre-cached on cluster nodes.
 type CachedImage struct {

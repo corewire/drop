@@ -1,0 +1,11 @@
+apiVersion: drop.corewire.io/v1alpha1
+kind: CachedImageSet
+metadata:
+  name: test-set-long-names
+spec:
+  images:
+    # Image short name + tag exceed the 63-char label limit on their own, so the
+    # child name must be truncated. The registry is unreachable on purpose: a
+    # pull failure proves the pull Pod was accepted by the API server.
+    - image: registry.invalid.local:9999/gitlab-org/gitlab-runner/gitlab-runner-helper-with-a-very-long-name
+      tag: x86_64-v19.3.3
