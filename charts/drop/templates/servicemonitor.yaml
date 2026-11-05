@@ -1,4 +1,4 @@
-{{- if .Values.serviceMonitor.enabled }}
+{{- if and .Values.serviceMonitor.enabled .Values.metrics.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -11,14 +11,32 @@ metadata:
 spec:
   endpoints:
     - port: https-metrics
-      scheme: https
       interval: {{ .Values.serviceMonitor.interval }}
       {{- if .Values.serviceMonitor.scrapeTimeout }}
       scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
       {{- end }}
+      {{- if .Values.metrics.secureServing }}
+      scheme: https
+      # Token is read from a Secret instead of bearerTokenFile, which is
+      # rejected by Grafana Alloy and newer Prometheus Operator setups.
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ include "drop.fullname" . }}-metrics-scraper-token
+          key: token
       tlsConfig:
+        {{- if .Values.certManager.enabled }}
+        serverName: {{ include "drop.fullname" . }}-metrics.{{ .Release.Namespace }}.svc
+        ca:
+          secret:
+            name: {{ include "drop.fullname" . }}-metrics-tls
+            key: ca.crt
+        {{- else }}
         insecureSkipVerify: true
-      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+        {{- end }}
+      {{- else }}
+      scheme: http
+      {{- end }}
   selector:
     matchLabels:
       {{- include "drop.selectorLabels" . | nindent 6 }}
