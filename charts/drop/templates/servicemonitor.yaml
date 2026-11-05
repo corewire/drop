@@ -1,4 +1,7 @@
 {{- if and .Values.serviceMonitor.enabled .Values.metrics.enabled }}
+{{- if and .Values.metrics.secureServing (not .Values.certManager.enabled) }}
+{{- fail "serviceMonitor.enabled with metrics.secureServing requires certManager.enabled=true so the scraper can verify the metrics TLS certificate" }}
+{{- end }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -25,15 +28,11 @@ spec:
           name: {{ include "drop.fullname" . }}-metrics-scraper-token
           key: token
       tlsConfig:
-        {{- if .Values.certManager.enabled }}
         serverName: {{ include "drop.fullname" . }}-metrics.{{ .Release.Namespace }}.svc
         ca:
           secret:
             name: {{ include "drop.fullname" . }}-metrics-tls
             key: ca.crt
-        {{- else }}
-        insecureSkipVerify: true
-        {{- end }}
       {{- else }}
       scheme: http
       {{- end }}
