@@ -29,6 +29,13 @@ helm install drop oci://ghcr.io/corewire/charts/drop \
   --set serviceMonitor.enabled=true
 ```
 
+With `metrics.secureServing=true` (default) the chart creates a dedicated
+`<release>-metrics-scraper` ServiceAccount, a token Secret, and a binding to
+`<release>-metrics-reader`. The ServiceMonitor references that token via
+`authorization.credentials`, so it works with scrapers that forbid
+`bearerTokenFile` (e.g. Grafana Alloy). With `certManager.enabled=true` the
+scraper verifies the metrics certificate against the cert-manager CA.
+
 ### Example Queries
 
 ```promql
