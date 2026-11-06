@@ -112,6 +112,10 @@ k8s_resource('alloy', objects=['alloy:serviceaccount', 'alloy-events:clusterrole
 # --- Grafana with Drop dashboard ---
 # Create dashboard ConfigMap from the shipped JSON, then apply grafana manifests.
 dashboard_json = str(read_file('charts/drop/dashboards/drop-operator.json'))
+# Provisioning doesn't resolve __inputs, so point them at the fixed datasource UIDs.
+dashboard_json = dashboard_json.replace('${DS_PROMETHEUS}', 'prometheus').replace('${DS_LOKI}', 'loki')
+# Local Alloy ships events with job=kubernetes-events (see hack/e2e-infra/alloy.yaml).
+dashboard_json = dashboard_json.replace('integrations/kubernetes/eventhandler', 'kubernetes-events')
 # Indent each line for YAML embedding
 indented = '\n'.join(['    ' + line for line in dashboard_json.split('\n')])
 k8s_yaml(blob("""

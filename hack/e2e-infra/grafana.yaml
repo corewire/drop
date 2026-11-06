@@ -75,12 +75,14 @@ data:
     apiVersion: 1
     datasources:
       - name: Prometheus
+        uid: prometheus
         type: prometheus
         access: proxy
         url: http://prometheus.e2e-infra.svc.cluster.local:9090
         isDefault: true
         editable: true
       - name: Loki
+        uid: loki
         type: loki
         access: proxy
         url: http://loki.e2e-infra.svc.cluster.local:3100

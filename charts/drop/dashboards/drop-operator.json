@@ -1,37 +1,132 @@
 {
-  "annotations": { "list": [] },
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus data source scraping the drop operator metrics",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    },
+    {
+      "name": "DS_LOKI",
+      "label": "Loki",
+      "description": "Loki data source with Kubernetes events (used by the Loki: Pull Events panels)",
+      "type": "datasource",
+      "pluginId": "loki",
+      "pluginName": "Loki"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "loki",
+      "name": "Loki",
+      "version": "1.0.0"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
   "links": [],
   "schemaVersion": 39,
-  "tags": ["drop", "operator", "kubernetes"],
+  "tags": [
+    "drop",
+    "operator",
+    "kubernetes"
+  ],
   "templating": {
     "list": [
       {
+        "name": "cluster",
+        "label": "Cluster",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "label_values(drop_active_pulls, cluster)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "job",
+        "label": "Metrics job",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "label_values(drop_active_pulls{cluster=~\"$cluster\"}, job)",
+        "refresh": 2,
+        "includeAll": false,
+        "current": {}
+      },
+      {
+        "name": "event_job",
+        "label": "Events job",
+        "type": "textbox",
+        "query": "integrations/kubernetes/eventhandler",
+        "current": {
+          "text": "integrations/kubernetes/eventhandler",
+          "value": "integrations/kubernetes/eventhandler"
+        },
+        "description": "Loki job label of the Kubernetes events stream"
+      },
+      {
         "name": "image",
         "type": "query",
-        "datasource": "Prometheus",
-        "query": "label_values(drop_images_cached_total, image)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "label_values(drop_images_cached_total{cluster=~\"$cluster\",job=~\"$job\"}, image)",
         "refresh": 2,
         "includeAll": true,
         "allValue": ".*",
-        "current": { "text": "All", "value": "$__all" }
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       },
       {
         "name": "policy",
         "type": "query",
-        "datasource": "Prometheus",
-        "query": "label_values(drop_discovery_images_found, policy)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "label_values(drop_discovery_images_found{cluster=~\"$cluster\",job=~\"$job\"}, policy)",
         "refresh": 2,
         "includeAll": true,
         "allValue": ".*",
-        "current": { "text": "All", "value": "$__all" }
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "Drop Operator",
@@ -43,7 +138,12 @@
       "id": 100,
       "title": "Overview",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "collapsed": false,
       "panels": []
     },
@@ -51,16 +151,38 @@
       "id": 1,
       "title": "Active Pulls",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "drop_active_pulls", "legendFormat": "active" }],
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "drop_active_pulls{cluster=~\"$cluster\",job=~\"$job\"}",
+          "legendFormat": "active"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "thresholds": {
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 3 },
-              { "color": "red", "value": 5 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
             ]
           }
         }
@@ -70,12 +192,32 @@
       "id": 2,
       "title": "Pull Rate (success/min)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(drop_images_cached_total[5m])) * 60", "legendFormat": "pulls/min" }],
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(drop_images_cached_total{cluster=~\"$cluster\",job=~\"$job\"}[5m])) * 60",
+          "legendFormat": "pulls/min"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "thresholds": { "steps": [{ "color": "green", "value": null }] }
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         }
       }
     },
@@ -83,16 +225,38 @@
       "id": 3,
       "title": "Error Rate (errors/min)",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(drop_pull_errors_total[5m])) * 60", "legendFormat": "errors/min" }],
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(drop_pull_errors_total{cluster=~\"$cluster\",job=~\"$job\"}[5m])) * 60",
+          "legendFormat": "errors/min"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "thresholds": {
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 5 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
             ]
           }
         }
@@ -102,12 +266,32 @@
       "id": 4,
       "title": "Discovered Images",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(drop_discovery_images_found)", "legendFormat": "total" }],
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum(drop_discovery_images_found{cluster=~\"$cluster\",job=~\"$job\"})",
+          "legendFormat": "total"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "thresholds": { "steps": [{ "color": "blue", "value": null }] }
+          "thresholds": {
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
         }
       }
     },
@@ -115,17 +299,36 @@
       "id": 5,
       "title": "Discovery Source Health",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "drop_discovery_source_health", "legendFormat": "{{policy}} ({{source_type}})" }],
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "drop_discovery_source_health{cluster=~\"$cluster\",job=~\"$job\"}",
+          "legendFormat": "{{policy}} ({{source_type}})"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "mappings": [
             {
               "type": "value",
               "options": {
-                "0": { "text": "DOWN", "color": "red" },
-                "1": { "text": "UP", "color": "green" }
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
               }
             }
           ]
@@ -136,7 +339,12 @@
       "id": 101,
       "title": "Pulled Images",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "collapsed": false,
       "panels": []
     },
@@ -145,41 +353,49 @@
       "title": "Pulled Images",
       "description": "Overview of all cached images with node coverage, errors, and pull performance.",
       "type": "table",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 6 },
-      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
-          "expr": "sum by (cachedimage) (drop_nodes_targeted)",
+          "expr": "sum by (cachedimage) (drop_nodes_targeted{cluster=~\"$cluster\",job=~\"$job\"})",
           "format": "table",
           "instant": true,
           "refId": "A"
         },
         {
-          "expr": "sum by (cachedimage) (drop_nodes_cached)",
+          "expr": "sum by (cachedimage) (drop_nodes_cached{cluster=~\"$cluster\",job=~\"$job\"})",
           "format": "table",
           "instant": true,
           "refId": "B"
         },
         {
-          "expr": "sum by (cachedimage, image) (drop_consecutive_failures)",
+          "expr": "sum by (cachedimage, image) (drop_consecutive_failures{cluster=~\"$cluster\",job=~\"$job\"})",
           "format": "table",
           "instant": true,
           "refId": "C"
         },
         {
-          "expr": "sum by (image) (drop_images_cached_total{image=~\"$image\"})",
+          "expr": "sum by (image) (drop_images_cached_total{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"})",
           "format": "table",
           "instant": true,
           "refId": "D"
         },
         {
-          "expr": "sum by (image) (drop_pull_errors_total{image=~\"$image\"})",
+          "expr": "sum by (image) (drop_pull_errors_total{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"})",
           "format": "table",
           "instant": true,
           "refId": "E"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[5m])))",
           "format": "table",
           "instant": true,
           "refId": "F"
@@ -193,7 +409,15 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true, "Time 3": true, "Time 4": true, "Time 5": true, "Time 6": true },
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Time 6": true
+            },
             "renameByName": {
               "cachedimage": "CachedImage",
               "image": "Image",
@@ -221,40 +445,79 @@
         "defaults": {},
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Pull Duration p95" },
-            "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 2 }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Consecutive Failures" },
+            "matcher": {
+              "id": "byName",
+              "options": "Pull Duration p95"
+            },
             "properties": [
               {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    { "color": "green", "value": null },
-                    { "color": "yellow", "value": 1 },
-                    { "color": "red", "value": 3 }
-                  ]
-                }
+                "id": "unit",
+                "value": "s"
               },
-              { "id": "custom.displayMode", "value": "color-background" }
+              {
+                "id": "decimals",
+                "value": 2
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "Nodes Cached" },
+            "matcher": {
+              "id": "byName",
+              "options": "Consecutive Failures"
+            },
             "properties": [
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    { "color": "red", "value": null },
-                    { "color": "green", "value": 1 }
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 3
+                    }
                   ]
                 }
               },
-              { "id": "custom.displayMode", "value": "color-background" }
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Nodes Cached"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              }
             ]
           }
         ]
@@ -264,7 +527,12 @@
       "id": 102,
       "title": "Image Pull Performance",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
       "collapsed": false,
       "panels": []
     },
@@ -272,24 +540,62 @@
       "id": 10,
       "title": "Images Cached Over Time",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (image) (rate(drop_images_cached_total{image=~\"$image\"}[5m]))", "legendFormat": "{{image}}" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (image) (rate(drop_images_cached_total{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[5m]))",
+          "legendFormat": "{{image}}"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
       "id": 11,
       "title": "Pull Errors Over Time",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (image) (rate(drop_pull_errors_total{image=~\"$image\"}[5m]))", "legendFormat": "{{image}}" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (image) (rate(drop_pull_errors_total{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[5m]))",
+          "legendFormat": "{{image}}"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
-          "color": { "mode": "palette-classic" }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
         }
       }
     },
@@ -297,33 +603,81 @@
       "id": 20,
       "title": "Pull Duration (p50 / p95 / p99)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
-      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by (le) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p50" },
-        { "expr": "histogram_quantile(0.95, sum by (le) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p95" },
-        { "expr": "histogram_quantile(0.99, sum by (le) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[5m])))", "legendFormat": "p99" }
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(drop_pull_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(drop_pull_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(drop_pull_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[5m])))",
+          "legendFormat": "p99"
+        }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
       "id": 21,
       "title": "Active Pulls Over Time",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 25 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "drop_active_pulls", "legendFormat": "active pods" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "drop_active_pulls{cluster=~\"$cluster\",job=~\"$job\"}",
+          "legendFormat": "active pods"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
       "id": 103,
       "title": "Discovery",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
       "collapsed": false,
       "panels": []
     },
@@ -331,29 +685,73 @@
       "id": 30,
       "title": "Discovery: Images Found by Policy",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "drop_discovery_images_found{policy=~\"$policy\"}", "legendFormat": "{{policy}} ({{source_type}})" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "drop_discovery_images_found{cluster=~\"$cluster\",job=~\"$job\",policy=~\"$policy\"}",
+          "legendFormat": "{{policy}} ({{source_type}})"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
       "id": 31,
       "title": "Discovery: Source Latency (p95)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, policy) (rate(drop_discovery_source_latency_seconds_bucket{policy=~\"$policy\"}[5m])))", "legendFormat": "{{policy}}" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, policy) (rate(drop_discovery_source_latency_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\",policy=~\"$policy\"}[5m])))",
+          "legendFormat": "{{policy}}"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
       "id": 104,
       "title": "Controller Runtime",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
       "collapsed": false,
       "panels": []
     },
@@ -361,13 +759,33 @@
       "id": 40,
       "title": "Reconcile Rate by Controller",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 43 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (controller, result) (rate(controller_runtime_reconcile_total[5m])) * 60", "legendFormat": "{{controller}} ({{result}})" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (controller, result) (rate(controller_runtime_reconcile_total{cluster=~\"$cluster\",job=~\"$job\"}[5m])) * 60",
+          "legendFormat": "{{controller}} ({{result}})"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "ops/min",
-          "custom": { "drawStyle": "bars", "fillOpacity": 50, "lineWidth": 1, "stacking": { "mode": "normal" } }
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
         }
       }
     },
@@ -375,13 +793,33 @@
       "id": 41,
       "title": "Reconcile Errors",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 43 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (controller) (rate(controller_runtime_reconcile_errors_total[5m]))", "legendFormat": "{{controller}}" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (controller) (rate(controller_runtime_reconcile_errors_total{cluster=~\"$cluster\",job=~\"$job\"}[5m]))",
+          "legendFormat": "{{controller}}"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
-          "color": { "fixedColor": "red", "mode": "fixed" }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          }
         }
       }
     },
@@ -389,7 +827,12 @@
       "id": 105,
       "title": "Node Distribution",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 51
+      },
       "collapsed": false,
       "panels": []
     },
@@ -397,27 +840,74 @@
       "id": 50,
       "title": "Images Cached per Node",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (node) (drop_images_cached_total{image=~\"$image\"})", "legendFormat": "{{node}}" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 52
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (node) (drop_images_cached_total{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"})",
+          "legendFormat": "{{node}}"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
       "id": 51,
       "title": "Pulls per Node (table)",
       "type": "table",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum by (image, node) (drop_images_cached_total{image=~\"$image\"})", "format": "table", "instant": true }],
-      "transformations": [{ "id": "organize", "options": { "excludeByName": { "Time": true } } }]
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 52
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (image, node) (drop_images_cached_total{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"})",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ]
     },
     {
       "id": 106,
       "title": "Operator Resources",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 60
+      },
       "collapsed": false,
       "panels": []
     },
@@ -425,29 +915,75 @@
       "id": 70,
       "title": "Operator CPU (cores)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 61 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "sum(rate(process_cpu_seconds_total{job=\"drop-operator\"}[5m]))", "legendFormat": "cpu" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 61
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(process_cpu_seconds_total{cluster=~\"$cluster\",job=~\"$job\"}[5m]))",
+          "legendFormat": "cpu"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "unit": "short", "decimals": 3, "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
+        "defaults": {
+          "unit": "short",
+          "decimals": 3,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
       "id": 71,
       "title": "Operator Memory (RSS)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 61 },
-      "datasource": "Prometheus",
-      "targets": [{ "expr": "process_resident_memory_bytes{job=\"drop-operator\"}", "legendFormat": "rss" }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 61
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{cluster=~\"$cluster\",job=~\"$job\"}",
+          "legendFormat": "rss"
+        }
+      ],
       "fieldConfig": {
-        "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2 } }
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
       "id": 107,
       "title": "Pull Duration by Image",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 69 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 69
+      },
       "collapsed": false,
       "panels": []
     },
@@ -456,15 +992,39 @@
       "title": "Pull Duration per Image (p50 / p90 / p95)",
       "description": "Per-image pull duration percentiles. Use this to identify images with a slow tail — candidates for pre-caching.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 70 },
-      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 70
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[10m])))", "legendFormat": "p50 {{image}}" },
-        { "expr": "histogram_quantile(0.90, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[10m])))", "legendFormat": "p90 {{image}}" },
-        { "expr": "histogram_quantile(0.95, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{image=~\"$image\"}[10m])))", "legendFormat": "p95 {{image}}" }
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[10m])))",
+          "legendFormat": "p50 {{image}}"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[10m])))",
+          "legendFormat": "p90 {{image}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\",image=~\"$image\"}[10m])))",
+          "legendFormat": "p95 {{image}}"
+        }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
@@ -472,16 +1032,34 @@
       "title": "Images with p90 Pull > 30s",
       "description": "Images whose p90 cold-pull time exceeds 30s — the strongest candidates to add to a CachedImageSet.",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 70 },
-      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 70
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
-        { "expr": "histogram_quantile(0.90, sum by (le, image) (rate(drop_pull_duration_seconds_bucket[1h]))) > 30", "legendFormat": "{{image}}" }
+        {
+          "expr": "histogram_quantile(0.90, sum by (le, image) (rate(drop_pull_duration_seconds_bucket{cluster=~\"$cluster\",job=~\"$job\"}[1h]))) > 30",
+          "legendFormat": "{{image}}"
+        }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
-          "color": { "fixedColor": "orange", "mode": "fixed" }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "color": {
+            "fixedColor": "orange",
+            "mode": "fixed"
+          }
         }
       }
     },
@@ -489,34 +1067,73 @@
       "id": 108,
       "title": "Loki: Pull Events",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 78 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 78
+      },
       "collapsed": false,
       "panels": []
     },
     {
       "id": 74,
       "title": "Pull Events",
-      "description": "Raw Pulled events from Loki — the same records eventPullTime signals consume. Filter by namespace or image to explore pull latency.",
+      "description": "Raw Pulled events from Loki — the same records eventPullTime signals consume. Works with logfmt and json event formats.",
       "type": "logs",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 79 },
-      "datasource": "Loki",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 79
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "${DS_LOKI}"
+      },
       "targets": [
-        { "expr": "{job=\"kubernetes-events\"} | json | reason = `Pulled`", "legendFormat": "" }
+        {
+          "expr": "{job=~\"$event_job\", cluster=~\"$cluster\"} |~ `reason=Pulled|\"reason\":\"Pulled\"`",
+          "legendFormat": ""
+        }
       ],
-      "options": { "dedupStrategy": "none", "showLabels": false, "sortOrder": "Descending", "wrapLogMessage": true }
+      "options": {
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
     },
     {
       "id": 75,
       "title": "Pull Event Rate by Namespace",
-      "description": "Rate of Pulled events per namespace — useful for spotting burst activity or missing cache coverage.",
+      "description": "Pulled events per namespace per interval. Assumes namespace is a stream label (Grafana Alloy loki.source.kubernetes_events).",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 89 },
-      "datasource": "Loki",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 89
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "${DS_LOKI}"
+      },
       "targets": [
-        { "expr": "sum by (namespace) (rate({job=\"kubernetes-events\"} | json | reason = `Pulled` [5m]))", "legendFormat": "{{namespace}}" }
+        {
+          "expr": "sum by (namespace) (count_over_time({job=~\"$event_job\", cluster=~\"$cluster\"} |~ `reason=Pulled|\"reason\":\"Pulled\"` [$__auto]))",
+          "legendFormat": "{{namespace}}"
+        }
       ],
       "fieldConfig": {
-        "defaults": { "unit": "ops/s", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 } }
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        }
       }
     },
     {
@@ -524,12 +1141,28 @@
       "title": "Slow Pulls (≥ 10s)",
       "description": "Pull events where the duration string has 2+ digits before the decimal point, i.e. the pull took 10s or more.",
       "type": "logs",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 89 },
-      "datasource": "Loki",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 89
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "${DS_LOKI}"
+      },
       "targets": [
-        { "expr": "{job=\"kubernetes-events\"} | json | reason = `Pulled` | message =~ `in [1-9][0-9]+\\.`", "legendFormat": "" }
+        {
+          "expr": "{job=~\"$event_job\", cluster=~\"$cluster\"} |~ `reason=Pulled|\"reason\":\"Pulled\"` |~ ` in ([1-9][0-9]+(\\.[0-9]+)?s|[0-9]+m[0-9.]+s) `",
+          "legendFormat": ""
+        }
       ],
-      "options": { "dedupStrategy": "none", "showLabels": false, "sortOrder": "Descending", "wrapLogMessage": true }
+      "options": {
+        "dedupStrategy": "none",
+        "showLabels": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
     }
   ]
 }
